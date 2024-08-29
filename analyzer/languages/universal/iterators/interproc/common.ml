@@ -244,15 +244,22 @@ let init_fun_params f args range man flow =
          body. Since we have updated the callstack, we should be now
          in the callee body. We need a way to rewrite the ranges in
          arg! *)
+      let add_range = (fun p -> mk_attr_var p (Format.asprintf "%a" pp_range range) p.vtyp) in
+      let fun_parameters = List.map add_range f.fun_parameters in
       let parameters_assign = List.rev @@ List.fold_left (fun acc (param, arg) ->
           mk_assign (mk_var param init_range) arg init_range ::
           mk_add_var param init_range :: acc
-        ) [] (List.combine f.fun_parameters args) in
+        ) [] (List.combine fun_parameters args) in
 
       let init_block = mk_block parameters_assign init_range in
+      let new_body = Visitor.map_stmt (fun e -> match ekind e with
+          | E_var (v, m) when List.exists (fun v' -> compare_var v v' = 0) f.fun_parameters ->
+            Keep {e with ekind = E_var(add_range v, m)}
+          | _ -> VisitParts e) (fun s -> VisitParts s) f.fun_body in
+      debug "moved body from:%a@\nto %a@\n" pp_stmt f.fun_body pp_stmt new_body;
 
       (* Execute body *)
-      f.fun_parameters, f.fun_locvars, f.fun_body, man.exec init_block flow
+      fun_parameters, f.fun_locvars, new_body, man.exec init_block flow
     end
 
 

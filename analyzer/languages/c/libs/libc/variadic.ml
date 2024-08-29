@@ -254,6 +254,7 @@ struct
     let f = List.hd cs in
     let f = find_c_fundec_by_name f.call_fun_orig_name flow in
     let last_param = List.rev f.c_func_parameters |> List.hd in
+    let param = match param.vkind with V_var_attr (v, _) -> v | _ -> assert false in
     if Format.asprintf "%a" pp_var last_param <> Format.asprintf "%a" pp_var param
     then panic_at range "va_start: %a is not the last named parameter"
         pp_var param
@@ -305,7 +306,7 @@ struct
                   param
                 else if xor (is_c_pointer_type tt) (is_c_pointer_type typ) then
                   mk_top typ range
-                else 
+                else
                   mk_c_cast param typ range
               in
               (* Increment the counter *)
@@ -391,7 +392,7 @@ struct
     | T_c_array (T_c_record({c_record_kind = C_struct} as record), _)
       when record.c_record_org_name = "__va_list_tag" ->
       let va_list_map = get_va_list_map flow in
-      let range = exp.erange in 
+      let range = exp.erange in
       resolve_va_list exp range man flow |>
       Cases.iter_result
         (fun va_list flow ->
