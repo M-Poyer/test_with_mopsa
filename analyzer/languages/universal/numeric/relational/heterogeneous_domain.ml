@@ -139,13 +139,6 @@ struct
     (* FIXME: check if flag should be true or false (ie, new dimensions should be to top, not 0 *)
     Apron.Abstract1.change_environment ApronManager.man a apron_env false
 
-  let proj_incl (abs1, bnd1) (abs2, bnd2) =
-    (* FIXME: this operator should be exact. I'm not sure the OCaml interface allows checking that. In that case, all integer operations should be translated into ones on arbitrary-precision decimals *)
-    let abs2 = Apron.Abstract1.change_environment ApronManager.man abs2 (Apron.Abstract1.env abs1) false in
-    let () = debug "proj_incl,@\nabs1 = %a@\nabs2(m) = %a"
-        Apron.Abstract1.print abs1
-        Apron.Abstract1.print abs2 in 
-    Apron.Abstract1.is_leq ApronManager.man abs1 abs2
 
   let print_state printer (abs, bnd, l) =
     if !opt_show_relational_domain then
@@ -165,6 +158,15 @@ struct
       pprint printer
         (pbox (Apron_pp.pp_env ApronManager.man) (abs, bnd))
         ~path:[Key "numeric-relations"]
+
+  let proj_incl (abs1, bnd1) (abs2, bnd2) =
+    (* FIXME: this operator should be exact. I'm not sure the OCaml interface allows checking that. In that case, all integer operations should be translated into ones on arbitrary-precision decimals *)
+    assert(VarSet.subset (upper_dom bnd1) (upper_dom bnd2));
+    let abs2 = Apron.Abstract1.change_environment ApronManager.man abs2 (Apron.Abstract1.env abs1) false in
+    let () = debug "proj_incl,@\nabs1 = %a@\nabs2(m) = %a"
+        (format print_state) (abs1, bnd1, upper_dom bnd1) (* unused *)
+        (format print_state) (abs2, bnd2, upper_dom bnd2) (* unused *) in
+    Apron.Abstract1.is_leq ApronManager.man abs1 abs2
 
   (** {2 Lattice operators} *)
   (** ********************* *)
@@ -400,7 +402,10 @@ struct
       let a, bnd, low = remove_var var2 (a,bnd,low) in
       let v1, _ = Binding.mopsa_to_apron_var var1 bnd in
       let bnd' = Binding.remove_apron_var v1 bnd in
-      let low = VarSet.remove var1 low in 
+      let low = if VarSet.mem var1 low then
+          VarSet.add var2 (VarSet.remove var1 low)
+        else
+          VarSet.remove var1 low in
       let v2, bnd' = Binding.mopsa_to_apron_var var2 bnd' in
       (Apron.Abstract1.rename_array ApronManager.man a [| v1  |] [| v2 |], bnd', low) |> check |>
       OptionExt.return
@@ -563,7 +568,6 @@ struct
         OptionExt.return
 
       | _ ->
-        let () = debug "skipping query" in 
         None
 
 
