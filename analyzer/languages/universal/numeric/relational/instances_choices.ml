@@ -33,7 +33,7 @@ open Ppliteinst
 let numeric_domain : (module RELATIONAL) ref = ref (module Polyhedra : RELATIONAL)
 
 let () =
-  register_domain_option "universal.numeric.relational" {
+  register_shared_option "universal.numeric.relational" {
     key = "-numeric";
     category = "Numeric";
     doc = " select the relational numeric domain.";

@@ -23,13 +23,15 @@
 (** CLIP abstraction with the all-real semantics, as described in the
     PhD thesis of Matthieu Journault **)
 
+(* FIXME: reduction with itvs? *)
+
 open Mopsa
 open Sig.Abstraction.Simplified
 open Common
 open Ast
 open Apron_manager
 open Apron_transformer
-
+open Domain 
 (* FIXME: these are shared options, to fix *)
 
 let opt_show_relational_domain = ref false
@@ -52,38 +54,7 @@ let () =
     default = "false";
   }
 
-(** Query to retrieve relational variables *)
-
-type ('a,_) query +=
-    | Q_related_vars : var -> ('a,var list) query
-    | Q_constant_vars : ('a,var list) query
-
-
-let () =
-  register_query {
-    join = (
-      let f : type a r. query_pool -> (a,r) query -> r -> r -> r =
-        fun next query a b ->
-          match query with
-          | Q_related_vars _ -> a @ b
-          | Q_constant_vars -> a @ b
-          | _ -> next.pool_join query a b
-        in
-        f
-      );
-      meet = (
-        let f : type a r. query_pool -> (a,r) query -> r -> r -> r =
-          fun next query a b ->
-            match query with
-            | Q_related_vars _ -> a @ b
-            | Q_constant_vars -> a @ b
-            | _ -> next.pool_meet query a b
-        in
-        f
-      );
-    }
-
-(** Factory functor *)
+(* FIXME: redeclaring the query extension with already existing types does not create any issue... until the runtime that is *)
 
 module Make(ApronManager : APRONMANAGER) =
 struct
@@ -91,6 +62,7 @@ struct
 
   include ApronTransformer(ApronManager)
 
+  let related_vars v (a, bnd, l) = related_vars v (a, bnd)
 
   type t =
     ApronManager.t Apron.Abstract1.t (** Abstract element *) *
@@ -104,8 +76,6 @@ struct
 
   let numeric_name = ApronManager.numeric_name
 
-
-
   (** {2 Command-line options} *)
   (** ************************ *)
   let () =
@@ -114,12 +84,19 @@ struct
   (** {2 Environment utility functions} *)
   (** ********************************* *)
 
+
+  let upper_dom bnd =
+    Binding.Equiv.fold (fun (a, _) acc -> VarSet.add a acc) bnd VarSet.empty
+
+  let check (a, bnd, low) =
+    assert(VarSet.subset low (upper_dom bnd));
+    (a, bnd, low) 
+
   let add_missing_vars (a,bnd,l) lv =
+    check (a, bnd, l);
     let env = Apron.Abstract1.env a in
     let lv = List.sort_uniq compare lv in
     let lv = List.filter (fun v -> not @@ VarSet.mem v l) lv in
-    (* Not needed anymore *)
-    (* let lv = List.filter (fun v -> not (Apron.Environment.mem_var env (Binding.mopsa_to_apron_var v bnd |> fst))) lv in *)
 
     let int_vars, bnd =
       let lv' = List.filter (fun v -> vtyp v = T_int || vtyp v = T_bool) lv in
@@ -131,20 +108,27 @@ struct
       Binding.mopsa_to_apron_vars lv' bnd
     in
 
+    let int_vars_inside, int_vars_outside =
+      List.partition (Apron.Environment.mem_var env) int_vars in
+
+    let float_vars_inside, float_vars_outside =
+      List.partition (Apron.Environment.mem_var env) float_vars in
+
     let env_union = Apron.Environment.add env
-        (Array.of_list int_vars)
-        (Array.of_list float_vars)
+        (Array.of_list int_vars_outside)
+        (Array.of_list float_vars_outside)
     in
 
-    let env_restricted = Apron.Environment.remove env (Array.of_list (int_vars @ float_vars)) in 
+    let env_restricted = Apron.Environment.remove env (Array.of_list (int_vars_inside @ float_vars_inside)) in
 
     let l' = VarSet.union l (VarSet.of_list lv) in
 
     let a = Apron.Abstract1.change_environment ApronManager.man a env_restricted false in
 
-    Apron.Abstract1.change_environment ApronManager.man a env_union false,
-    bnd,
-    l'
+    check
+      (Apron.Abstract1.change_environment ApronManager.man a env_union false,
+       bnd,
+       l')
 
   let on_env (env : VarSet.t) (a, bnd) =
     (* FIXME: do we need to keep the update binding? *)
@@ -158,10 +142,29 @@ struct
   let proj_incl (abs1, bnd1) (abs2, bnd2) =
     (* FIXME: this operator should be exact. I'm not sure the OCaml interface allows checking that. In that case, all integer operations should be translated into ones on arbitrary-precision decimals *)
     let abs2 = Apron.Abstract1.change_environment ApronManager.man abs2 (Apron.Abstract1.env abs1) false in
+    let () = debug "proj_incl,@\nabs1 = %a@\nabs2(m) = %a"
+        Apron.Abstract1.print abs1
+        Apron.Abstract1.print abs2 in 
     Apron.Abstract1.is_leq ApronManager.man abs1 abs2
 
-  let upper_dom bnd =
-    Binding.Equiv.fold (fun (a, _) acc -> VarSet.add a acc) bnd VarSet.empty
+  let print_state printer (abs, bnd, l) =
+    if !opt_show_relational_domain then
+      let dom = Binding.Equiv.fold (fun (a, _) acc -> a::acc) bnd [] in
+      let print_dom d = List
+          (List.map (fun v -> String (Format.asprintf "%a" pp_var v))
+             (List.sort compare_var d),
+           { sopen = "{"; ssep = ","; sclose = "}"; sbind = "" }) in
+      pp_obj_map printer
+        [
+          (String "domain (lower)", print_dom (VarSet.elements l));
+          (String "domain (upper \\ lower)", print_dom (VarSet.elements @@ VarSet.diff (VarSet.of_list dom) l));
+          (String "relations", pbox (Apron_pp.pp_env ApronManager.man) (abs, bnd));
+        ]
+        ~path:[Key "numeric-relations"]
+    else
+      pprint printer
+        (pbox (Apron_pp.pp_env ApronManager.man) (abs, bnd))
+        ~path:[Key "numeric-relations"]
 
   (** {2 Lattice operators} *)
   (** ********************* *)
@@ -197,7 +200,10 @@ struct
         (* TODO: proj_incl could be replaced by sat_lincons in apron,
            but it seems overapproximated for the octagon impleemntation,
            what about the newpolka one? *)
-        if proj_incl a1 (test, bnd) && proj_incl a2 (test, bnd) then
+        let b1 = proj_incl a1 (test, bnd) in
+        let b2 = proj_incl a2 (test, bnd) in
+        let () = debug "strengthening, can we keep %a? %b %b" Apron.Lincons1.print c b1 b2 in
+        if b1 && b2 then
           test
         else r
       in
@@ -245,8 +251,13 @@ struct
         filter_constraints u c (Apron.Abstract1.to_lincons_array ApronManager.man abs1) @
         filter_constraints v c (Apron.Abstract1.to_lincons_array ApronManager.man abs2)
       in
+      let () = debug "starting strengthening, from:@\nr = %a@\na1 = %a@\na2 = %a@\n"
+          (format print_state) (fst r, snd r, c)
+          (format print_state) a1
+          (format print_state) a2
+      in
       let a = strengthening r (abs1, bnd) (abs2, bnd) constraints in
-      a, bnd, c
+      check (a, bnd, c)
 
   let meet (abs1,bnd1,l1) (abs2,bnd2,l2) =
     let u1 = upper_dom bnd1 in
@@ -255,7 +266,7 @@ struct
       bottom
     else
       let bnd = Binding.concat bnd1 bnd2 in 
-      (Apron.Abstract1.meet ApronManager.man
+      check (Apron.Abstract1.meet ApronManager.man
          (on_env (VarSet.inter u1 u2) (abs1, bnd))
          (on_env (VarSet.inter u1 u2)
             (on_env (VarSet.union l1 l2) (abs2, bnd), bnd))
@@ -316,15 +327,12 @@ struct
 
 
   let assume stmt ask (a, bnd, low) =
-    let () = debug "%a" pp_stmt stmt in
     match skind stmt with
     | S_assume e ->
       begin
         let e_vars = Visitor.expr_vars e in
-        let low' = VarSet.union low (VarSet.of_list e_vars) in
-        assert(VarSet.subset low' (upper_dom bnd));
-        (* let a, bnd = add_missing_vars (a,bnd) (Visitor.expr_vars e) in *)
-
+        (* assert(VarSet.subset low' (upper_dom bnd)); *)
+        let a, bnd, low' = add_missing_vars (a,bnd,low) e_vars in
         try
           let dnf, a, bnd, l = bexp_to_apron (fun exp -> ask (Common.mk_float_maybenan_query exp)) e (a,bnd) [] in
           let env = Apron.Abstract1.env a in
@@ -375,14 +383,16 @@ struct
     | _ ->
       Fun.id
 
+
   let rec exec stmt man ctx (a,bnd,low) =
+    check (a, bnd, low);
     match skind stmt with
     | S_add { ekind = E_var (var, _) } when is_var_numeric_type var ->
-      add_missing_vars (a,bnd,low) [var] |> OptionExt.return |>
+      add_missing_vars (a,bnd,low) [var] |> check |> OptionExt.return |>
       enforce_sign_constraint var man.ask ctx stmt.srange
 
     | S_remove { ekind = E_var (var, _) } when is_var_numeric_type var ->
-      remove_var var (a,bnd,low) |>
+      remove_var var (a,bnd,low) |> check |> 
       OptionExt.return
 
     | S_rename ({ ekind = E_var (var1, _) }, { ekind = E_var (var2, _) }) when is_var_numeric_type var1 && is_var_numeric_type var2 ->
@@ -390,13 +400,14 @@ struct
       let a, bnd, low = remove_var var2 (a,bnd,low) in
       let v1, _ = Binding.mopsa_to_apron_var var1 bnd in
       let bnd' = Binding.remove_apron_var v1 bnd in
+      let low = VarSet.remove var1 low in 
       let v2, bnd' = Binding.mopsa_to_apron_var var2 bnd' in
-      (Apron.Abstract1.rename_array ApronManager.man a [| v1  |] [| v2 |], bnd', low) |>
+      (Apron.Abstract1.rename_array ApronManager.man a [| v1  |] [| v2 |], bnd', low) |> check |>
       OptionExt.return
 
     | S_assign({ ekind = E_var (var, mode) }, e) when var_mode var mode = STRONG && is_var_numeric_type var ->
-      let low' = VarSet.union low (VarSet.of_list @@ (var :: Visitor.expr_vars e)) in
-      assert(VarSet.subset low' (upper_dom bnd));
+      let a, bnd, low' = add_missing_vars (a, bnd, low) (var :: Visitor.expr_vars e) in
+      (* let low' = VarSet.union low ) in *)
       let v, bnd = Binding.mopsa_to_apron_var var bnd in
       begin try
           let e, a, bnd, l = exp_to_apron (fun exp -> man.ask (Common.mk_float_maybenan_query exp)) e (a,bnd) [] in
@@ -405,10 +416,11 @@ struct
           let a' = Apron.Abstract1.assign_texpr ApronManager.man a v texp None |>
                    remove_tmp l
           in
+          check (a', bnd, low');
           Some (a', bnd, low')
         with
           | ImpreciseExpression ->
-            exec (mk_forget_var var stmt.srange) man ctx (a,bnd,low) |>
+            exec (mk_forget_var var stmt.srange) man ctx (a,bnd,low') |>
             enforce_sign_constraint var man.ask ctx stmt.srange
           | UnsupportedExpression ->
             None
@@ -484,13 +496,13 @@ struct
 
     | _ -> None
 
-  let vars (abs,bnd) =
+  let vars (abs,bnd,_) =
     fold_env (fun v acc ->
         let vv = Binding.apron_to_mopsa_var v bnd in
         vv :: acc
       ) (Apron.Abstract1.env abs) []
 
-  let bound_var v (abs,bnd) =
+  let bound_var v (abs,bnd,_) =
     if is_env_var v (abs,bnd) then
       let vv,_ = Binding.mopsa_to_apron_var v bnd in
       Apron.Abstract1.bound_variable ApronManager.man abs vv |>
@@ -503,7 +515,7 @@ struct
     | E_var (v,_) ->
       (* we meet with the interval computed by non-relational domains so that the interval of `unsigned x` is positive *)
       let int_nonrel = man.ask (Q_avalue(e, Common.V_int_interval_fast)) in
-      let int_rel = bound_var v (abs,bnd) in
+      let int_rel = bound_var v (abs,bnd,low) in
       Some (ItvUtils.IntItv.meet_bot int_nonrel int_rel)
     | E_binop (O_mult, e1, e2) ->
       let int1 = eval_interval man e1 (abs,bnd,low) in
@@ -543,34 +555,16 @@ struct
         eval_interval man e (abs,bnd,l)
 
       | Q_related_vars v ->
-        related_vars v (abs,bnd) |>
+        related_vars v (abs,bnd,l) |>
         OptionExt.return
 
       | Q_constant_vars ->
         constant_vars (abs,bnd) |>
         OptionExt.return
 
-      | _ -> None
-
-
-  let print_state printer (abs, bnd, l) =
-    if !opt_show_relational_domain then
-      let dom = Binding.Equiv.fold (fun (a, _) acc -> a::acc) bnd [] in
-      let print_dom d = List
-          (List.map (fun v -> String (Format.asprintf "%a" pp_var v)) d,
-           { sopen = "{"; ssep = ","; sclose = "}"; sbind = "" }) in
-      pp_obj_map printer
-        [
-          (String "must-domain", print_dom l);
-          (String "may-domain", print_dom dom);
-          (String "relations", pbox (Apron_pp.pp_env ApronManager.man) (abs, bnd));
-        ]
-        ~path:[Key "numeric-relations"]
-    else
-      pprint printer
-        (pbox (Apron_pp.pp_env ApronManager.man) (abs, bnd))
-        ~path:[Key "numeric-relations"]
-
+      | _ ->
+        let () = debug "skipping query" in 
+        None
 
 
   let print_expr man ctx (abs, bnd, low) printer exp =
@@ -592,6 +586,6 @@ struct
       | l  ->
         match exec (mk_project_vars l exp.erange) man ctx (abs, bnd, low) with
         | None -> ()
-        | Some a -> print_state printer (abs, bnd, l)
+        | Some a -> print_state printer (abs, bnd, low)
 
 end
