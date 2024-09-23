@@ -52,6 +52,8 @@ let apron_to_mopsa_var (v:Apron.Var.t) (b:t) : var =
   try Equiv.find_r v b
   with Not_found -> panic "Apron variable %s not bound" (Apron.Var.to_string v)
 
+let apron_to_mopsa_vars (vs:Apron.Var.t list) (b:t) : var list =
+  List.map (fun v -> apron_to_mopsa_var v b) vs
 
 let concat b1 b2 =
   Equiv.concat b1 b2

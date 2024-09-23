@@ -71,3 +71,12 @@ module LinEqualities = Domain.Make(struct
 
 let () = register_instance (module LinEqualities : RELATIONAL)
 
+(* Only Polyhedra instances are available, as proj_incl should be exact for now *)
+module HetPolyhedra = Heterogeneous_domain.Make(struct
+    type t = Polka.loose Polka.t
+    let name = "universal.numeric.relational_heterogeneous"
+    let numeric_name = "polyhedra"
+    let man = Polka.manager_alloc_loose ()
+  end)
+
+let () = register_instance (module Polyhedra : RELATIONAL)
