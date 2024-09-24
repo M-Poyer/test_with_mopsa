@@ -84,7 +84,7 @@
                             },
                             {
                                 "apply": "c.memory.packing.static_scope",
-                                "on": "universal.numeric.relational_heterogenous"
+                                "on": "universal.numeric.relational_heterogeneous"
                             }
                         ],
                         "reductions": [

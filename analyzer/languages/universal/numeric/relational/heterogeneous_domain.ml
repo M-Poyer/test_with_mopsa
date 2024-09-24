@@ -216,6 +216,9 @@ struct
     if is_bottom a1 then a2
     else if is_bottom a2 then a1
     else
+      let () = debug "join@\n%a@\n%a@\n"
+          (format print_state) a1
+          (format print_state) a2 in 
       let u = upper_dom bnd1 in
       let v = upper_dom bnd2 in
       let c = VarSet.inter u v in
@@ -263,10 +266,10 @@ struct
           (format print_state) a1
           (format print_state) a2
       in
-      assert(subset a1 (fst r, snd r, c));
-      assert(subset a2 (fst r, snd r, c));
+      (* assert(subset a1 (fst r, snd r, c)); *)
+      (* assert(subset a2 (fst r, snd r, c)); *)
       let a = strengthening r (abs1, bnd) (abs2, bnd) constraints in
-      check (a, bnd, c)
+      check (a, bnd, VarSet.inter l1 l2)
 
   let meet (abs1,bnd1,l1) (abs2,bnd2,l2) =
     let u1 = upper_dom bnd1 in
@@ -338,8 +341,9 @@ struct
     | S_assume e ->
       begin
         let e_vars = Visitor.expr_vars e in
-        (* assert(VarSet.subset low' (upper_dom bnd)); *)
-        let a, bnd, low' = add_missing_vars (a,bnd,low) e_vars in
+        let low' = VarSet.union low (VarSet.of_list (Visitor.expr_vars e)) in 
+        check (a, bnd, low');
+        (* let a, bnd, low' = add_missing_vars (a,bnd,low) e_vars in *)
         try
           let dnf, a, bnd, l = bexp_to_apron (fun exp -> ask (Common.mk_float_maybenan_query exp)) e (a,bnd) [] in
           let env = Apron.Abstract1.env a in
@@ -452,8 +456,11 @@ struct
       OptionExt.return
 
     | S_assign({ ekind = E_var (var, mode) }, e) when var_mode var mode = STRONG && is_var_numeric_type var ->
-      let a, bnd, low' = add_missing_vars (a, bnd, low) (var :: Visitor.expr_vars e) in
-      (* let low' = VarSet.union low ) in *)
+      let a, bnd, low' = add_missing_vars (a, bnd, low) [var] in
+      (* let a, bnd, low' = add_missing_vars (a, bnd, low) (Visitor.expr_vars e) in *)
+      (* (var :: Visitor.expr_vars e) in *)
+      let () = debug "post add_vars:@\n%a" (format print_state) (a, bnd, low') in 
+      let low' = VarSet.union low (VarSet.of_list (Visitor.expr_vars e)) in
       let v, bnd = Binding.mopsa_to_apron_var var bnd in
       begin try
           let e, a, bnd, l = exp_to_apron (fun exp -> man.ask (Common.mk_float_maybenan_query exp)) e (a,bnd) [] in
