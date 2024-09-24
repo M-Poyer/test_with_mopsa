@@ -443,7 +443,7 @@ struct
     else
     let () = debug "packs_of_var %a" pp_var v in
     match v.vkind with
-    | Memory.Cells.Domain.Domain.V_c_cell ({base = { base_kind = Var v; base_valid = true}} as c) ->
+    | Memory.Cells.Domain.Domain.V_c_cell ({base = { base_valid = true}} as c) ->
       let user_only = not (is_c_scalar_type v.vtyp) in
       packs_of_base ~user_only ctx c.base
 

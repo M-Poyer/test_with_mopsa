@@ -265,14 +265,20 @@ struct
     let u1 = upper_dom bnd1 in
     let u2 = upper_dom bnd2 in
     if not @@ VarSet.subset (VarSet.union l1 l2) (VarSet.inter u1 u2) then
+      let () = debug "bad case (%a \\cup %a \\not\\subseteq %a \cap %a), bottom"
+          (VarSet.fprint SetExt.printer_default pp_var) l1
+          (VarSet.fprint SetExt.printer_default pp_var) l2
+          (VarSet.fprint SetExt.printer_default pp_var) u1
+          (VarSet.fprint SetExt.printer_default pp_var) u2
+      in
       bottom
     else
-      let bnd = Binding.concat bnd1 bnd2 in 
-      check (Apron.Abstract1.meet ApronManager.man
-         (on_env (VarSet.inter u1 u2) (abs1, bnd))
-         (on_env (VarSet.inter u1 u2)
-            (on_env (VarSet.union l1 l2) (abs2, bnd), bnd))
-        , bnd, VarSet.union l1 l2)
+      let bnd = Binding.concat bnd1 bnd2 in
+      let n1 = on_env (VarSet.inter u1 u2) (abs1, bnd) in
+      let n2 = on_env (VarSet.inter u1 u2)
+          (on_env (VarSet.union l1 l2) (abs2, bnd), bnd) in
+      let () = debug "%a@\n%a" (format print_state) (n1, bnd, l1) (format print_state) (n2, bnd, l2) in
+      check (Apron.Abstract1.meet ApronManager.man n1 n2, bnd, VarSet.union l1 l2)
 
   let widen bnd (abs1,bnd1,l1) (abs2,bnd2,l2) =
     (* FIXME: can we really represent the upper set of defined variables through u1? *)
@@ -307,23 +313,15 @@ struct
     let v,bnd = Binding.mopsa_to_apron_var v bnd in
     Apron.Abstract1.forget_array ApronManager.man a [|v|] false, bnd, l
 
-
-  (* FIXME: to update ?*)
-  let merge (pre,bnd,l) ((a1,bnd1,l1),e1) ((a2,bnd2,l2),e2) =
-    let bnd = Binding.concat bnd1 bnd2 in
-    let l = VarSet.inter l1 l2 in
-    (* FIXME: the use here the generic merge provided by [Framework.Core.Effect]
-       and we do not provide a [find] function. Instead, we forget all modified
-       and removed variables, which is sound, but inefficient. This should be
-       improved by return intervals in [find] and use them in [add]. *)
-    let x1,x2 =
-      generic_merge
-        ~add:(fun v () x -> add_missing_vars x [v] |> forget_var v)
-        ~find:(fun v x -> ())
-        ~remove:(fun v x -> remove_var v x)
-        ((a1,bnd,l),e1) ((a2,bnd,l),e2)
-    in
-    meet x1 x2
+  let bound_var v (abs,bnd,_) =
+    if is_env_var v (abs,bnd) then
+      let vv,_ = Binding.mopsa_to_apron_var v bnd in
+      Apron.Abstract1.bound_variable ApronManager.man abs vv |>
+      Values.Intervals.Integer.Value.of_apron
+    else
+      (* FIXME: remove even *)
+      let () = warn "bound_var %a NOT IN ENVIRONMENT" pp_var v in 
+      Values.Intervals.Integer.Value.top
 
   let is_var_numeric_type v = is_numeric_type (vtyp v)
 
@@ -367,6 +365,42 @@ struct
              let () = debug "unsupported" in None
       end
     | _ -> assert false
+
+
+  let merge (pre,bnd,pre_l) ((a1,bnd1,l1),e1) ((a2,bnd2,l2),e2) =
+    let () = Debug.debug ~channel:(name ^ ".merge") "effects1 = %a@\neffects2 = %a@\na1 = %a@\na2 = %a"
+        pp_effect e1
+        pp_effect e2
+        (format print_state) (a1, bnd1,l1)
+        (format print_state) (a2, bnd2,l2)
+    in
+    let bnd = Binding.concat bnd1 bnd2 in
+    (* let l = VarSet.union l1 l2 in *)
+    let x1,x2 =
+      generic_merge
+        ~add:(fun v itv x ->
+            let () = debug "adding %a" pp_var v in 
+            if is_numerical_var v then
+              let range = tag_range (Location.R_fresh (-1)) "relational merge" in 
+              add_missing_vars x [v] |>
+              forget_var v |>
+              assume (mk_assume (constraints_of_itv (mk_var v range) itv range) range) (fun _ -> assert false) |>
+              (* FIXME: should this variable be removed from the lower approximation? *)
+              OptionExt.none_to_exn
+            else
+              x
+          )
+        ~find:(fun v x -> bound_var v x)
+        ~remove:(fun v x ->
+            let () = debug "removing %a" pp_var v in 
+            if is_numerical_var v then remove_var v x else x)
+        ((a1,bnd,l1),e1) ((a2,bnd,l2),e2)
+    in
+    let () = Debug.debug ~channel:(name ^ ".merge") "after generic merge@\na1 = %a@\na2 = %a@\nnow meeting results"
+        (format print_state) x1
+        (format print_state) x2 
+    in
+    meet x1 x2
 
   (** Add the sign contraint (if existing) of a given variable into the relationnal domain *)
   let enforce_sign_constraint var ask ctx range =
@@ -507,13 +541,6 @@ struct
         vv :: acc
       ) (Apron.Abstract1.env abs) []
 
-  let bound_var v (abs,bnd,_) =
-    if is_env_var v (abs,bnd) then
-      let vv,_ = Binding.mopsa_to_apron_var v bnd in
-      Apron.Abstract1.bound_variable ApronManager.man abs vv |>
-      Values.Intervals.Integer.Value.of_apron
-    else
-      Values.Intervals.Integer.Value.top
 
   let rec eval_interval man e (abs,bnd,low) =
     match ekind e with

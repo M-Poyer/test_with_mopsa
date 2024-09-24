@@ -30,7 +30,7 @@ open Elinainst
 open Ppliteinst
 
 
-let numeric_domain : (module RELATIONAL) ref = ref (module Polyhedra : RELATIONAL)
+let numeric_domain : (module RELATIONAL) ref = ref (module HetPolyhedra : RELATIONAL)
 
 let () =
   register_shared_option "universal.numeric.relational" {
@@ -52,4 +52,4 @@ let () =
   }
 
 let () =
-  register_simplified_domain (module Polyhedra)
+  register_simplified_domain (module HetPolyhedra)
