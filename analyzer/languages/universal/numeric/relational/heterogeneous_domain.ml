@@ -219,15 +219,20 @@ struct
       let u = upper_dom bnd1 in
       let v = upper_dom bnd2 in
       let c = VarSet.inter u v in
+      let () = debug "c = %a" (VarSet.fprint SetExt.printer_default pp_var) c in 
       let uv = VarSet.union u v in
       let bnd = Binding.concat bnd1 bnd2 in
       let r_1 =
         let a1_c = on_env c (abs1, bnd) in
         let a2_c = on_env c (abs2, bnd) in
-        Apron.Abstract1.meet ApronManager.man a1_c a2_c
+        Apron.Abstract1.join ApronManager.man a1_c a2_c
       in
       let r_2 = on_env (VarSet.diff u c) (abs1, bnd) in
       let r_3 = on_env (VarSet.diff v c) (abs2, bnd) in
+      let () = debug "r1=%a@\nr2=%a@\nr3=%a@\n"
+          (format print_state) (on_env uv (r_1, bnd), bnd, VarSet.empty)
+          (format print_state) (on_env uv (r_2, bnd), bnd, VarSet.empty)
+          (format print_state) (on_env uv (r_3, bnd), bnd, VarSet.empty) in
       let r =
         Apron.Abstract1.meet_array ApronManager.man
           (Array.map (fun a -> on_env uv (a, bnd)) [|r_1; r_2; r_3|]), bnd in
@@ -258,6 +263,8 @@ struct
           (format print_state) a1
           (format print_state) a2
       in
+      assert(subset a1 (fst r, snd r, c));
+      assert(subset a2 (fst r, snd r, c));
       let a = strengthening r (abs1, bnd) (abs2, bnd) constraints in
       check (a, bnd, c)
 
@@ -458,7 +465,7 @@ struct
           check (a', bnd, low');
           Some (a', bnd, low')
         with
-          | ImpreciseExpression ->
+        | ImpreciseExpression ->
             exec (mk_forget_var var stmt.srange) man ctx (a,bnd,low') |>
             enforce_sign_constraint var man.ask ctx stmt.srange
           | UnsupportedExpression ->
