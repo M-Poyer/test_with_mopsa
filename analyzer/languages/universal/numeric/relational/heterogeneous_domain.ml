@@ -89,7 +89,11 @@ struct
     Binding.Equiv.fold (fun (a, _) acc -> VarSet.add a acc) bnd VarSet.empty
 
   let check (a, bnd, low) =
-    assert(VarSet.subset low (upper_dom bnd));
+    if not (VarSet.subset low (upper_dom bnd)) then
+      panic "heterogeneous relational domain: structural definition broken@\n%a \\not\\subseteq %a"
+        (VarSet.fprint SetExt.printer_default pp_var) low
+        (VarSet.fprint SetExt.printer_default pp_var) (upper_dom bnd)
+    ;
     (a, bnd, low) 
 
   let add_missing_vars (a,bnd,l) lv =
@@ -300,6 +304,7 @@ struct
       let r, bnd, _ = join (abs1, bnd1, l1) (abs2, bnd2, l2) in
       r, bnd, l2
     else
+      let () = warn "widening to top:@\n%a@\n%a" (format print_state) (abs1, bnd1, l1) (format print_state) (abs2, bnd2, l2) in
       top
 
   (** {2 Transfer functions} *)
@@ -337,11 +342,15 @@ struct
 
 
   let assume stmt ask (a, bnd, low) =
+    if is_bottom (a, bnd, low) then
+      Some bottom else
     match skind stmt with
     | S_assume e ->
       begin
         let e_vars = Visitor.expr_vars e in
-        let low' = VarSet.union low (VarSet.of_list (Visitor.expr_vars e)) in 
+        let low' = VarSet.union low (VarSet.of_list (Visitor.expr_vars e)) in
+        let () = debug "%a" (format print_state) (a, bnd, low) in 
+        check (a, bnd, low);
         check (a, bnd, low');
         (* let a, bnd, low' = add_missing_vars (a,bnd,low) e_vars in *)
         try
@@ -456,11 +465,13 @@ struct
       OptionExt.return
 
     | S_assign({ ekind = E_var (var, mode) }, e) when var_mode var mode = STRONG && is_var_numeric_type var ->
+      let () = debug "%a ~> %a" pp_stmt stmt (format print_state) (a, bnd, low) in 
       let a, bnd, low' = add_missing_vars (a, bnd, low) [var] in
       (* let a, bnd, low' = add_missing_vars (a, bnd, low) (Visitor.expr_vars e) in *)
       (* (var :: Visitor.expr_vars e) in *)
       let () = debug "post add_vars:@\n%a" (format print_state) (a, bnd, low') in 
       let low' = VarSet.union low (VarSet.of_list (Visitor.expr_vars e)) in
+      check (a, bnd, low');
       let v, bnd = Binding.mopsa_to_apron_var var bnd in
       begin try
           let e, a, bnd, l = exp_to_apron (fun exp -> man.ask (Common.mk_float_maybenan_query exp)) e (a,bnd) [] in
