@@ -452,7 +452,6 @@ struct
       OptionExt.return
 
     | S_rename ({ ekind = E_var (var1, _) }, { ekind = E_var (var2, _) }) when is_var_numeric_type var1 && is_var_numeric_type var2 ->
-      let a, bnd, low = add_missing_vars (a,bnd,low) [var1] in
       let a, bnd, low = remove_var var2 (a,bnd,low) in
       let v1, _ = Binding.mopsa_to_apron_var var1 bnd in
       let bnd' = Binding.remove_apron_var v1 bnd in
@@ -520,7 +519,7 @@ struct
       in
       (* FIXME: what about heterogeneous fold? *)
       assert(VarSet.subset (VarSet.of_list vl) low);
-      let a, bnd,low = add_missing_vars (a,bnd,low) (v::vl) in
+      let a, bnd,low = add_missing_vars (a,bnd,low) [v] in 
       let v, bnd = Binding.mopsa_to_apron_var v bnd in
       let vl, bnd = Binding.mopsa_to_apron_vars vl bnd in
       let bnd = Binding.remove_apron_vars vl bnd in
