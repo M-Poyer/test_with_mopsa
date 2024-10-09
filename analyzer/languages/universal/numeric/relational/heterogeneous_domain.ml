@@ -470,6 +470,7 @@ struct
       let a, bnd, low' = add_missing_vars (a, bnd, low) [var] in
       (* let a, bnd, low' = add_missing_vars (a, bnd, low) (Visitor.expr_vars e) in *)
       (* (var :: Visitor.expr_vars e) in *)
+      let low' = VarSet.union low' (VarSet.of_list (Visitor.expr_vars e)) in
       let () = debug "post add_vars:@\n%a" (format print_state) (a, bnd, low') in 
       let low' = VarSet.union low (VarSet.of_list (Visitor.expr_vars e)) in
       check (a, bnd, low');
@@ -485,10 +486,11 @@ struct
           Some (a', bnd, low')
         with
         | ImpreciseExpression ->
-            exec (mk_forget_var var stmt.srange) man ctx (a,bnd,low') |>
-            enforce_sign_constraint var man.ask ctx stmt.srange
-          | UnsupportedExpression ->
-            None
+          exec (mk_forget_var var stmt.srange) man ctx (a,bnd,low')
+          |> OptionExt.lift (fun (a, bnd, low) -> let low = VarSet.add var low in (a, bnd, low))
+          |> enforce_sign_constraint var man.ask ctx stmt.srange
+        | UnsupportedExpression ->
+          None
       end
 
     | S_assign({ ekind = E_var (var, mode) } as lval, e) when var_mode var mode = WEAK && is_var_numeric_type var ->
