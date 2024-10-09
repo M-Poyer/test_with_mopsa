@@ -310,7 +310,9 @@ struct
   (** {2 Transfer functions} *)
   (** ********************** *)
 
-  let init prog = top
+  let init prog =
+    Apron_transformer.apron_int_to_rationals := true;
+    top
 
   let remove_var (v:var) (a,bnd,l) =
     let env = Apron.Abstract1.env a in

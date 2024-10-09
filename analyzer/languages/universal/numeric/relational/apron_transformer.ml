@@ -27,6 +27,10 @@ open Common
 open Ast
 open Apron_manager
 
+(* FIXME: to integer within the ApronManger signature *)
+(* option to translate apron integers to rationals. Required by heterogeneous relational domain *)
+let apron_int_to_rationals = ref false
+
 
 module ApronTransformer(ApronManager : APRONMANAGER) =
 struct
@@ -189,8 +193,8 @@ struct
     | _ -> raise ImpreciseExpression
 
   let typ_to_apron = function
-    | T_bool -> Apron.Texpr1.Int
-    | T_int -> Apron.Texpr1.Int
+    | T_bool -> if !apron_int_to_rationals then Apron.Texpr1.Real else Apron.Texpr1.Int
+    | T_int -> if !apron_int_to_rationals then Apron.Texpr1.Real else  Apron.Texpr1.Int
     | T_float F_SINGLE -> Apron.Texpr1.Single
     | T_float F_DOUBLE -> Apron.Texpr1.Double
     | T_float F_LONG_DOUBLE -> Apron.Texpr1.Extended
