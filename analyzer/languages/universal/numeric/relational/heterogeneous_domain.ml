@@ -272,8 +272,10 @@ struct
       in
       (* assert(subset a1 (fst r, snd r, c)); *)
       (* assert(subset a2 (fst r, snd r, c)); *)
-      let a = strengthening r (abs1, bnd) (abs2, bnd) constraints in
-      check (a, bnd, VarSet.inter l1 l2)
+      let a = strengthening r (abs1, bnd) (abs2, bnd) (List.rev constraints) in
+      let low = VarSet.inter l1 l2 in
+      let () = debug "join result@\n%a" (format print_state) (a, bnd, low) in 
+      check (a, bnd, low)
 
   let meet (abs1,bnd1,l1) (abs2,bnd2,l2) =
     let u1 = upper_dom bnd1 in
