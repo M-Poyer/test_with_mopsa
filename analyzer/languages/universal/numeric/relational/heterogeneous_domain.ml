@@ -144,19 +144,26 @@ struct
     Apron.Abstract1.change_environment ApronManager.man a apron_env false
 
 
+  let print_dom printer d =
+    pp_obj_list printer 
+         (List.map (fun v -> String (Format.asprintf "%a" pp_var v))
+            (List.sort compare_var d))
+          ~lopen:"{" ~lsep:"," ~lclose:"}"
+
   let print_state printer (abs, bnd, l) =
     if !opt_show_relational_domain then
       let dom = Binding.Equiv.fold (fun (a, _) acc -> a::acc) bnd [] in
-      let print_dom d = List
-          (List.map (fun v -> String (Format.asprintf "%a" pp_var v))
-             (List.sort compare_var d),
-           { sopen = "{"; ssep = ","; sclose = "}"; sbind = "" }) in
-      pp_obj_map printer
+      let () = pp_map
+        pp_string
+        print_dom 
+        printer
         [
-          (String "domain (lower)", print_dom (VarSet.elements l));
-          (String "domain (upper \\ lower)", print_dom (VarSet.elements @@ VarSet.diff (VarSet.of_list dom) l));
-          (String "relations", pbox (Apron_pp.pp_env ApronManager.man) (abs, bnd));
+          ("domain (lower)", (VarSet.elements l));
+          ("domain (upper \\ lower)", (VarSet.elements @@ VarSet.diff (VarSet.of_list dom) l))
         ]
+        ~path:[Key "numeric-relations"] in
+      pp_obj_map printer 
+        [String "relations", pbox (Apron_pp.pp_env ApronManager.man) (abs, bnd)]
         ~path:[Key "numeric-relations"]
     else
       pprint printer
@@ -448,7 +455,8 @@ struct
     check (a, bnd, low);
     match skind stmt with
     | S_add { ekind = E_var (var, _) } when is_var_numeric_type var ->
-      add_missing_vars (a,bnd,low) [var] |> check |> OptionExt.return |>
+      (if VarSet.mem var low then (a, bnd, low)
+       else add_missing_vars (a,bnd,low) [var])|> check |> OptionExt.return |>
       enforce_sign_constraint var man.ask ctx stmt.srange
 
     | S_remove { ekind = E_var (var, _) } when is_var_numeric_type var ->
@@ -489,7 +497,7 @@ struct
         with
         | ImpreciseExpression ->
           exec (mk_forget_var var stmt.srange) man ctx (a,bnd,low')
-          |> OptionExt.lift (fun (a, bnd, low) -> let low = VarSet.add var low in (a, bnd, low))
+          |> OptionExt.lift (fun (a, bnd, low) -> let low = VarSet.add var low in (a, bnd, low) |> check)
           |> enforce_sign_constraint var man.ask ctx stmt.srange
         | UnsupportedExpression ->
           None
@@ -513,7 +521,7 @@ struct
       let v, bnd = Binding.mopsa_to_apron_var v bnd in
       let vl, bnd = Binding.mopsa_to_apron_vars vl bnd in
       let abs' = Apron.Abstract1.expand ApronManager.man a v (Array.of_list vl) in
-      Some (abs', bnd, low)
+      (abs', bnd, low) |> check |> OptionExt.return 
 
     | S_fold({ekind = E_var (v, _)}, vl)
       when is_var_numeric_type v && List.for_all (function { ekind = E_var (v, _) } -> is_var_numeric_type v | _ -> false) vl
@@ -533,13 +541,13 @@ struct
                  with Apron.Manager.Error exc ->
                    panic_at stmt.srange "Apron.Manager.Error(%a)" Apron.Manager.print_exclog exc
       in
-      Some (abs', bnd,low)
+      (abs', bnd,low) |> check |> OptionExt.return 
 
     | S_assume(e) when is_numeric_type (etyp e) ->
       assume stmt man.ask (a, bnd, low)
 
     | S_forget { ekind = E_var (var, _) } when is_var_numeric_type var ->
-      forget_var var (a,bnd,low) |>
+      forget_var var (a,bnd,low) |> check |>
       OptionExt.return
 
     | S_project vars
@@ -551,17 +559,18 @@ struct
         ) vars
       in
       let env = Apron.Abstract1.env a in
-      let vars, bnd = Binding.mopsa_to_apron_vars vars bnd in
+      let apron_vars, bnd = Binding.mopsa_to_apron_vars vars bnd in
       let old_vars1, old_vars2 = Apron.Environment.vars env in
       let old_vars = Array.to_list old_vars1 @ Array.to_list old_vars2 in
-      let to_remove = List.filter (fun v -> not (List.mem v vars)) old_vars in
+      let to_remove = List.filter (fun v -> not (List.mem v apron_vars)) old_vars in
       let bnd = Binding.remove_apron_vars to_remove bnd in
+      let low = VarSet.inter low (VarSet.of_list vars) in 
       let new_env = Apron.Environment.remove env (Array.of_list to_remove) in
-      Some (
+      (
         Apron.Abstract1.change_environment ApronManager.man a new_env true,
         bnd,
         low
-      )
+      ) |> check |> OptionExt.return
 
     | _ -> None
 
