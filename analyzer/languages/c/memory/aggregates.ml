@@ -288,8 +288,13 @@ struct
              "flatten_array_init: %a is not supported"
              Pp.pp_c_init (OptionExt.none_to_exn init)
 
-
   and flatten_record_init base init offset typ range flow =
+    match remove_typedef_qual typ with
+    | T_c_record{c_record_kind = C_struct} -> flatten_struct_init base init offset typ range flow
+    | T_c_record{c_record_kind = C_union}  -> flatten_union_init  base init offset typ range flow
+    | _ -> assert false
+
+  and flatten_struct_init base init offset typ range flow =
     let fields =
       match remove_typedef_qual typ with
       | T_c_record{c_record_fields} -> c_record_fields
@@ -298,6 +303,7 @@ struct
     let pp_record_field fmt f =
       Format.fprintf fmt "%s@+%d,%d:%a" f.c_field_name f.c_field_offset f.c_field_bit_offset pp_typ f.c_field_type in
     debug "fields of %a: %a" pp_typ typ (Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt ", ") pp_record_field) fields;
+    debug "init: %a" (Format.pp_print_option Pp.pp_c_init) init;
     match init with
     | None ->
       let rec aux acc1 acc2 = function
@@ -363,9 +369,64 @@ struct
     | Some (C_init_expr e) when is_c_record_type e.etyp ->
       [(e,offset,typ)],[]
 
+    | _ -> assert false
 
-    | _ -> panic_at ~loc:__LOC__ range "initialization %a is not supported"
-             Pp.pp_c_init (OptionExt.none_to_exn init)
+  and flatten_union_init base init offset typ range flow =
+    let fields =
+      match remove_typedef_qual typ with
+      | T_c_record{c_record_fields} -> c_record_fields
+      | t -> panic_at ~loc:__LOC__ range "type %a is not a record" pp_typ t
+    in
+    let field, init =
+      match init with
+      | None ->
+        List.hd fields, None
+
+      | Some (C_init_list([init], filler)) ->
+        let rec match_init_list_with_typ l typ =
+          debug "match_init_list_with_typ {%a} %a" (Format.pp_print_list ~pp_sep:(fun fmt () -> Format.pp_print_string fmt ", ") Pp.pp_c_init) l pp_typ typ;
+          match remove_typedef_qual typ with
+          | T_c_array(typ', _) ->
+            debug "a";
+            List.for_all (fun init' -> match_init_with_typ init' typ') l
+
+          | T_c_record r when r.c_record_kind = C_struct && List.length l <= List.length r.c_record_fields ->
+            debug "b";
+            List.for_all (fun (i, init') ->
+                let field = find_c_record_field i typ in
+                debug "matching init %a with field %s" Pp.pp_c_init init' field.c_field_name;
+                let b = match_init_with_typ init' field.c_field_type in
+                debug "matched init %a with field %s = %b" Pp.pp_c_init init' field.c_field_name b;
+                b
+              ) (List.mapi (fun i init' -> i, init') l)
+
+          | _ -> debug "c"; false
+        
+        and match_init_with_typ init typ =
+          debug "match_init_with_typ %a %a" Pp.pp_c_init init pp_typ typ;
+          match init with
+          | C_init_expr e ->
+            debug "1";
+            compare_typ (remove_typedef_qual e.etyp) (remove_typedef_qual typ) = 0
+
+          | C_init_list(l, filler) ->
+            debug "2";
+            match_init_list_with_typ l typ
+
+          | _ -> assert false
+        in
+        List.find (fun field ->
+            debug "trying union field %s" field.c_field_name;
+            let b = match_init_with_typ init field.c_field_type in
+            debug "tried union field %s = %b" field.c_field_name b;
+            b
+          ) fields,
+        Some init
+
+      | Some init ->
+        panic_at range "aggregate: union init %a not supported" Pp.pp_c_init init
+    in
+    flatten_init base init offset field.c_field_type range flow
 
   let mk_typed_zero typ range =
     if is_c_int_type typ then
