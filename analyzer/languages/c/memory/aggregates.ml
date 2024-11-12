@@ -95,20 +95,30 @@ struct
       (pointer_type t)
       range
 
+  let get_bitfield_type btyp bwidth =
+    if bwidth <= 8 then if is_signed btyp then s8 else u8 else
+    if bwidth <= 16 then if is_signed btyp then s16 else u16 else
+    if bwidth <= 32 then if is_signed btyp then s32 else u32 else
+    if is_signed btyp then s64 else u64
+
   (** Transform an access to a bitfield into an access to the container scalar with appropriate bitwise operations *)
   let mk_lowlevel_bitfield_access p field btyp bwidth range =
     (* Lval of the container scalar: *( field.type* )(( u8* )p + field.offset) *)
-    let cell = mk_c_deref
-        (mk_c_cast (add
-                      (mk_c_cast p (pointer_type u8) range)
-                      (mk_int field.c_field_offset range) ~typ:(pointer_type u8) range) (pointer_type btyp) range) range in
+    let t = get_bitfield_type btyp bwidth in
+    let lval = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int field.c_field_offset range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
     (* Mask of bitfield: 11..<WIDTH times>..1100..<OFFSET times>00 *)
     let mask = Z.shift_left (Z.pow (Z.of_int 2) bwidth |> Z.pred) field.c_field_bit_offset in
+    debug "eval bitfield:@\nlval: %a@\nfield: %s@\ntype: %a@\nwidth: %d@\nmask: %s"
+      pp_expr lval
+      field.c_field_name
+      pp_typ t
+      bwidth
+      (Z.format "%b" mask);
     (* Apply the mask on the cell and shift the result to the right *)
     mk_binop
-      (mk_binop cell O_bit_and (mk_z mask range) ~etyp:btyp range)
+      (mk_binop lval O_bit_and (mk_z mask range) ~etyp:t range)
       O_bit_rshift
-      (mk_int field.c_field_bit_offset range) ~etyp:btyp range
+      (mk_int field.c_field_bit_offset range) ~etyp:t range
 
   (** 𝔼⟦ p->f ⟧ -> *(( typeof(p->f)* )(( char* )p + alignof(p->f))) *)
   let mk_lowlevel_arrow_access p i t range =
@@ -130,18 +140,27 @@ struct
   (** ========================= *)
 
   (** Mask an expression in order to assign it to a bitfield: (lval & 00..0011..1100..00) | ((e & 11..11) << OFFSET) *)
-  let mask_expression_with_bitfield lval field btyp bwidth e range flow =
+  let mask_expression_with_bitfield lval field bwidth e range flow =
     (* Mask of the bitfield *)
     let mask = Z.pow (Z.of_int 2) bwidth |> Z.pred in
     let field_mask = Z.shift_left mask field.c_field_bit_offset in
     (* Inverted mask of the bitfield to preserve the remaining part of the lval *)
-    let size = sizeof_type btyp flow |> Z.to_int in
+    let size = sizeof_type lval.etyp flow |> Z.to_int in
     let inverted_field_mask = Z.logand (Z.lognot field_mask) (Z.pow (Z.of_int 2) (8 * size) |> Z.pred) in
+    debug "mask expr with bitfield:@\nlval: %a@\nfield: %s@\ntype: %a@\nwidth: %d@\nmask: %s@\nfield mask: %s@\nsize: %d@\ninverted mask: %s"
+      pp_expr lval
+      field.c_field_name
+      pp_typ lval.etyp
+      bwidth
+      (Z.format "%b" mask)
+      (Z.format "%b" field_mask)
+      size
+      (Z.format "%b" inverted_field_mask);
     mk_binop
-      (mk_binop lval O_bit_and (mk_z inverted_field_mask range) ~etyp:btyp range)
+      (mk_binop lval O_bit_and (mk_z inverted_field_mask range) ~etyp:lval.etyp range)
       O_bit_or
       (mk_binop (mk_binop e O_log_and (mk_z mask range) ~etyp:e.etyp range) O_bit_lshift (mk_int field.c_field_bit_offset range) ~etyp:e.etyp range)
-      ~etyp:btyp range
+      ~etyp:lval.etyp range
 
   (** The following functions flatten the initialization expression
       into a list of scalar initializations *)
@@ -322,14 +341,15 @@ struct
           let l1,l2 =
             match remove_typedef_qual field.c_field_type with
             | T_c_bitfield(btyp, bwidth) ->
-              let cell = mk_c_deref (mk_c_cast (add (mk_c_cast (mk_c_address_of (mk_var base range) range) (pointer_type u8) range) (mk_z o range) ~typ:(pointer_type u8) range) (pointer_type btyp) range) range in
+              let t = get_bitfield_type btyp bwidth in
+              let cell = mk_c_deref (mk_c_cast (add (mk_c_cast (mk_c_address_of (mk_var base range) range) (pointer_type u8) range) (mk_z o range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
               let init =
                 match init with
                 | Some (C_init_expr e) -> e
                 | Some (C_init_list ([C_init_expr e], _)) -> e
                 | _ -> assert false
               in
-              let init' = mask_expression_with_bitfield cell field btyp bwidth init range flow in
+              let init' = mask_expression_with_bitfield cell field bwidth init range flow in
               [init', o, btyp], []
 
             | _ ->
@@ -506,8 +526,9 @@ struct
       | T_c_bitfield(t, w) -> t, w
       | _ -> assert false
     in
-    let cell = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int field.c_field_offset range) ~typ:(pointer_type u8) range) (pointer_type btyp) range) range in
-    let e' = mask_expression_with_bitfield cell field btyp bwidth e range flow in
+    let t = get_bitfield_type btyp bwidth in
+    let cell = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int field.c_field_offset range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
+    let e' = mask_expression_with_bitfield cell field bwidth e range flow in
     man.exec (mk_assign cell e' range) flow
 
   let exec stmt man flow =
