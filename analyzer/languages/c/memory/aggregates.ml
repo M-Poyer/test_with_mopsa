@@ -95,24 +95,76 @@ struct
       (pointer_type t)
       range
 
-  let get_bitfield_type btyp bwidth =
-    if bwidth <= 8 then if is_signed btyp then s8 else u8 else
-    if bwidth <= 16 then if is_signed btyp then s16 else u16 else
-    if bwidth <= 32 then if is_signed btyp then s32 else u32 else
-    if is_signed btyp then s64 else u64
+  let pp_record_field fmt f =
+    Format.fprintf fmt "%s@+%d,%d:%a" f.c_field_name f.c_field_offset f.c_field_bit_offset pp_typ f.c_field_type
+
+  let pp_record_fields fmt fields =
+    (Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt ", ") pp_record_field) fmt fields
+
+  let locate_bitfield_cell field record_typ flow =
+    let typ, width =
+      match remove_typedef_qual field.c_field_type with
+      | T_c_bitfield(t, w) -> t, w
+      | _ -> assert false
+    in
+    let size = 8 * (sizeof_type typ flow |> Z.to_int) in
+    debug "locate bitfield cell: field=%s, typ=%a, record=%a, size=%d" field.c_field_name pp_typ field.c_field_type pp_typ record_typ size; 
+    let record =
+      match remove_typedef_qual record_typ with
+      | T_c_record r -> r
+      | _ -> assert false
+    in
+    debug "fields: %a" pp_record_fields record.c_record_fields;
+    let rec iter = function
+      | [] -> assert false
+      | field' :: tl ->
+        debug "iter field'=%s, offset'=%d, typ'=%a" field'.c_field_name field'.c_field_offset pp_typ field'.c_field_type;
+        match remove_typedef_qual field'.c_field_type with
+        | T_c_bitfield(typ', width')
+          when compare_typ (remove_typedef_qual typ) (remove_typedef_qual typ') = 0 ->
+          debug "same type";
+          let rec iter2 acc_width = function
+            | [] -> assert false
+            | field'' :: tl ->
+              debug "iter2 acc_width=%d, field''=%s, typ''=%a" acc_width field''.c_field_name pp_typ field''.c_field_type;
+              if field''.c_field_name = field.c_field_name then
+                let () = debug "iter field'=%s, offset'=%d, typ'=%a" field'.c_field_name field'.c_field_offset pp_typ field'.c_field_type in
+                field'.c_field_offset
+              else
+                match remove_typedef_qual field''.c_field_type with
+                | T_c_bitfield(typ'', width'')
+                  when compare_typ (remove_typedef_qual typ) (remove_typedef_qual typ'') = 0 ->
+                  let () = debug "width'' = %d" width'' in
+                  if width'' + acc_width <= size then
+                    let () = debug "next bitfield" in
+                    iter2 (width'' + acc_width) tl
+                  else
+                    let () = debug "large width" in
+                    iter tl
+
+                | _ -> iter tl
+          in
+          iter2 0 (field' :: tl)
+
+        | _ -> iter tl
+    in
+    let offset = iter record.c_record_fields in
+    debug "offset located: %d" offset;
+    offset, typ
 
   (** Transform an access to a bitfield into an access to the container scalar with appropriate bitwise operations *)
-  let mk_lowlevel_bitfield_access p field btyp bwidth range =
+  let mk_lowlevel_bitfield_access p field range flow =
     (* Lval of the container scalar: *( field.type* )(( u8* )p + field.offset) *)
-    let t = get_bitfield_type btyp bwidth in
-    let lval = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int field.c_field_offset range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
+    let offset, t = locate_bitfield_cell field (under_type p.etyp) flow in
+    let lval = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int offset range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
     (* Mask of bitfield: 11..<WIDTH times>..1100..<OFFSET times>00 *)
-    let mask = Z.shift_left (Z.pow (Z.of_int 2) bwidth |> Z.pred) field.c_field_bit_offset in
+    let width = match remove_typedef_qual field.c_field_type with T_c_bitfield(_, w) -> w | _ -> assert false in
+    let mask = Z.shift_left (Z.pow (Z.of_int 2) width |> Z.pred) field.c_field_bit_offset in
     debug "eval bitfield:@\nlval: %a@\nfield: %s@\ntype: %a@\nwidth: %d@\nmask: %s"
       pp_expr lval
       field.c_field_name
       pp_typ t
-      bwidth
+      width
       (Z.format "%b" mask);
     (* Apply the mask on the cell and shift the result to the right *)
     mk_binop
@@ -121,13 +173,12 @@ struct
       (mk_int field.c_field_bit_offset range) ~etyp:t range
 
   (** 𝔼⟦ p->f ⟧ -> *(( typeof(p->f)* )(( char* )p + alignof(p->f))) *)
-  let mk_lowlevel_arrow_access p i t range =
-    let field = find_c_record_field i (under_type p.etyp) in
-    match remove_typedef_qual field.c_field_type with
-    | T_c_bitfield(btyp, bwidth) ->
-      mk_lowlevel_bitfield_access p field btyp bwidth range
-
-    | _ ->
+  let mk_lowlevel_arrow_access p i t range flow =
+    let t' = under_type p.etyp in
+    let field = find_c_record_field i t' in
+    if is_c_bitfield field.c_field_type then
+      mk_lowlevel_bitfield_access p field range flow
+    else
       mk_c_deref (mk_lowlevel_field_address p i t range) range
 
   (** s.f -> *(( typeof(s.f)* )(( char* )(&s) + alignof(s.f))) *)
@@ -140,9 +191,10 @@ struct
   (** ========================= *)
 
   (** Mask an expression in order to assign it to a bitfield: (lval & 00..0011..1100..00) | ((e & 11..11) << OFFSET) *)
-  let mask_expression_with_bitfield lval field bwidth e range flow =
+  let mask_expression_with_bitfield lval field e range flow =
     (* Mask of the bitfield *)
-    let mask = Z.pow (Z.of_int 2) bwidth |> Z.pred in
+    let width = match remove_typedef_qual field.c_field_type with T_c_bitfield(_, w) -> w | _ -> assert false in
+    let mask = Z.pow (Z.of_int 2) width |> Z.pred in
     let field_mask = Z.shift_left mask field.c_field_bit_offset in
     (* Inverted mask of the bitfield to preserve the remaining part of the lval *)
     let size = sizeof_type lval.etyp flow |> Z.to_int in
@@ -151,7 +203,7 @@ struct
       pp_expr lval
       field.c_field_name
       pp_typ lval.etyp
-      bwidth
+      width
       (Z.format "%b" mask)
       (Z.format "%b" field_mask)
       size
@@ -300,9 +352,7 @@ struct
       | T_c_record{c_record_fields} -> c_record_fields
       | t -> panic_at ~loc:__LOC__ range "type %a is not a record" pp_typ t
     in
-    let pp_record_field fmt f =
-      Format.fprintf fmt "%s@+%d,%d:%a" f.c_field_name f.c_field_offset f.c_field_bit_offset pp_typ f.c_field_type in
-    debug "fields of %a: %a" pp_typ typ (Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt ", ") pp_record_field) fields;
+    debug "fields of %a: %a" pp_typ typ pp_record_fields fields;
     debug "init: %a" (Format.pp_print_option Pp.pp_c_init) init;
     match init with
     | None ->
@@ -345,20 +395,18 @@ struct
             | init::tll -> Some init, tll
           in
           let l1,l2 =
-            match remove_typedef_qual field.c_field_type with
-            | T_c_bitfield(btyp, bwidth) ->
-              let t = get_bitfield_type btyp bwidth in
-              let cell = mk_c_deref (mk_c_cast (add (mk_c_cast (mk_c_address_of (mk_var base range) range) (pointer_type u8) range) (mk_z o range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
+            if is_c_bitfield field.c_field_type then
+              let offset, t = locate_bitfield_cell field typ flow in
+              let cell = mk_c_deref (mk_c_cast (add (mk_c_cast (mk_c_address_of (mk_var base range) range) (pointer_type u8) range) (mk_z (Z.add o (Z.of_int offset)) range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
               let init =
                 match init with
                 | Some (C_init_expr e) -> e
                 | Some (C_init_list ([C_init_expr e], _)) -> e
                 | _ -> assert false
               in
-              let init' = mask_expression_with_bitfield cell field bwidth init range flow in
-              [init', o, btyp], []
-
-            | _ ->
+              let init' = mask_expression_with_bitfield cell field init range flow in
+              [init', o, t], []
+            else
               flatten_init base init o field.c_field_type range flow
           in
           aux tll (List.rev_append l1 acc1) (List.rev_append l2 acc2) tl
@@ -377,56 +425,59 @@ struct
       | T_c_record{c_record_fields} -> c_record_fields
       | t -> panic_at ~loc:__LOC__ range "type %a is not a record" pp_typ t
     in
-    let field, init =
-      match init with
-      | None ->
-        List.hd fields, None
+    match init with
+    | None ->
+      let field = List.hd fields in
+      flatten_init base init offset field.c_field_type range flow
 
-      | Some (C_init_list([init], filler)) ->
-        let rec match_init_list_with_typ l typ =
-          debug "match_init_list_with_typ {%a} %a" (Format.pp_print_list ~pp_sep:(fun fmt () -> Format.pp_print_string fmt ", ") Pp.pp_c_init) l pp_typ typ;
-          match remove_typedef_qual typ with
-          | T_c_array(typ', _) ->
-            debug "a";
-            List.for_all (fun init' -> match_init_with_typ init' typ') l
+    | Some (C_init_list([init], None)) ->
+      let rec match_init_list_with_typ l typ =
+        debug "match_init_list_with_typ {%a} %a" (Format.pp_print_list ~pp_sep:(fun fmt () -> Format.pp_print_string fmt ", ") Pp.pp_c_init) l pp_typ typ;
+        match remove_typedef_qual typ with
+        | T_c_array(typ', _) ->
+          debug "a";
+          List.for_all (fun init' -> match_init_with_typ init' typ') l
 
-          | T_c_record r when r.c_record_kind = C_struct && List.length l <= List.length r.c_record_fields ->
-            debug "b";
-            List.for_all (fun (i, init') ->
-                let field = find_c_record_field i typ in
-                debug "matching init %a with field %s" Pp.pp_c_init init' field.c_field_name;
-                let b = match_init_with_typ init' field.c_field_type in
-                debug "matched init %a with field %s = %b" Pp.pp_c_init init' field.c_field_name b;
-                b
-              ) (List.mapi (fun i init' -> i, init') l)
+        | T_c_record r when r.c_record_kind = C_struct && List.length l <= List.length r.c_record_fields ->
+          debug "b";
+          List.for_all (fun (i, init') ->
+              let field = find_c_record_field i typ in
+              debug "matching init %a with field %s" Pp.pp_c_init init' field.c_field_name;
+              let b = match_init_with_typ init' field.c_field_type in
+              debug "matched init %a with field %s = %b" Pp.pp_c_init init' field.c_field_name b;
+              b
+            ) (List.mapi (fun i init' -> i, init') l)
 
-          | _ -> debug "c"; false
-        
-        and match_init_with_typ init typ =
-          debug "match_init_with_typ %a %a" Pp.pp_c_init init pp_typ typ;
-          match init with
-          | C_init_expr e ->
-            debug "1";
-            compare_typ (remove_typedef_qual e.etyp) (remove_typedef_qual typ) = 0
+        | _ -> debug "c"; false
 
-          | C_init_list(l, filler) ->
-            debug "2";
-            match_init_list_with_typ l typ
+      and match_init_with_typ init typ =
+        debug "match_init_with_typ %a %a" Pp.pp_c_init init pp_typ typ;
+        match init with
+        | C_init_expr e ->
+          debug "1";
+          compare_typ (remove_typedef_qual e.etyp) (remove_typedef_qual typ) = 0
 
-          | _ -> assert false
-        in
+        | C_init_list(l, filler) ->
+          debug "2";
+          match_init_list_with_typ l typ
+
+        | _ -> assert false
+      in
+      let field =
         List.find (fun field ->
             debug "trying union field %s" field.c_field_name;
             let b = match_init_with_typ init field.c_field_type in
             debug "tried union field %s = %b" field.c_field_name b;
             b
-          ) fields,
-        Some init
+          ) fields
+      in
+      flatten_init base (Some init) offset field.c_field_type range flow
 
-      | Some init ->
-        panic_at range "aggregate: union init %a not supported" Pp.pp_c_init init
-    in
-    flatten_init base init offset field.c_field_type range flow
+    | Some (C_init_expr e) when is_c_record_type e.etyp ->
+      [(e,offset,typ)],[]
+
+    | Some init ->
+      panic_at range "aggregate: union init %a not supported" Pp.pp_c_init init
 
   let mk_typed_zero typ range =
     if is_c_int_type typ then
@@ -581,15 +632,11 @@ struct
         ) (Post.return flow)
 
   let assign_bitfield p i f e range man flow =
-    let field = find_c_record_field i (under_type p.etyp) in
-    let btyp, bwidth =
-      match remove_typedef_qual field.c_field_type with
-      | T_c_bitfield(t, w) -> t, w
-      | _ -> assert false
-    in
-    let t = get_bitfield_type btyp bwidth in
-    let cell = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int field.c_field_offset range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
-    let e' = mask_expression_with_bitfield cell field bwidth e range flow in
+    let t0 = under_type p.etyp in
+    let field = find_c_record_field i t0 in
+    let offset, t = locate_bitfield_cell field t0 flow in
+    let cell = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int offset range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
+    let e' = mask_expression_with_bitfield cell field e range flow in
     man.exec (mk_assign cell e' range) flow
 
   let exec stmt man flow =
@@ -653,11 +700,11 @@ struct
       OptionExt.return
 
     | E_c_member_access (s, i, f) ->
-      man.eval (member_access s i f exp.etyp exp.erange) flow |>
+      man.eval (member_access s i f exp.etyp exp.erange flow) flow |>
       OptionExt.return
 
     | E_c_arrow_access(p, i, f) ->
-      man.eval (arrow_access p i f exp.etyp exp.erange) flow |>
+      man.eval (arrow_access p i f exp.etyp exp.erange flow) flow |>
       OptionExt.return
 
     | E_c_address_of({ekind = E_c_array_subscript(a,i)}) ->
