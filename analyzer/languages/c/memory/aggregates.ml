@@ -107,30 +107,28 @@ struct
     mk_c_deref (mk_lowlevel_field_address p i t range) range
 
 
-
-
   (** {2 Abstract transformers} *)
   (** ========================= *)
 
   (** The following functions flatten the initialization expression
       into a list of scalar initializations *)
-  let rec flatten_init init offset typ range flow =
-    if is_c_scalar_type typ then flatten_scalar_init init offset typ range flow else
-    if is_c_array_type typ  then flatten_array_init init offset typ range flow else
-    if is_c_record_type typ then flatten_record_init init offset typ range flow
+  let rec flatten_init base init offset typ range flow =
+    if is_c_scalar_type typ then flatten_scalar_init base init offset typ range flow else
+    if is_c_array_type typ  then flatten_array_init base init offset typ range flow else
+    if is_c_record_type typ then flatten_record_init base init offset typ range flow
     else panic_at ~loc:__LOC__ range
         "init %a of type %a not supported"
         (OptionExt.print Pp.pp_c_init) init pp_typ typ
 
-  and flatten_scalar_init init offset typ range flow =
+  and flatten_scalar_init base init offset typ range flow =
     match init with
-    | None                 -> [],[(None,Z.one, offset, typ)]
-    | Some (C_init_expr e) -> [(e,offset, typ)],[]
+    | None                 -> [],[(None, Z.one, offset, typ)]
+    | Some (C_init_expr e) -> [(e, offset, typ)],[]
     (* a scalar initializer can be optionnaly enclosed in braces *)
-    | Some (C_init_list ([C_init_expr e], _)) -> [(e,offset, typ)],[]
+    | Some (C_init_list ([C_init_expr e], _)) -> [(e, offset, typ)],[]
     | Some init -> panic_at range "unsupported scalar initializer %a for type %a" Pp.pp_c_init init pp_typ typ;
 
-  and flatten_array_init init offset typ range flow =
+  and flatten_array_init base init offset typ range flow =
     if is_c_no_length_array_type typ
     || is_c_variable_length_array_type typ
     then [],[] else
@@ -148,7 +146,7 @@ struct
     (* a string literal can be optionally enclosed in braces *)
     | Some (C_init_list ([C_init_expr {ekind = E_constant(C_c_string _); } as i], _))
          when is_c_int_array_type typ ->
-       flatten_array_init (Some i) offset typ range flow
+       flatten_array_init base (Some i) offset typ range flow
 
     | Some (C_init_list (l, filler)) ->
       let rec aux i l acc1 acc2 =
@@ -158,7 +156,7 @@ struct
         else
           match l with
           | elem::rest ->
-            let l1,l2 = flatten_init (Some elem) o under_typ range flow in
+            let l1,l2 = flatten_init base (Some elem) o under_typ range flow in
             aux (i+1) rest (List.rev_append l1 acc1) (List.rev_append l2 acc2)
           | [] ->
             let remain = Z.sub n (Z.of_int i) in
@@ -228,7 +226,7 @@ struct
         then acc1,acc2
         else
           let init' = Some (C_init_expr (mk_lowlevel_subscript_access e (mk_int i e.erange) under_typ e.erange)) in
-          let l1,l2 = flatten_init init' o under_typ range flow in
+          let l1,l2 = flatten_init base init' o under_typ range flow in
           aux (i+1) (List.rev_append l1 acc1) (List.rev_append l2 acc2)
       in
       let l1,l2 = aux 0 [] [] in
@@ -239,7 +237,7 @@ struct
              Pp.pp_c_init (OptionExt.none_to_exn init)
 
 
-  and flatten_record_init init offset typ range flow =
+  and flatten_record_init base init offset typ range flow =
     let fields =
       match remove_typedef_qual typ with
       | T_c_record{c_record_fields} -> c_record_fields
@@ -254,7 +252,24 @@ struct
         | [] -> acc1,acc2
         | field :: tl ->
           let o = Z.add offset (Z.of_int field.c_field_offset) in
-          let l1,l2 = flatten_init None o field.c_field_type range flow in
+          let l1, l2, tl =
+            match remove_typedef_qual field.c_field_type with
+            | T_c_bitfield(btyp, _) ->
+              let l1, l2 = flatten_init base None o btyp range flow in
+              let rec discard_same_offsets = function
+                | [] -> []
+                | f::tl as l ->
+                  if f.c_field_offset = field.c_field_offset then
+                    discard_same_offsets tl
+                  else
+                    l
+              in
+              let tl = discard_same_offsets tl in
+              l1, l2, tl
+            | _ ->
+              let l1,l2 = flatten_init base None o field.c_field_type range flow in
+              l1, l2, tl
+          in
           aux (List.rev_append l1 acc1) (List.rev_append l2 acc2) tl
       in
       let l1,l2 = aux [] [] fields in
@@ -266,34 +281,37 @@ struct
         | [] -> acc1,acc2
         | field :: tl ->
           let o = Z.add offset (Z.of_int field.c_field_offset) in
-          if is_c_bitfield field.c_field_type then
-            (* skip all fields at that offset and put to T *)
-            (* FIXME: use bitmasks to actually encode the real value *)
-            let rec discard_same_offsets l r =
-              match l, r with
-              | lhd:: ltl, f :: rtl ->
-                if f.c_field_offset = field.c_field_offset then
-                  discard_same_offsets ltl rtl
-                else
-                  let (new_l, new_r) = discard_same_offsets ltl rtl in
-                  lhd::new_l, f::new_r
-              | [], [] -> [], []
-              | _ -> assert false in
-            let under_bitfield_typ = match field.c_field_type with
-              | T_c_bitfield (t, _) -> t
-              | _ -> assert false in 
-            let new_l, new_r = discard_same_offsets l records in
-            let init_top = C_init_expr (mk_top under_bitfield_typ range) in 
-            let l1,l2 = flatten_init (Some init_top) o under_bitfield_typ range flow in
-            aux new_l (List.rev_append l1 acc1) (List.rev_append l2 acc2) new_r
-          else 
+          let init, tll =
             match l with
-            | [] ->
-              let l1,l2 = flatten_init None o field.c_field_type range flow in
-              aux l (List.rev_append l1 acc1) (List.rev_append l2 acc2) tl
-            | init :: tll ->
-              let l1,l2 = flatten_init (Some init) o field.c_field_type range flow in
-              aux tll (List.rev_append l1 acc1) (List.rev_append l2 acc2) tl
+            | [] -> None, []
+            | init::tll -> Some init, tll
+          in
+          let l1,l2 =
+            match remove_typedef_qual field.c_field_type with
+            | T_c_bitfield(btyp, bwidth) ->
+              let cell = mk_c_deref (mk_c_cast (add (mk_c_cast (mk_c_address_of (mk_var base range) range) (pointer_type u8) range) (mk_z o range) ~typ:(pointer_type u8) range) (pointer_type btyp) range) range in
+              let init =
+                match init with
+                | Some (C_init_expr e) -> e
+                | Some (C_init_list ([C_init_expr e], _)) -> e
+                | _ -> assert false
+              in
+              let mask = Z.pow (Z.of_int 2) bwidth |> Z.pred in
+              let field_mask = Z.shift_left mask field.c_field_bit_offset in
+              let inverted_field_mask = Z.lognot field_mask in
+              let init =
+                mk_binop
+                  (mk_binop cell O_bit_and (mk_z inverted_field_mask range) ~etyp:btyp range)
+                  O_bit_or
+                  (mk_binop (mk_binop init O_log_and (mk_z mask range) ~etyp:init.etyp range) O_bit_lshift (mk_int field.c_field_bit_offset range) ~etyp:init.etyp range)
+                  ~etyp:btyp range
+              in
+              [init, o, btyp], []
+
+            | _ ->
+              flatten_init base init o field.c_field_type range flow
+          in
+          aux tll (List.rev_append l1 acc1) (List.rev_append l2 acc2) tl
       in
       let l1,l2 = aux l [] [] fields in
       List.rev l1, List.rev l2
@@ -320,7 +338,7 @@ struct
   (** 𝕊⟦ type v = init; ⟧ *)
   let declare v init scope range man flow =
     man.exec (mk_add_var v range) flow >>% fun flow ->
-    let initl,fill = flatten_init init Z.zero v.vtyp range flow in
+    let initl,fill = flatten_init v init Z.zero v.vtyp range flow in
 
     (* Scalar variables can be handed directly by the underlying low-level domain *)
     if is_c_scalar_type v.vtyp then
