@@ -95,16 +95,29 @@ struct
       (pointer_type t)
       range
 
-
-
-  (** s.f -> *(( typeof(s.f)* )(( char* )(&s) + alignof(s.f))) *)
-  let mk_lowlevel_member_access s i t range =
-    let ss = mk_c_address_of s range in
-    mk_c_deref (mk_lowlevel_field_address ss i t range) range
+  let mk_lowlevel_bitfield_access p field btyp bwidth range =
+    let cell = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int field.c_field_offset range) ~typ:(pointer_type u8) range) (pointer_type btyp) range) range in
+    let mask = Z.pow (Z.of_int 2) bwidth |> Z.pred in
+    let field_mask = Z.shift_left mask field.c_field_bit_offset in
+    mk_binop
+      (mk_binop cell O_bit_and (mk_z field_mask range) ~etyp:btyp range)
+      O_bit_rshift
+      (mk_int field.c_field_bit_offset range) ~etyp:btyp range
 
   (** 𝔼⟦ p->f ⟧ -> *(( typeof(p->f)* )(( char* )p + alignof(p->f))) *)
   let mk_lowlevel_arrow_access p i t range =
-    mk_c_deref (mk_lowlevel_field_address p i t range) range
+    let field = find_c_record_field i (under_type p.etyp) in
+    match remove_typedef_qual field.c_field_type with
+    | T_c_bitfield(btyp, bwidth) ->
+      mk_lowlevel_bitfield_access p field btyp bwidth range
+
+    | _ ->
+      mk_c_deref (mk_lowlevel_field_address p i t range) range
+
+  (** s.f -> *(( typeof(s.f)* )(( char* )(&s) + alignof(s.f))) *)
+  let mk_lowlevel_member_access s i t range =
+    let p = mk_c_address_of s range in
+    mk_lowlevel_arrow_access p i t range
 
 
   (** {2 Abstract transformers} *)
@@ -476,20 +489,25 @@ struct
         ) (Post.return flow)
 
 
-  let assign_array a i t e r range man flow =
-    let lval = mk_lowlevel_subscript_access a i t r in
-    let stmt = mk_assign lval e range in
-    man.exec stmt flow
-
-  let assign_member a i f t e r range man flow =
-    let lval = mk_lowlevel_member_access a i t r in
-    let stmt = mk_assign lval e range in
-    man.exec stmt flow
-
-  let assign_arrow a i f t e r range man flow =
-    let lval = mk_lowlevel_arrow_access a i t r in
-    let stmt = mk_assign lval e range in
-    man.exec stmt flow
+  let assign_bitfield p i f e range man flow =
+    let field = find_c_record_field i (under_type p.etyp) in
+    let btyp, bwidth =
+      match remove_typedef_qual field.c_field_type with
+      | T_c_bitfield(t, w) -> t, w
+      | _ -> assert false
+    in
+    let cell = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int field.c_field_offset range) ~typ:(pointer_type u8) range) (pointer_type btyp) range) range in
+    let mask = Z.pow (Z.of_int 2) bwidth |> Z.pred in
+    let field_mask = Z.shift_left mask field.c_field_bit_offset in
+    let inverted_field_mask = Z.lognot field_mask in
+    let e' =
+      mk_binop
+        (mk_binop cell O_bit_and (mk_z inverted_field_mask range) ~etyp:btyp range)
+        O_bit_or
+        (mk_binop (mk_binop e O_log_and (mk_z mask range) ~etyp:e.etyp range) O_bit_lshift (mk_int field.c_field_bit_offset range) ~etyp:e.etyp range)
+        ~etyp:btyp range
+    in
+    man.exec (mk_assign cell e' range) flow
 
   let exec stmt man flow =
     match skind stmt with
@@ -501,6 +519,18 @@ struct
     | S_expression { ekind = E_c_assign (lval, e) } when is_c_record_type lval.etyp ->
       assign_record lval e stmt.srange man flow |>
       OptionExt.return
+
+    | S_assign({ekind = E_c_member_access(s, i, f)}, e)
+    | S_expression { ekind = E_c_assign ({ekind = E_c_member_access(s, i, f)}, e) }
+      when is_c_bitfield (find_c_record_field i s.etyp).c_field_type ->
+      assign_bitfield (mk_c_address_of s s.erange) i f e stmt.srange man flow |>
+      Option.some
+
+    | S_assign({ekind = E_c_arrow_access(p, i, f)}, e)
+    | S_expression { ekind = E_c_assign ({ekind = E_c_arrow_access(p, i, f)}, e) }
+      when is_c_bitfield (find_c_record_field i @@ under_type p.etyp).c_field_type ->
+      assign_bitfield p i f e stmt.srange man flow |>
+      Option.some
 
     | _ -> None
 

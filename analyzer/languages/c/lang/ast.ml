@@ -936,6 +936,10 @@ let is_c_global_scope = function
   | Variable_global | Variable_extern | Variable_file_static _ -> true
   | Variable_func_static _ | Variable_local _ | Variable_parameter _ -> false
 
+let find_c_record_field i typ =
+  match remove_typedef_qual typ with
+  | T_c_record r -> List.nth r.c_record_fields i
+  | _ -> assert false
 
 let () =
   register_typ_compare (fun next t1 t2 ->
