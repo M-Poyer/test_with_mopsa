@@ -630,6 +630,17 @@ struct
       | T_c_record{c_record_fields} -> c_record_fields
       | _ -> assert false
     in
+    (* [rval] can be a cast of one the union's fields type to the union type.
+     * Remove the cast in order to find the corresponding field in [lval] *)
+    let rval =
+      if compare_typ t1 t2 <> 0 then
+        rval
+      else
+        match ekind rval with
+        | E_c_cast(rval', _) -> rval'
+        | _ -> rval
+    in
+    let t2 = rval |> etyp |> remove_typedef_qual in
     if compare_typ t1 t2 = 0 then
       (* To copy a union, we just copy the largest field *)
       let fieldopt, _ = List.fold_left (fun (accfield, accsize) field ->
