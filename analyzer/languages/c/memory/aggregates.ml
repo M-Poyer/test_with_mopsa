@@ -362,17 +362,21 @@ struct
           let o = Z.add offset (Z.of_int field.c_field_offset) in
           let l1, l2, tl =
             match remove_typedef_qual field.c_field_type with
-            | T_c_bitfield(btyp, _) ->
+            | T_c_bitfield(btyp, bwidth) ->
               let l1, l2 = flatten_init base None o btyp range flow in
-              let rec discard_same_offsets = function
+              let size = 8 * (Z.to_int @@ sizeof_type btyp flow) in
+              let rec discard_same_scalar acc = function
                 | [] -> []
                 | f::tl as l ->
-                  if f.c_field_offset = field.c_field_offset then
-                    discard_same_offsets tl
-                  else
-                    l
+                  match remove_typedef_qual f.c_field_type with
+                  | T_c_bitfield(btyp', bwidth')
+                    when compare_typ (remove_typedef_qual btyp) (remove_typedef_qual btyp') = 0 &&
+                         acc + bwidth' <= size ->
+                    discard_same_scalar (acc + bwidth') tl
+
+                  | _ -> l
               in
-              let tl = discard_same_offsets tl in
+              let tl = discard_same_scalar bwidth tl in
               l1, l2, tl
             | _ ->
               let l1,l2 = flatten_init base None o field.c_field_type range flow in
