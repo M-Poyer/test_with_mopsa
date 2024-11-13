@@ -381,7 +381,6 @@ struct
           let l1, l2, tl, tll =
             match remove_typedef_qual field.c_field_type with
             | T_c_bitfield(btyp, _) ->
-              debug "bitfield %s (%d)" field.c_field_name (List.length l);
               let size = 8 * (sizeof_type btyp flow |> Z.to_int) in
               (* Collect all bitfields in the same cell *)
               let rec collect_bitfields acc_width inits = function
@@ -391,7 +390,6 @@ struct
                   | T_c_bitfield(btyp', bwidth')
                     when compare_typ (remove_typedef_qual btyp) (remove_typedef_qual btyp') = 0 &&
                          acc_width + bwidth' <= size ->
-                    debug "other bitfield %s (%d)" field'.c_field_name (List.length l);
                     let init', tlinit =
                       match inits with
                       | C_init_expr e :: tlinit -> e, tlinit
@@ -462,9 +460,14 @@ struct
       and match_init_with_typ init typ =
         match init with
         | C_init_expr e ->
-          compare_typ (remove_typedef_qual e.etyp) (remove_typedef_qual typ) = 0
+          let typ' =
+            match remove_typedef_qual typ with
+            | T_c_bitfield(btyp, _) -> remove_typedef_qual btyp
+            | t -> t
+          in
+          compare_typ (remove_typedef_qual e.etyp) typ' = 0
 
-        | C_init_list(l, filler) ->
+        | C_init_list(l, _) ->
           match_init_list_with_typ l typ
 
         | _ -> assert false
