@@ -123,7 +123,7 @@ struct
             | [] -> assert false
             | field'' :: tl ->
               if field''.c_field_name = field.c_field_name then
-                field'.c_field_offset
+                field'.c_field_offset, acc_width
               else
                 match remove_typedef_qual field''.c_field_type with
                 | T_c_bitfield(typ'', width'')
@@ -139,22 +139,22 @@ struct
 
         | _ -> iter tl
     in
-    let offset = iter record.c_record_fields in
-    offset, typ
+    let cell_offset, bitfield_offset = iter record.c_record_fields in
+    cell_offset, bitfield_offset, typ
 
   (** Transform an access to a bitfield into an access to the container scalar with appropriate bitwise operations *)
   let mk_lowlevel_bitfield_access p field range flow =
     (* Lval of the container scalar: *( field.type* )(( u8* )p + field.offset) *)
-    let offset, t = locate_bitfield_cell field (under_type p.etyp) flow in
-    let lval = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int offset range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
+    let cell_offset, bitfield_offset, t = locate_bitfield_cell field (under_type p.etyp) flow in
+    let lval = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int cell_offset range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
     (* Mask of bitfield: 11..<WIDTH times>..1100..<OFFSET times>00 *)
     let width = match remove_typedef_qual field.c_field_type with T_c_bitfield(_, w) -> w | _ -> assert false in
-    let mask = Z.shift_left (Z.pow (Z.of_int 2) width |> Z.pred) field.c_field_bit_offset in
+    let mask = Z.shift_left (Z.pow (Z.of_int 2) width |> Z.pred) bitfield_offset in
     (* Apply the mask on the cell and shift the result to the right *)
     mk_binop
       (mk_binop lval O_bit_and (mk_z mask range) ~etyp:t range)
       O_bit_rshift
-      (mk_int field.c_field_bit_offset range) ~etyp:t range
+      (mk_int bitfield_offset range) ~etyp:t range
 
   (** 𝔼⟦ p->f ⟧ -> *(( typeof(p->f)* )(( char* )p + alignof(p->f))) *)
   let mk_lowlevel_arrow_access p i t range flow =
@@ -174,20 +174,32 @@ struct
   (** {2 Abstract transformers} *)
   (** ========================= *)
 
-  (** Mask an expression in order to assign it to a bitfield: (lval & 00..0011..1100..00) | ((e & 11..11) << OFFSET) *)
-  let mask_expression_with_bitfield lval field e range flow =
-    (* Mask of the bitfield *)
-    let width = match remove_typedef_qual field.c_field_type with T_c_bitfield(_, w) -> w | _ -> assert false in
-    let mask = Z.pow (Z.of_int 2) width |> Z.pred in
-    let field_mask = Z.shift_left mask field.c_field_bit_offset in
-    (* Inverted mask of the bitfield to preserve the remaining part of the lval *)
-    let size = sizeof_type lval.etyp flow |> Z.to_int in
-    let inverted_field_mask = Z.logand (Z.lognot field_mask) (Z.pow (Z.of_int 2) (8 * size) |> Z.pred) in
-    mk_binop
-      (mk_binop lval O_bit_and (mk_z inverted_field_mask range) ~etyp:lval.etyp range)
-      O_bit_or
-      (mk_binop (mk_binop e O_log_and (mk_z mask range) ~etyp:e.etyp range) O_bit_lshift (mk_int field.c_field_bit_offset range) ~etyp:e.etyp range)
-      ~etyp:lval.etyp range
+  
+
+  let are_all_bitfields_of_same_cell_initialized inits fields flow =
+    let hd = List.hd fields in
+    let btyp0 =
+      match remove_typedef_qual hd.c_field_type with
+      | T_c_bitfield(btyp, _) -> btyp
+      | _ -> assert false
+    in
+    let size = 8 * (sizeof_type btyp0 flow |> Z.to_int) in
+    let rec iter acc_width inits = function
+      | [] -> true
+      | field :: tlfields ->
+        match remove_typedef_qual field.c_field_type with
+        | T_c_bitfield(btyp, bwidth)
+          when compare_typ (remove_typedef_qual btyp0) (remove_typedef_qual btyp) = 0 &&
+               acc_width + bwidth <= size ->
+          begin
+            match inits with
+            | Some _ :: tlinit -> iter (acc_width + bwidth) tlinit tlfields
+            | _ -> false
+          end
+        | _ -> true
+    in
+    iter 0 inits fields
+
 
   (** The following functions flatten the initialization expression
       into a list of scalar initializations *)
@@ -361,30 +373,56 @@ struct
       List.rev l1, List.rev l2
 
     | Some (C_init_list(l, None)) ->
-      let rec aux l acc1 acc2 records =
-        match records with
+      let rec aux l acc1 acc2 fields =
+        match fields with
         | [] -> acc1,acc2
         | field :: tl ->
           let o = Z.add offset (Z.of_int field.c_field_offset) in
-          let init, tll =
-            match l with
-            | [] -> None, []
-            | init::tll -> Some init, tll
-          in
-          let l1,l2 =
-            if is_c_bitfield field.c_field_type then
-              let offset, t = locate_bitfield_cell field typ flow in
-              let cell = mk_c_deref (mk_c_cast (add (mk_c_cast (mk_c_address_of (mk_var base range) range) (pointer_type u8) range) (mk_z (Z.add o (Z.of_int offset)) range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
-              let init =
-                match init with
-                | Some (C_init_expr e) -> e
-                | Some (C_init_list ([C_init_expr e], _)) -> e
-                | _ -> assert false
+          let l1, l2, tl, tll =
+            match remove_typedef_qual field.c_field_type with
+            | T_c_bitfield(btyp, _) ->
+              debug "bitfield %s (%d)" field.c_field_name (List.length l);
+              let size = 8 * (sizeof_type btyp flow |> Z.to_int) in
+              (* Collect all bitfields in the same cell *)
+              let rec collect_bitfields acc_width inits = function
+                | [] -> [], inits, []
+                | field' :: tlfields ->
+                  match remove_typedef_qual field'.c_field_type with
+                  | T_c_bitfield(btyp', bwidth')
+                    when compare_typ (remove_typedef_qual btyp) (remove_typedef_qual btyp') = 0 &&
+                         acc_width + bwidth' <= size ->
+                    debug "other bitfield %s (%d)" field'.c_field_name (List.length l);
+                    let init', tlinit =
+                      match inits with
+                      | C_init_expr e :: tlinit -> e, tlinit
+                      | C_init_list ([C_init_expr e], _) :: tlinit -> e, tlinit
+                      | _ -> panic "aggregate: unexpected bitfield initializers: %a"
+                               (Format.pp_print_list ~pp_sep:(fun fmt () -> Format.pp_print_string fmt ", ") Pp.pp_c_init) inits
+                    in
+                    let bitfields, tlinits, tlfields = collect_bitfields (acc_width + bwidth') tlinit tlfields in
+                    (acc_width, bwidth', init') :: bitfields, tlinits, tlfields
+                  | _ -> [], inits, field'::tlfields
               in
-              let init' = mask_expression_with_bitfield cell field init range flow in
-              [init', o, t], []
-            else
-              flatten_init base init o field.c_field_type range flow
+              let bitfields, tll, tlfields = collect_bitfields 0 l fields in
+              let mk_masked_init (offset, width, init) =
+                let mask = mk_z (Z.pow (Z.of_int 2) width |> Z.pred) range in
+                mk_binop (mk_binop init O_bit_and mask ~etyp:init.etyp range) O_bit_lshift (mk_int offset range) ~etyp:btyp range
+              in
+              let init' =
+                List.fold_left (fun acc bitfield -> mk_binop acc O_log_or (mk_masked_init bitfield) ~etyp:btyp range)
+                  (mk_masked_init @@ List.hd bitfields) (List.tl bitfields)
+              in
+              [init', o, btyp], [], tlfields, tll
+
+            (* Non-bitfield case *)
+            | _ ->
+              let init, tll =
+                match l with
+                | [] -> None, []
+                | init::tll -> Some init, tll
+              in
+              let l1', l2' = flatten_init base init o field.c_field_type range flow in
+              l1', l2', tl, tll
           in
           aux tll (List.rev_append l1 acc1) (List.rev_append l2 acc2) tl
       in
@@ -619,9 +657,23 @@ struct
   let assign_bitfield p i f e range man flow =
     let t0 = under_type p.etyp in
     let field = find_c_record_field i t0 in
-    let offset, t = locate_bitfield_cell field t0 flow in
-    let cell = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int offset range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
-    let e' = mask_expression_with_bitfield cell field e range flow in
+    let cell_offset, bitfield_offset, t = locate_bitfield_cell field t0 flow in
+    let cell = mk_c_deref (mk_c_cast (add (mk_c_cast p (pointer_type u8) range) (mk_int cell_offset range) ~typ:(pointer_type u8) range) (pointer_type t) range) range in
+    (* Mask of the bitfield *)
+    let width = match remove_typedef_qual field.c_field_type with T_c_bitfield(_, w) -> w | _ -> assert false in
+    let mask = Z.pow (Z.of_int 2) width |> Z.pred in
+    let field_mask = Z.shift_left mask bitfield_offset in
+    (* Inverted mask of the bitfield to preserve the remaining part of the cell *)
+    let size = sizeof_type t flow |> Z.to_int in
+    let inverted_field_mask = Z.logand (Z.lognot field_mask) (Z.pow (Z.of_int 2) (8 * size) |> Z.pred) in
+    (** Mask the expression (cell & 00..0011..1100..00) | ((e & 11..11) << OFFSET) *)
+    let e' =
+      mk_binop
+        (mk_binop cell O_bit_and (mk_z inverted_field_mask range) ~etyp:t range)
+        O_bit_or
+        (mk_binop (mk_binop e O_log_and (mk_z mask range) ~etyp:e.etyp range) O_bit_lshift (mk_int bitfield_offset range) ~etyp:e.etyp range)
+        ~etyp:t range
+    in
     man.exec (mk_assign cell e' range) flow
 
   let exec stmt man flow =
