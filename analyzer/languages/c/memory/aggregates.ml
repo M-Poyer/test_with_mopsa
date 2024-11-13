@@ -108,38 +108,29 @@ struct
       | _ -> assert false
     in
     let size = 8 * (sizeof_type typ flow |> Z.to_int) in
-    debug "locate bitfield cell: field=%s, typ=%a, record=%a, size=%d" field.c_field_name pp_typ field.c_field_type pp_typ record_typ size; 
     let record =
       match remove_typedef_qual record_typ with
       | T_c_record r -> r
       | _ -> assert false
     in
-    debug "fields: %a" pp_record_fields record.c_record_fields;
     let rec iter = function
       | [] -> assert false
       | field' :: tl ->
-        debug "iter field'=%s, offset'=%d, typ'=%a" field'.c_field_name field'.c_field_offset pp_typ field'.c_field_type;
         match remove_typedef_qual field'.c_field_type with
         | T_c_bitfield(typ', width')
           when compare_typ (remove_typedef_qual typ) (remove_typedef_qual typ') = 0 ->
-          debug "same type";
           let rec iter2 acc_width = function
             | [] -> assert false
             | field'' :: tl ->
-              debug "iter2 acc_width=%d, field''=%s, typ''=%a" acc_width field''.c_field_name pp_typ field''.c_field_type;
               if field''.c_field_name = field.c_field_name then
-                let () = debug "iter field'=%s, offset'=%d, typ'=%a" field'.c_field_name field'.c_field_offset pp_typ field'.c_field_type in
                 field'.c_field_offset
               else
                 match remove_typedef_qual field''.c_field_type with
                 | T_c_bitfield(typ'', width'')
                   when compare_typ (remove_typedef_qual typ) (remove_typedef_qual typ'') = 0 ->
-                  let () = debug "width'' = %d" width'' in
                   if width'' + acc_width <= size then
-                    let () = debug "next bitfield" in
                     iter2 (width'' + acc_width) tl
                   else
-                    let () = debug "large width" in
                     iter tl
 
                 | _ -> iter tl
@@ -149,7 +140,6 @@ struct
         | _ -> iter tl
     in
     let offset = iter record.c_record_fields in
-    debug "offset located: %d" offset;
     offset, typ
 
   (** Transform an access to a bitfield into an access to the container scalar with appropriate bitwise operations *)
@@ -160,12 +150,6 @@ struct
     (* Mask of bitfield: 11..<WIDTH times>..1100..<OFFSET times>00 *)
     let width = match remove_typedef_qual field.c_field_type with T_c_bitfield(_, w) -> w | _ -> assert false in
     let mask = Z.shift_left (Z.pow (Z.of_int 2) width |> Z.pred) field.c_field_bit_offset in
-    debug "eval bitfield:@\nlval: %a@\nfield: %s@\ntype: %a@\nwidth: %d@\nmask: %s"
-      pp_expr lval
-      field.c_field_name
-      pp_typ t
-      width
-      (Z.format "%b" mask);
     (* Apply the mask on the cell and shift the result to the right *)
     mk_binop
       (mk_binop lval O_bit_and (mk_z mask range) ~etyp:t range)
@@ -199,15 +183,6 @@ struct
     (* Inverted mask of the bitfield to preserve the remaining part of the lval *)
     let size = sizeof_type lval.etyp flow |> Z.to_int in
     let inverted_field_mask = Z.logand (Z.lognot field_mask) (Z.pow (Z.of_int 2) (8 * size) |> Z.pred) in
-    debug "mask expr with bitfield:@\nlval: %a@\nfield: %s@\ntype: %a@\nwidth: %d@\nmask: %s@\nfield mask: %s@\nsize: %d@\ninverted mask: %s"
-      pp_expr lval
-      field.c_field_name
-      pp_typ lval.etyp
-      width
-      (Z.format "%b" mask)
-      (Z.format "%b" field_mask)
-      size
-      (Z.format "%b" inverted_field_mask);
     mk_binop
       (mk_binop lval O_bit_and (mk_z inverted_field_mask range) ~etyp:lval.etyp range)
       O_bit_or
@@ -352,8 +327,6 @@ struct
       | T_c_record{c_record_fields} -> c_record_fields
       | t -> panic_at ~loc:__LOC__ range "type %a is not a record" pp_typ t
     in
-    debug "fields of %a: %a" pp_typ typ pp_record_fields fields;
-    debug "init: %a" (Format.pp_print_option Pp.pp_c_init) init;
     match init with
     | None ->
       let rec aux acc1 acc2 = function
@@ -436,43 +409,31 @@ struct
 
     | Some (C_init_list([init], None)) ->
       let rec match_init_list_with_typ l typ =
-        debug "match_init_list_with_typ {%a} %a" (Format.pp_print_list ~pp_sep:(fun fmt () -> Format.pp_print_string fmt ", ") Pp.pp_c_init) l pp_typ typ;
         match remove_typedef_qual typ with
         | T_c_array(typ', _) ->
-          debug "a";
           List.for_all (fun init' -> match_init_with_typ init' typ') l
 
         | T_c_record r when r.c_record_kind = C_struct && List.length l <= List.length r.c_record_fields ->
-          debug "b";
           List.for_all (fun (i, init') ->
               let field = find_c_record_field i typ in
-              debug "matching init %a with field %s" Pp.pp_c_init init' field.c_field_name;
-              let b = match_init_with_typ init' field.c_field_type in
-              debug "matched init %a with field %s = %b" Pp.pp_c_init init' field.c_field_name b;
-              b
+              match_init_with_typ init' field.c_field_type
             ) (List.mapi (fun i init' -> i, init') l)
 
-        | _ -> debug "c"; false
+        | _ -> false
 
       and match_init_with_typ init typ =
-        debug "match_init_with_typ %a %a" Pp.pp_c_init init pp_typ typ;
         match init with
         | C_init_expr e ->
-          debug "1";
           compare_typ (remove_typedef_qual e.etyp) (remove_typedef_qual typ) = 0
 
         | C_init_list(l, filler) ->
-          debug "2";
           match_init_list_with_typ l typ
 
         | _ -> assert false
       in
       let field =
         List.find (fun field ->
-            debug "trying union field %s" field.c_field_name;
-            let b = match_init_with_typ init field.c_field_type in
-            debug "tried union field %s = %b" field.c_field_name b;
-            b
+            match_init_with_typ init field.c_field_type
           ) fields
       in
       flatten_init base (Some init) offset field.c_field_type range flow
