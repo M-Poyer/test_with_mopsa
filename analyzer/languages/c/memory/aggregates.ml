@@ -581,59 +581,79 @@ struct
                aux Z.zero acc
           ) (Post.return flow)
 
+  let copy_record_field lval rval field range man flow =
+    let lval' = mk_c_member_access lval field range in
+    let rval' = mk_c_member_access rval field range in
+    match field.c_field_type |> remove_typedef_qual with
 
-  (** 𝕊⟦ lval = rval; ⟧ when lval is a record *)
-  let assign_record lval rval range man flow =
+    | T_c_array(t,C_array_length_cst n) ->
+      (* Copying cell-by-cell may be expensive, so use memcpy instead *)
+      memcpy lval' rval' zero (mk_z Z.(n * sizeof_type t flow - one) range) range man flow
+
+    | T_c_array _ ->
+      (* Flexible array members are not copied (CC99 6.7.2.1.22) *)
+      Post.return flow
+
+    | _ ->
+      let stmt = mk_assign lval' rval' range in
+      man.exec stmt flow
+
+
+  (** 𝕊⟦ lval = rval; ⟧ when lval is a struct *)
+  let assign_struct lval rval range man flow =
     let rval = remove_casts rval in
 
     let t1 = lval |> etyp |> remove_typedef_qual
     and t2 = rval |> etyp |> remove_typedef_qual in
 
     if compare_typ t1 t2 <> 0 then
-      panic_at range "[%s] assignment of records with uncompatible \
+      panic_at range "[%s] assignment of struct with uncompatible \
                       types: %a %a" name pp_typ t1 pp_typ t2
     else
-      let fields, record_kind = match t1 with
-        | T_c_record{c_record_fields; c_record_kind} -> c_record_fields, c_record_kind
-        | _ -> assert false
-      in
-
       (* Get the fields to copy *)
-      let fields = 
-        match record_kind with
-        | C_struct -> fields
-        | C_union ->
-          (* In case of union get the field with the greatest size *)
-          let fieldopt, _ = List.fold_left (fun (accfield, accsize) field ->
-              let size = sizeof_type field.c_field_type flow in 
-              if Z.geq size accsize then
-                (Some field, size)
-              else (accfield, accsize)
-            ) (None, Z.zero) fields
-          in
-          match fieldopt with
-          | Some field -> [field]
-          | None -> panic_at range "[%s] all fields have size 0" name
+      let fields = match t1 with
+        | T_c_record{c_record_fields} -> c_record_fields
+        | _ -> assert false
       in
 
       (* Now copy the fields *)
       fields |> List.fold_left (fun acc field ->
-          let lval' = mk_c_member_access lval field range in
-          let rval' = mk_c_member_access rval field range in
-          match field.c_field_type |> remove_typedef_qual with
-
-          | T_c_array(t,C_array_length_cst n) ->
-            (* Copying cell-by-cell maybe expensive, so use memcpy instead *)
-            acc >>% memcpy lval' rval' zero (mk_z Z.(n * sizeof_type t flow - one) range) range man
-
-          | T_c_array _ ->
-            (* Flexible array members are not copied (CC99 6.7.2.1.22) *)
-            acc
-
-          | _ ->
-            let stmt = mk_assign lval' rval' range in
-            acc >>% man.exec stmt
+          acc >>% copy_record_field lval rval field range man
         ) (Post.return flow)
+
+  let assign_union lval rval range man flow =
+    let t1 = lval |> etyp |> remove_typedef_qual
+    and t2 = rval |> etyp |> remove_typedef_qual in
+    let fields = match t1 with
+      | T_c_record{c_record_fields} -> c_record_fields
+      | _ -> assert false
+    in
+    if compare_typ t1 t2 = 0 then
+      (* To copy a union, we just copy the largest field *)
+      let fieldopt, _ = List.fold_left (fun (accfield, accsize) field ->
+          let size = sizeof_type field.c_field_type flow in 
+          if Z.geq size accsize then
+            (Some field, size)
+          else (accfield, accsize)
+        ) (None, Z.zero) fields
+      in
+      match fieldopt with
+      | Some field ->
+        copy_record_field lval rval field range man flow
+
+      | None ->
+        panic_at range "[%s] all fields have size 0" name
+    else
+      (* Search for a field that has the same type as [rval] *)
+      let fieldopt = List.find_opt (fun field -> compare_typ (remove_typedef_qual field.c_field_type) t2 = 0) fields in
+      match fieldopt with
+      | Some field ->
+        let lval' = mk_c_member_access lval field range in
+        man.exec (mk_assign lval' rval range) flow
+
+      | None ->
+        panic_at range "[%s] %a doesn't contain a field of type %a" name pp_typ t1 pp_typ t2
+
 
   let assign_bitfield p i f e range man flow =
     let t0 = under_type p.etyp in
@@ -650,8 +670,13 @@ struct
       OptionExt.return
 
     | S_assign(lval, e)
-    | S_expression { ekind = E_c_assign (lval, e) } when is_c_record_type lval.etyp ->
-      assign_record lval e stmt.srange man flow |>
+    | S_expression { ekind = E_c_assign (lval, e) } when is_c_struct_type lval.etyp ->
+      assign_struct lval e stmt.srange man flow |>
+      OptionExt.return
+
+    | S_assign(lval, e)
+    | S_expression { ekind = E_c_assign (lval, e) } when is_c_union_type lval.etyp ->
+      assign_union lval e stmt.srange man flow |>
       OptionExt.return
 
     | S_assign({ekind = E_c_member_access(s, i, f)}, e)
