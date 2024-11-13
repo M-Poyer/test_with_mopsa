@@ -102,9 +102,9 @@ struct
     (Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt ", ") pp_record_field) fmt fields
 
   let locate_bitfield_cell field record_typ flow =
-    let typ, width =
+    let typ =
       match remove_typedef_qual field.c_field_type with
-      | T_c_bitfield(t, w) -> t, w
+      | T_c_bitfield(t, _) -> t
       | _ -> assert false
     in
     let size = 8 * (sizeof_type typ flow |> Z.to_int) in
@@ -128,7 +128,7 @@ struct
                 match remove_typedef_qual field''.c_field_type with
                 | T_c_bitfield(typ'', width'')
                   when compare_typ (remove_typedef_qual typ) (remove_typedef_qual typ'') = 0 ->
-                  if width'' + acc_width <= size then
+                  if width'' + acc_width < size then
                     iter2 (width'' + acc_width) tl
                   else
                     iter tl
@@ -667,8 +667,8 @@ struct
     let mask = Z.pow (Z.of_int 2) width |> Z.pred in
     let field_mask = Z.shift_left mask bitfield_offset in
     (* Inverted mask of the bitfield to preserve the remaining part of the cell *)
-    let size = sizeof_type t flow |> Z.to_int in
-    let inverted_field_mask = Z.logand (Z.lognot field_mask) (Z.pow (Z.of_int 2) (8 * size) |> Z.pred) in
+    let size = 8 * (sizeof_type t flow |> Z.to_int) in
+    let inverted_field_mask = Z.logand (Z.lognot field_mask) (Z.pow (Z.of_int 2) size |> Z.pred) in
     (** Mask the expression (cell & 00..0011..1100..00) | ((e & 11..11) << OFFSET) *)
     let e' =
       mk_binop
