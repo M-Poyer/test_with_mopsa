@@ -203,15 +203,15 @@ struct
 
   (** The following functions flatten the initialization expression
       into a list of scalar initializations *)
-  let rec flatten_init base init offset typ range flow =
-    if is_c_scalar_type typ then flatten_scalar_init base init offset typ range flow else
-    if is_c_array_type typ  then flatten_array_init base init offset typ range flow else
-    if is_c_record_type typ then flatten_record_init base init offset typ range flow
+  let rec flatten_init base init scope offset typ range flow =
+    if is_c_scalar_type typ then flatten_scalar_init base init scope offset typ range flow else
+    if is_c_array_type typ  then flatten_array_init base init scope offset typ range flow else
+    if is_c_record_type typ then flatten_record_init base init scope offset typ range flow
     else panic_at ~loc:__LOC__ range
         "init %a of type %a not supported"
         (OptionExt.print Pp.pp_c_init) init pp_typ typ
 
-  and flatten_scalar_init base init offset typ range flow =
+  and flatten_scalar_init base init scope offset typ range flow =
     match init with
     | None                 -> [],[(None, Z.one, offset, typ)]
     | Some (C_init_expr e) -> [(e, offset, typ)],[]
@@ -219,7 +219,7 @@ struct
     | Some (C_init_list ([C_init_expr e], _)) -> [(e, offset, typ)],[]
     | Some init -> panic_at range "unsupported scalar initializer %a for type %a" Pp.pp_c_init init pp_typ typ;
 
-  and flatten_array_init base init offset typ range flow =
+  and flatten_array_init base init scope offset typ range flow =
     if is_c_no_length_array_type typ
     || is_c_variable_length_array_type typ
     then [],[] else
@@ -237,7 +237,7 @@ struct
     (* a string literal can be optionally enclosed in braces *)
     | Some (C_init_list ([C_init_expr {ekind = E_constant(C_c_string _); } as i], _))
          when is_c_int_array_type typ ->
-       flatten_array_init base (Some i) offset typ range flow
+       flatten_array_init base (Some i) scope offset typ range flow
 
     | Some (C_init_list (l, filler)) ->
       let rec aux i l acc1 acc2 =
@@ -247,7 +247,7 @@ struct
         else
           match l with
           | elem::rest ->
-            let l1,l2 = flatten_init base (Some elem) o under_typ range flow in
+            let l1,l2 = flatten_init base (Some elem) scope o under_typ range flow in
             aux (i+1) rest (List.rev_append l1 acc1) (List.rev_append l2 acc2)
           | [] ->
             let remain = Z.sub n (Z.of_int i) in
@@ -317,7 +317,7 @@ struct
         then acc1,acc2
         else
           let init' = Some (C_init_expr (mk_lowlevel_subscript_access e (mk_int i e.erange) under_typ e.erange)) in
-          let l1,l2 = flatten_init base init' o under_typ range flow in
+          let l1,l2 = flatten_init base init' scope o under_typ range flow in
           aux (i+1) (List.rev_append l1 acc1) (List.rev_append l2 acc2)
       in
       let l1,l2 = aux 0 [] [] in
@@ -327,13 +327,13 @@ struct
              "flatten_array_init: %a is not supported"
              Pp.pp_c_init (OptionExt.none_to_exn init)
 
-  and flatten_record_init base init offset typ range flow =
+  and flatten_record_init base init scope offset typ range flow =
     match remove_typedef_qual typ with
-    | T_c_record{c_record_kind = C_struct} -> flatten_struct_init base init offset typ range flow
-    | T_c_record{c_record_kind = C_union}  -> flatten_union_init  base init offset typ range flow
+    | T_c_record{c_record_kind = C_struct} -> flatten_struct_init base init scope offset typ range flow
+    | T_c_record{c_record_kind = C_union}  -> flatten_union_init  base init scope offset typ range flow
     | _ -> assert false
 
-  and flatten_struct_init base init offset typ range flow =
+  and flatten_struct_init base init scope offset typ range flow =
     let fields =
       match remove_typedef_qual typ with
       | T_c_record{c_record_fields} -> c_record_fields
@@ -348,7 +348,7 @@ struct
           let l1, l2, tl =
             match remove_typedef_qual field.c_field_type with
             | T_c_bitfield(btyp, bwidth) ->
-              let l1, l2 = flatten_init base None o btyp range flow in
+              let l1, l2 = flatten_init base None scope o btyp range flow in
               let size = 8 * (Z.to_int @@ sizeof_type btyp flow) in
               let rec discard_same_scalar acc = function
                 | [] -> []
@@ -364,7 +364,7 @@ struct
               let tl = discard_same_scalar bwidth tl in
               l1, l2, tl
             | _ ->
-              let l1,l2 = flatten_init base None o field.c_field_type range flow in
+              let l1,l2 = flatten_init base None scope o field.c_field_type range flow in
               l1, l2, tl
           in
           aux (List.rev_append l1 acc1) (List.rev_append l2 acc2) tl
@@ -419,7 +419,7 @@ struct
                 | [] -> None, []
                 | init::tll -> Some init, tll
               in
-              let l1', l2' = flatten_init base init o field.c_field_type range flow in
+              let l1', l2' = flatten_init base init scope o field.c_field_type range flow in
               l1', l2', tl, tll
           in
           aux tll (List.rev_append l1 acc1) (List.rev_append l2 acc2) tl
@@ -432,7 +432,7 @@ struct
 
     | _ -> assert false
 
-  and flatten_union_init base init offset typ range flow =
+  and flatten_union_init base init scope offset typ range flow =
     let fields =
       match remove_typedef_qual typ with
       | T_c_record{c_record_fields} -> c_record_fields
@@ -441,7 +441,7 @@ struct
     match init with
     | None ->
       let field = List.hd fields in
-      flatten_init base init offset field.c_field_type range flow
+      flatten_union_field_init base init scope offset field range flow
 
     | Some (C_init_list([init], None)) ->
       let rec match_init_list_with_typ l typ =
@@ -484,13 +484,52 @@ struct
             match_init_with_typ init field.c_field_type
           ) fields
       in
-      flatten_init base (Some init) offset field.c_field_type range flow
+      flatten_union_field_init base (Some init) scope offset field range flow
+
 
     | Some (C_init_expr e) when is_c_record_type e.etyp ->
       [(e,offset,typ)],[]
 
     | Some init ->
       panic_at range "aggregate: union init %a not supported" Pp.pp_c_init init
+
+  and flatten_union_field_init base init scope offset field range flow =
+    match remove_typedef_qual field.c_field_type with
+    | T_c_bitfield(btyp, width) ->
+      assert(field.c_field_offset = 0);
+      let cell = mk_c_deref (mk_c_cast (mk_c_address_of (mk_var base range) range) (pointer_type btyp) range) range in
+      let mask = Z.pow (Z.of_int 2) width |> Z.pred in
+      let size = 8 * (sizeof_type btyp flow |> Z.to_int) in
+      let inverted_mask = Z.logand (Z.lognot mask) (Z.pow (Z.of_int 2) size |> Z.pred) in
+      let init =
+        match init with
+        | Some C_init_expr e when is_c_global_scope scope ->
+          mk_binop e O_bit_and (mk_z mask range) ~etyp:btyp range |>
+          Option.some
+
+        | Some C_init_expr e ->
+          mk_binop
+            (mk_binop cell O_bit_and (mk_z inverted_mask range) ~etyp:btyp range)
+            O_bit_or
+            (mk_binop e O_log_and (mk_z mask range) ~etyp:btyp range)
+            ~etyp:btyp range |>
+          Option.some
+
+        | None when is_c_global_scope scope ->
+          mk_zero ~typ:btyp range |>
+          Option.some
+
+        | None ->
+          None
+
+        | _ -> assert false
+      in
+      let init = Option.map (fun e -> C_init_expr e) init in
+      flatten_init base init scope offset btyp range flow
+
+    | _ ->
+      flatten_init base init scope offset field.c_field_type range flow
+
 
   let mk_typed_zero typ range =
     if is_c_int_type typ then
@@ -507,7 +546,7 @@ struct
   (** 𝕊⟦ type v = init; ⟧ *)
   let declare v init scope range man flow =
     man.exec (mk_add_var v range) flow >>% fun flow ->
-    let initl,fill = flatten_init v init Z.zero v.vtyp range flow in
+    let initl,fill = flatten_init v init scope Z.zero v.vtyp range flow in
 
     (* Scalar variables can be handed directly by the underlying low-level domain *)
     if is_c_scalar_type v.vtyp then
