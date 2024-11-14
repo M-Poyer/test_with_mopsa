@@ -455,6 +455,13 @@ struct
               match_init_with_typ init' field.c_field_type
             ) (List.mapi (fun i init' -> i, init') l)
 
+        | T_c_record r when r.c_record_kind = C_union && List.length l = 1 ->
+          let init' = List.hd l in
+          List.exists (fun field ->
+              match_init_with_typ init' field.c_field_type
+            ) r.c_record_fields
+
+
         | _ -> false
 
       and match_init_with_typ init typ =
