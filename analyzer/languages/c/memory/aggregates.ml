@@ -607,7 +607,7 @@ struct
              if Z.(bytes >= of_int !opt_init_memset_threshold) then
                let i = mk_zero range in
                let j = mk_z Z.(pred bytes) range in
-               memset base (mk_zero range) i j range man flow
+               acc >>% memset base (mk_zero range) i j range man
              else
                (* Otherwise, use assignments *)
                let rec aux i acc =
