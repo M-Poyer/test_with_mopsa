@@ -731,7 +731,7 @@ struct
       mk_binop
         (mk_binop cell O_bit_and (mk_z inverted_field_mask range) ~etyp:t range)
         O_bit_or
-        (mk_binop (mk_binop e O_log_and (mk_z mask range) ~etyp:e.etyp range) O_bit_lshift (mk_int bitfield_offset range) ~etyp:e.etyp range)
+        (mk_binop (mk_binop e O_bit_and (mk_z mask range) ~etyp:e.etyp range) O_bit_lshift (mk_int bitfield_offset range) ~etyp:e.etyp range)
         ~etyp:t range
     in
     man.exec (mk_assign cell e' range) flow
