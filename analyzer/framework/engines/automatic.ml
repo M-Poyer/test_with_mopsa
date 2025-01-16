@@ -65,10 +65,17 @@ struct
 
   and man : (Toplevel.t, Toplevel.t) man = {
     lattice;
-    get = (fun a -> a);
-    set = (fun a _ -> a);
-    get_effects = (fun e -> e);
-    set_effects = (fun e _ -> e);
+    get = (fun tk flow ->
+        let abs = Flow.get tk lattice flow in
+        Cases.singleton abs flow
+      );
+    set = (fun tk abs flow ->
+        let flow = Flow.set tk abs lattice flow in
+        Post.return flow
+      );
+    add_change = (fun stmt path flow change_map ->
+       add_stmt_to_change_map stmt (List.rev path) change_map
+      );
     exec = exec;
     eval = eval;
     ask = ask;

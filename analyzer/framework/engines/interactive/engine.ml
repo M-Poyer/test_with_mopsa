@@ -331,21 +331,21 @@ struct
   (** {2 Engine functions} *)
   (** ******************** *)
 
-  and subset a a' =
+  and subset ctx a a' =
     state.depth <- state.depth + 1;
-    let b = Toplevel.subset man a a' in
+    let b = Toplevel.subset man ctx a a' in
     state.depth <- state.depth - 1;
     b
 
-  and join a a' =
+  and join ctx a a' =
     state.depth <- state.depth + 1;
-    let aa = Toplevel.join man a a' in
+    let aa = Toplevel.join man ctx a a' in
     state.depth <- state.depth - 1;
     aa
 
-  and meet a a' =
+  and meet ctx a a' =
     state.depth <- state.depth + 1;
-    let aa = Toplevel.meet man a a' in
+    let aa = Toplevel.meet man ctx a a' in
     state.depth <- state.depth - 1;
     aa
 
@@ -363,9 +363,11 @@ struct
     try
       init_state state;
       let ret =
-        exec stmt flow |>
-        post_to_flow man
-      in
+        (
+          exec stmt flow >>% fun flow ->
+          exec (mk_stmt (S_block ([], [])) (tag_range stmt.srange "end")) flow
+        )
+        |> post_to_flow man in
       Interface.finish man ret;
       ret
     with
@@ -388,7 +390,7 @@ struct
 
   and ask : type r. ?route:route -> (Toplevel.t,r) query -> Toplevel.t flow -> (Toplevel.t, r) cases =
     fun ?(route=toplevel)query flow ->
-      Toplevel.ask query man flow
+      Toplevel.ask ~route query man flow
 
   and print_expr ?(route=toplevel) flow printer exp =
     Toplevel.print_expr ~route man flow printer exp
@@ -397,20 +399,27 @@ struct
     bottom = Toplevel.bottom;
     top = Toplevel.top;
     is_bottom = Toplevel.is_bottom;
-    subset = (fun a a' -> Toplevel.subset man a a');
-    join = (fun a a' -> Toplevel.join man a a');
-    meet = (fun a a' -> Toplevel.meet man a a');
-    widen = (fun ctx a a' -> Toplevel.widen man ctx a a');
+    subset;
+    join;
+    meet;
+    widen;
     merge = Toplevel.merge;
     print = Toplevel.print_state;
   }
 
   and man : (Toplevel.t, Toplevel.t) man = {
     lattice;
-    get = (fun a -> a);
-    set = (fun a _ -> a);
-    get_effects = (fun e -> e);
-    set_effects = (fun e _ -> e);
+    get = (fun tk flow ->
+        let abs = Flow.get tk lattice flow in
+        Cases.singleton abs flow
+      );
+    set = (fun tk abs flow ->
+        let flow = Flow.set tk abs lattice flow in
+        Post.return flow
+      );
+    add_change = (fun stmt path flow change_map ->
+       add_stmt_to_change_map stmt (List.rev path) change_map
+      );
     exec = exec;
     eval = eval;
     ask = ask;
