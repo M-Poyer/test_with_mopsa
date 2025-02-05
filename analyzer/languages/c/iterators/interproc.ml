@@ -376,6 +376,24 @@ struct
       Eval.empty
     else
     let flow = safe_c_incorrect_number_of_arguments_check range man flow in
+    (* Add casts around arguments to match the types of the parameters. Ignore unnamed arguments. *)
+    let args =
+      let rec iter args params =
+        match args, params with
+        | _, [] -> args (* Unnamed (extra) arguments are ignored *)
+        | [], _ -> assert false (* Not possible because of the previous check *)
+        | arg :: args', param :: params' ->
+          (* Cast argument to parameter type if needed *)
+          let arg =
+            if compare_typ (remove_typedef_qual arg.etyp) (remove_typedef_qual param.vtyp) = 0 then
+              arg
+            else
+              mk_c_cast arg param.vtyp arg.erange
+          in
+          arg :: iter args' params'
+      in
+      iter args fundec.c_func_parameters
+    in
     let fundec_has_been_modified = ref false in 
     if List.length args > 0 && List.length fundec.c_func_parameters > 0 then
       debug "%s %a %a" fundec.c_func_org_name pp_typ (List.hd fundec.c_func_parameters).vtyp pp_typ (List.hd args).etyp;
