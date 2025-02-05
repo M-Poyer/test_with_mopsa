@@ -31,6 +31,7 @@ open Common.Points_to
 open Common.Scope_update
 open Common.Builtins
 open Universal.Iterators.Interproc.Common
+open Common.Alarms
 
 
 
@@ -68,7 +69,7 @@ struct
       let name = "c.iterators.interproc"
     end)
 
-  let checks = []
+  let checks = [CHK_C_INCORRECT_NUMBER_OF_ARGUMENTS]
 
 
   (** {2 Lattice operators} *)
@@ -367,6 +368,14 @@ struct
 
   (** Eval a function call *)
   let eval_call fundec args range man flow =
+    (* Check the number of arguments *)
+    if List.length args < List.length fundec.c_func_parameters ||
+      (List.length args > List.length fundec.c_func_parameters && not fundec.c_func_variadic)
+    then
+      raise_c_incorrect_number_of_arguments_alarm fundec args range man flow |>
+      Eval.empty
+    else
+    let flow = safe_c_incorrect_number_of_arguments_check range man flow in
     let fundec_has_been_modified = ref false in 
     if List.length args > 0 && List.length fundec.c_func_parameters > 0 then
       debug "%s %a %a" fundec.c_func_org_name pp_typ (List.hd fundec.c_func_parameters).vtyp pp_typ (List.hd args).etyp;
