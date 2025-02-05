@@ -110,7 +110,7 @@ int sidef() { return ++x; }
 int test_sideeffect() {
   x = 0;
   int r = 0;
-  switch(sidef(x)) {
+  switch(sidef()) {
   case 0:
       r = 0;
       break;
