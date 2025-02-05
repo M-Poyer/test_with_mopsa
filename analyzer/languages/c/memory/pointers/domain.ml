@@ -83,14 +83,23 @@ struct
         ~custom:(fun stmt ->
             match skind stmt with
             | S_c_declaration (var,init,scope) ->
-              Some Effect.{ modified = VarSet.singleton var; removed = VarSet.empty }
+              Some { modified = VarSet.singleton var; removed = VarSet.empty }
 
             | S_assign ({ekind = E_c_deref _},_)
             | S_forget ({ekind = E_c_deref _}) ->
-              (* We can ignore theses statements because we transform then into statements
+              (* We do not want to log statements with dereferences in the changes. These statements are
+                 handled by the manager which translates them into equivalent statements
                  with variables, and we use the manager to execute them. Therefore, we are
-                 sure that the statements with variables are logged in the effects. *)
-              Some Effect.{ modified = VarSet.empty; removed = VarSet.empty }
+                 sure that the statements with variables are logged in the changes. *)
+              Some { modified = VarSet.empty; removed = VarSet.empty }
+
+            | S_invalidate {ekind = E_var (v, _)} ->
+              let relevant_vars = PointerSet.fold
+                  (fun pv acc -> match pv with 
+                                       | Base {base_kind = Var v} -> VarSet.add v acc
+                                       | _ -> acc)
+                  (Map.find v pre) VarSet.empty in
+              Some { modified = relevant_vars; removed = VarSet.empty }
 
             | _ -> None
           ) in
@@ -219,7 +228,7 @@ struct
     | None -> Post.return flow
     | Some (p,mode) ->
       if PointerSet.is_valid v && not (PointerSet.is_valid v')
-      then man.exec ~route:universal (mk_remove (mk_offset p mode range) range) flow
+      then man.exec  (mk_remove (mk_offset p mode range) range) flow
       else Post.return flow
 
 
@@ -247,9 +256,9 @@ struct
               | false, false -> Post.return flow
               | true, true -> Post.return flow
               | false, true ->
-                man.exec ~route:universal (mk_add o exp.erange) flow >>% fun flow ->
-                man.exec ~route:universal (mk_assign (strongify_var_expr o) offset exp.erange) flow
-              | true, false -> man.exec ~route:universal (mk_remove o exp.erange) flow
+                man.exec  (mk_add o exp.erange) flow >>% fun flow ->
+                man.exec  (mk_assign (strongify_var_expr o) offset exp.erange) flow
+              | true, false -> man.exec  (mk_remove o exp.erange) flow
             ) >>% fun flow ->
             Cases.singleton pt flow
           ) :: acc
@@ -341,7 +350,7 @@ struct
        update the offset variable. *)
     | true, true, Some offset ->
       man.eval offset flow ~translate:"Universal" >>$ fun offset flow ->
-      man.exec ~route:universal (mk_assign o offset range) flow
+      man.exec  (mk_assign o offset range) flow
 
     (* The pointer set was valid and is still valid, but there is no offeset to
        update. *)
@@ -356,14 +365,14 @@ struct
     (* The pointer set was not valid and became valid with some offeset: we must
        add the offset variable and assign it. *)
     | false, true, Some offset ->
-      man.exec ~route:universal (mk_add o range) flow >>% fun flow ->
+      man.exec  (mk_add o range) flow >>% fun flow ->
       man.eval offset flow ~translate:"Universal" >>$ fun offset flow ->
-      man.exec ~route:universal (mk_assign (strongify_var_expr o) offset range) flow
+      man.exec  (mk_assign (strongify_var_expr o) offset range) flow
 
     (* The pointer set was valid and it is no longer: we must remove the offset
        variable. *)
     | true, false, _ ->
-      man.exec ~route:universal (mk_remove o range) flow
+      man.exec  (mk_remove o range) flow
 
     | false, true, None -> assert false
 
@@ -391,14 +400,14 @@ struct
   let add_pointer_var p range man flow =
     let o = mk_offset p None range in
     map_env T_cur (Map.set p PointerSet.top) man flow >>%
-    man.exec ~route:universal (mk_add o range)
+    man.exec  (mk_add o range)
 
 
   (** Remove a pointer variable from the support of the non-rel map *)
   let remove_pointer_var p range man flow =
     let o = mk_offset p None range in
     map_env T_cur (Map.remove p) man flow >>%
-    man.exec ~route:universal (mk_remove o range)
+    man.exec  (mk_remove o range)
 
 
   (** Rename a pointer variable *)
@@ -413,7 +422,7 @@ struct
     if PointerSet.is_valid a1 then
       let o1 = mk_offset p1 None range in
       let o2 = mk_offset p2 None range in
-      man.exec ~route:universal (mk_rename o1 o2 range) flow
+      man.exec  (mk_rename o1 o2 range) flow
     else
       Post.return flow
 
@@ -509,7 +518,7 @@ struct
       | None -> Post.return flow
       | Some cond ->
         man.eval cond flow ~translate:"Universal" >>$ fun cond flow ->
-        man.exec ~route:universal (mk_assume cond range) flow
+        man.exec  (mk_assume cond range) flow
 
 
 
@@ -538,7 +547,7 @@ struct
           set_value_opt p2 v man flow >>% fun flow ->
           let cond = mk_binop o1 O_ne o2 ~etyp:T_int range in
           man.eval cond flow ~translate:"Universal" >>$ fun cond flow ->
-          man.exec ~route:universal (mk_assume cond range) flow
+          man.exec  (mk_assume cond range) flow
         ]
     in
 
@@ -603,7 +612,7 @@ struct
           | None -> Post.return flow
           | Some cond ->
             man.eval cond flow ~translate:"Universal" >>$ fun cond flow ->
-            man.exec ~route:universal (mk_assume cond range) flow
+            man.exec  (mk_assume cond range) flow
         ]
     in
 
@@ -652,7 +661,7 @@ struct
       let o = mk_offset p None range in
       let ol = List.map (fun q -> mk_offset q None range) ql in
       let stmt = mk_expand o ol range in
-      man.exec stmt ~route:universal flow
+      man.exec stmt  flow
     else
       Post.return flow
 
@@ -679,7 +688,7 @@ struct
           else None
         ) ql in
       let stmt = mk_fold o ol range in
-      man.exec stmt ~route:universal flow
+      man.exec stmt  flow
     else
       Post.return flow
 
@@ -698,7 +707,7 @@ struct
       else
         mk_add o range
     in
-    man.exec stmt ~route:universal flow
+    man.exec stmt  flow
 
   let assign_deref ptr e range man flow =
     let ctype = under_type ptr.etyp in
@@ -942,12 +951,23 @@ struct
   let eval exp man flow =
     match ekind exp with
     (* 𝔼⟦ (t)p - (t)q | t is a numeric type ⟧ *)
-    | E_binop(O_minus, { ekind = E_c_cast(p, _); etyp = t1 }, { ekind = E_c_cast(q, _); etyp = t2 })
+    | E_binop(O_minus, ({ ekind = E_c_cast(p, pb); etyp = t1 } as pc), ({ ekind = E_c_cast(q, qb); etyp = t2 } as qc))
       when is_c_pointer_type p.etyp &&
            is_c_pointer_type q.etyp &&
            is_c_int_type t1 &&
            compare_typ t1 t2 = 0
       ->
+      let elem_size_p = sizeof_type (under_type p.etyp |> void_to_char) flow in
+      let elem_size_q = sizeof_type (under_type q.etyp |> void_to_char) flow in
+      if not @@ Z.equal elem_size_p elem_size_q then
+        let inject_ucharptr_cast p pb pc =
+          let p' = mk_c_cast p (T_c_pointer (T_c_integer C_unsigned_char)) p.erange in
+          {pc with ekind = E_c_cast(p', pb)} in
+        let pc' = inject_ucharptr_cast p pb pc in
+        let qc' = inject_ucharptr_cast q qb qc in
+        man.eval {exp with ekind = E_binop(O_minus, pc', qc')} flow |>
+        OptionExt.return
+      else
       (* (t)p - (t) q is transformed into (t)(p - q) * |t0|,
          where |t0| is the size the type pointed by p
       *)
@@ -1189,7 +1209,7 @@ struct
               ) v;
           if PointerSet.is_valid v then
             let o = mk_offset var None exp.erange in
-            man.print_expr flow printer o ~route:universal
+            man.print_expr flow printer o 
         )
 
     | _ -> ()

@@ -187,7 +187,7 @@ let report man flow ~time ~files ~out : unit =
   print out json
 
 
-let panic exn ~btrace ~time ~files ~out =
+let panic exn ~btrace ~time ~files ~out _ =
   let open Exceptions in
   let error,range,cs =
     match exn with
@@ -252,6 +252,14 @@ let help (args:arg list) ~out =
 let list_domains (domains:string list) ~out =
   let json = `List (
       domains |>
+      List.map (fun d -> `String d)
+    )
+  in
+  print out json
+
+let list_reductions (reductions:string list) ~out =
+  let json = `List (
+      reductions |>
       List.map (fun d -> `String d)
     )
   in

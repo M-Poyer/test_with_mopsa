@@ -228,7 +228,7 @@ struct
         let length = mk_length_var base elem_size range in
         let size = elem_of_offset bsize elem_size range in
 
-        man.exec ~route:universal (mk_add length range) flow >>% fun flow ->
+        man.exec  (mk_add length range) flow >>% fun flow ->
         man.exec (mk_assume (mk_in length (mk_zero range) size range) range) flow
 
 
@@ -242,7 +242,7 @@ struct
 
       | _ ->
         let length = mk_length_var base elem_size range in
-        man.exec ~route:universal (mk_remove length range) flow
+        man.exec  (mk_remove length range) flow
 
 
   (** 𝕊⟦ rename(base1,base2); ⟧ *)
@@ -253,7 +253,7 @@ struct
     else
       let length1 = mk_length_var base1 elem_size range in
       let length2 = mk_length_var base2 elem_size range in
-      man.exec ~route:universal (mk_rename length1 length2 range) flow
+      man.exec  (mk_rename length1 length2 range) flow
 
 
   (** 𝕊⟦ expand(base,bases); ⟧ *)
@@ -275,7 +275,7 @@ struct
       if lengths = [] then
         Post.return flow
       else
-        man.exec ~route:universal (mk_expand length1 lengths range) flow
+        man.exec  (mk_expand length1 lengths range) flow
 
 
   (** Fold the length variable of a base *)
@@ -295,10 +295,10 @@ struct
       if lengths = [] then
          eval_base_size base range man flow >>$ fun bsize flow ->
          let size = elem_of_offset bsize elem_size range in
-         man.exec ~route:universal (mk_forget length range) flow >>% fun flow ->
+         man.exec  (mk_forget length range) flow >>% fun flow ->
          man.exec (mk_assume (mk_in length (mk_zero range) size range) range) flow
       else
-        man.exec ~route:universal (mk_fold length lengths range) flow
+        man.exec  (mk_fold length lengths range) flow
 
 
   (** 𝕊⟦ forget(e); ⟧ *)
@@ -318,7 +318,7 @@ struct
           let length = mk_length_var base elem_size range in
           eval_base_size base range man flow >>$ fun bsize flow ->
           let size = elem_of_offset bsize elem_size range in
-          man.exec ~route:universal (mk_forget length range) flow >>% fun flow ->
+          man.exec  (mk_forget length range) flow >>% fun flow ->
           man.exec (mk_assume (mk_in length (mk_zero range) size range) range) flow
 
 
@@ -337,7 +337,7 @@ struct
         let length = mk_length_var base elem_size range in
         eval_base_size base range man flow >>$ fun bsize flow ->
         let size = elem_of_offset bsize elem_size range in
-        man.exec ~route:universal (mk_forget length range) flow >>% fun flow ->
+        man.exec  (mk_forget length range) flow >>% fun flow ->
         man.exec (mk_assume (mk_in length (mk_zero range) size range) range) flow
 
 
@@ -390,7 +390,8 @@ struct
             (* Transformation: length := offset; *)
             [ mk_in offset zero length range;
               mk_eq rhs zero range ],
-            (fun flow -> man.exec ~route:universal (mk_assign length offset range) flow)
+            (fun flow ->
+               man.exec  (mk_assign length offset range) flow)
             ;
 
             (* setnon0 case *)
@@ -421,7 +422,7 @@ struct
           ] man flow
 
         else
-          man.exec ~route:universal (mk_forget length range) flow
+          man.exec  (mk_forget length range) flow
 
 
   (** Transformers entry point *)
@@ -526,10 +527,21 @@ struct
          man.eval (mk_top ctype range) flow
       else
         match base.base_kind with
-        | String (str,_,t) when equal_int_types t ctype flow ->
-          eval_string_literal_char str t offset range man flow
+        | String (str,_,t) ->
+          if equal_int_types t ctype flow then
+            (* FIXME: is this necessary? *)
+            eval_string_literal_char str t offset range man flow
+          else
+            man.eval (mk_top ctype range) flow
         | _ ->
-          man.eval (mk_top ctype range) flow
+          if Z.equal (sizeof_type ctype flow) (Z.of_int elem_size) then
+            let length = mk_length_var base elem_size ~mode range in
+            assume (eq offset length range) man flow
+              ~fthen:(man.eval (mk_zero range))
+              ~felse:(man.eval (mk_top ctype range))
+              ~fboth:(fun _ _ -> man.eval (mk_top ctype range) flow)
+          else
+            man.eval (mk_top ctype range) flow
 
 
 
@@ -636,8 +648,8 @@ struct
     man.eval bsize flow >>$ fun bsize flow ->
     let size = elem_of_offset bsize elem_size range in
     (* Ensure that [min, max] ⊆ [0, size-1] *)
-    man.exec (mk_assume (ge min zero range) range) ~route:universal flow >>% fun flow ->
-    man.exec (mk_assume (le max (pred size range) range) range) ~route:universal flow >>% fun flow ->
+    man.exec (mk_assume (ge min zero range) range)  flow >>% fun flow ->
+    man.exec (mk_assume (le max (pred size range) range) range)  flow >>% fun flow ->
     switch [
       (*          length    min     max
          |-----------0-------|nnnnnnnn|------>
@@ -796,7 +808,7 @@ struct
             (fun flow -> Cases.empty flow);
 
             [ log_and cover1 cover2 range ],
-            (fun flow -> man.exec (mk_assume (eq (sub length1 min1 range) (sub length2 min2 range) range) range) ~route:universal flow);
+            (fun flow -> man.exec (mk_assume (eq (sub length1 min1 range) (sub length2 min2 range) range) range)  flow);
           ] man flow
 
   let assume_exists_ne2 i a b base1 boffset1 mode1 ctype1 base2 boffset2 mode2 ctype2 range man flow =
