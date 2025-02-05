@@ -368,6 +368,19 @@ struct
 
   (** Eval a function call *)
   let eval_call fundec args range man flow =
+    let fundec_has_been_modified = ref false in 
+    if List.length args > 0 && List.length fundec.c_func_parameters > 0 then
+      debug "%s %a %a" fundec.c_func_org_name pp_typ (List.hd fundec.c_func_parameters).vtyp pp_typ (List.hd args).etyp;
+    if fundec.c_func_org_name = "__builtin_alloca" then
+      match args with
+      | [size] -> eval_alloca_call size range man flow
+      | _ -> panic_at range "invalid call to alloca"
+    else
+    if is_builtin_function fundec.c_func_org_name
+    then
+      let exp' = mk_expr (E_c_builtin_call(fundec.c_func_org_name, args)) ~etyp:fundec.c_func_return range in
+      man.eval exp' flow
+    else
     (* Check the number of arguments *)
     if List.length args < List.length fundec.c_func_parameters ||
       (List.length args > List.length fundec.c_func_parameters && not fundec.c_func_variadic)
@@ -394,19 +407,6 @@ struct
       in
       iter args fundec.c_func_parameters
     in
-    let fundec_has_been_modified = ref false in 
-    if List.length args > 0 && List.length fundec.c_func_parameters > 0 then
-      debug "%s %a %a" fundec.c_func_org_name pp_typ (List.hd fundec.c_func_parameters).vtyp pp_typ (List.hd args).etyp;
-    if fundec.c_func_org_name = "__builtin_alloca" then
-      match args with
-      | [size] -> eval_alloca_call size range man flow
-      | _ -> panic_at range "invalid call to alloca"
-    else
-    if is_builtin_function fundec.c_func_org_name
-    then
-      let exp' = mk_expr (E_c_builtin_call(fundec.c_func_org_name, args)) ~etyp:fundec.c_func_return range in
-      man.eval exp' flow
-    else
       (* in the case f(cond) where cond is a boolean, f is not too difficult,
          we rewrite it into if(cond) f(1) else f(0) to gain precision *)
     if is_c_fun_boolean_predicate fundec args man flow && not @@ is_c_constant @@ List.hd args then
