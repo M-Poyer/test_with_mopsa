@@ -276,7 +276,8 @@ struct
       user_packs_of_cvar cvar
 
     (* Formal scalar parameters are part of the caller and the callee packs *)
-    | Var { vkind = V_cvar {cvar_scope = Variable_parameter f}; vtyp }
+    | Var ({ vkind = V_cvar {cvar_scope = Variable_parameter f}; vtyp })
+    | Var ({ vkind = V_var_attr ({ vkind = V_cvar {cvar_scope = Variable_parameter f}; vtyp }, _) })
       when is_c_scalar_type vtyp
       ->
       let cs = find_ctx Context.callstack_ctx_key ctx in
