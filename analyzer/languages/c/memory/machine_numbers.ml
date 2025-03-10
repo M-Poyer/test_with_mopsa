@@ -61,7 +61,7 @@ struct
       key = "-c-check-signed-arithmetic-overflow";
       category = "C";
       doc = " check overflows in signed integer arithmetic";
-      spec = ArgExt.Bool (fun b -> opt_signed_arithmetic_overflow := b);
+      spec = Bool (fun b -> opt_signed_arithmetic_overflow := b);
       default = "true";
     }
 
@@ -71,7 +71,7 @@ struct
       key = "-c-check-unsigned-arithmetic-overflow";
       category = "C";
       doc = " check overflows in unsigned integer arithmetic";
-      spec = ArgExt.Bool (fun b -> opt_unsigned_arithmetic_overflow := b);
+      spec = Bool (fun b -> opt_unsigned_arithmetic_overflow := b);
       default = "false";
     }
 
@@ -81,7 +81,7 @@ struct
       key = "-c-check-signed-implicit-cast-overflow";
       category = "C";
       doc = " check overflows in implicit casts to signed integer";
-      spec = ArgExt.Bool (fun b -> opt_signed_implicit_cast_overflow := b);
+      spec = Bool (fun b -> opt_signed_implicit_cast_overflow := b);
       default = "true";
     }
 
@@ -91,7 +91,7 @@ struct
       key = "-c-check-unsigned-implicit-cast-overflow";
       category = "C";
       doc = " check overflows in implicit casts to unsigned integer";
-      spec = ArgExt.Bool (fun b -> opt_unsigned_implicit_cast_overflow := b);
+      spec = Bool (fun b -> opt_unsigned_implicit_cast_overflow := b);
       default = "true";
     }
 
@@ -102,7 +102,7 @@ struct
       key = "-c-check-explicit-cast-overflow";
       category = "C";
       doc = " check overflows in explicit casts";
-      spec = ArgExt.Bool (fun b -> opt_explicit_cast_overflow := b);
+      spec = Bool (fun b -> opt_explicit_cast_overflow := b);
       default = "false";
     }
 
@@ -113,7 +113,7 @@ struct
       key = "-c-check-float-invalid-operation";
       category = "C";
       doc = " invalid float operations generate errors instead of silent NaN";
-      spec = ArgExt.Bool (fun b -> opt_float_invalid_operation := b);
+      spec = Bool (fun b -> opt_float_invalid_operation := b);
       default = "false";
     }
 
@@ -123,7 +123,7 @@ struct
       key = "-c-check-float-division-by-zero";
       category = "C";
       doc = " float divisions by 0 generate errors instead of infinities";
-      spec = ArgExt.Bool (fun b -> opt_float_division_by_zero := b);
+      spec = Bool (fun b -> opt_float_division_by_zero := b);
       default = "false";
     }
 
@@ -133,7 +133,7 @@ struct
       key = "-c-check-float-overflow";
       category = "C";
       doc = " float overflows generate errors";
-      spec = ArgExt.Bool (fun b -> opt_float_overflow := b);
+      spec = Bool (fun b -> opt_float_overflow := b);
       default = "false";
     }
 
@@ -143,7 +143,7 @@ struct
       key = "-c-check-overflows-with-relational";
       category = "C";
       doc = " check for overflows using the relational abstract domains too (more expensive but can be more precise)";
-      spec = ArgExt.Clear opt_mnum_fast_query;
+      spec = Clear opt_mnum_fast_query;
       default = string_of_bool !opt_mnum_fast_query;
     }
 
@@ -658,9 +658,9 @@ struct
     in
 
     init' >>$ fun init' flow ->
-    man.exec (mk_add vv range) flow ~route:universal >>% fun flow ->
+    man.exec (mk_add vv range) flow  >>% fun flow ->
     add_var_bounds vv v.vtyp flow |>
-    man.exec (mk_assign vv init' range) ~route:universal
+    man.exec (mk_assign vv init' range) 
 
 
   let exec stmt man flow =
@@ -672,7 +672,7 @@ struct
     | S_assign({ekind = E_var _} as lval, rval) when etyp lval |> is_c_num_type ->
       let lval' = mk_num_var_expr lval in
       man.eval ~translate:"Universal" rval flow >>$? fun rval' flow ->
-      man.exec (mk_assign lval' rval' stmt.srange) flow ~route:universal |>
+      man.exec (mk_assign lval' rval' stmt.srange) flow  |>
       OptionExt.return
 
     | S_assume(e) when is_c_num_type e.etyp ->
@@ -680,19 +680,19 @@ struct
       begin match expr_to_z e' with
         | Some n when Z.(n = zero) -> Post.return (Flow.remove T_cur flow)
         | Some n                   -> Post.return flow
-        | None                     -> man.exec (mk_assume e' stmt.srange) flow ~route:universal
+        | None                     -> man.exec (mk_assume e' stmt.srange) flow 
       end |>
       OptionExt.return
 
     | S_add ({ekind = E_var _} as v) when is_c_num_type v.etyp ->
       let vv = mk_num_var_expr v in
       add_var_bounds vv v.etyp flow |>
-      man.exec (mk_add vv stmt.srange) ~route:universal |>
+      man.exec (mk_add vv stmt.srange)  |>
       OptionExt.return
 
     | S_remove ({ekind = E_var _} as v) when is_c_num_type v.etyp ->
       let vv = mk_num_var_expr v in
-      man.exec (mk_remove vv stmt.srange) flow ~route:universal |>
+      man.exec (mk_remove vv stmt.srange) flow  |>
       OptionExt.return
 
     | S_rename(({ekind = E_var _} as v1), ({ekind = E_var _} as v2))
@@ -701,7 +701,7 @@ struct
       ->
       let vv1 = mk_num_var_expr v1 in
       let vv2 = mk_num_var_expr v2 in
-      man.exec (mk_rename vv1 vv2 stmt.srange) flow ~route:universal |>
+      man.exec (mk_rename vv1 vv2 stmt.srange) flow  |>
       OptionExt.return
 
     | S_expand({ekind = E_var _} as e, el)
@@ -710,7 +710,7 @@ struct
       ->
       let v = mk_num_var_expr e in
       let vl = List.map mk_num_var_expr el in
-      man.exec (mk_expand v vl stmt.srange) flow ~route:universal |>
+      man.exec (mk_expand v vl stmt.srange) flow  |>
       OptionExt.return
 
     | S_fold(({ekind = E_var _} as e),el)
@@ -719,7 +719,7 @@ struct
       ->
       let v = mk_num_var_expr e in
       let vl = List.map mk_num_var_expr el in
-      man.exec (mk_fold v vl stmt.srange) flow ~route:universal |>
+      man.exec (mk_fold v vl stmt.srange) flow  |>
       OptionExt.return
 
     | S_forget ({ekind = E_var _} as v) when is_c_num_type v.etyp ->
@@ -731,7 +731,7 @@ struct
         else
           mk_top vv.etyp stmt.srange
       in
-      man.exec (mk_assign vv top stmt.srange) flow ~route:universal |>
+      man.exec (mk_assign vv top stmt.srange) flow  |>
       OptionExt.return
 
     | _ -> None

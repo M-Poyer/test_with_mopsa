@@ -111,7 +111,7 @@ struct
       key      = "-c-pack";
       category = "Numeric";
       doc      = " create a pack of variables (syntax: var,%function,%function.var,@resource)";
-      spec     = ArgExt.String parse_user_pack;
+      spec     = String (parse_user_pack, ArgExt.empty);
       default  = "";
     }
 
@@ -124,7 +124,7 @@ struct
       key      = "-c-pack-symargs";
       category = "Numeric";
       doc      = " create a user pack for variables related to symbolic arguments. This is equivalent to -c-pack=" ^ symargs_pack_string;
-      spec    = ArgExt.Unit add_symargs_pack;
+      spec    = Unit add_symargs_pack;
       default = "";
 
     }
@@ -135,7 +135,7 @@ struct
       key      = "-c-pack-only-stub-initialization";
       category = "Numeric";
       doc      = " pack only during Mopsa's stub initialization";
-      spec     = ArgExt.Set opt_pack_only_stubs;
+      spec     = Set opt_pack_only_stubs;
       default  = string_of_bool !opt_pack_only_stubs;
     }
 
@@ -145,7 +145,7 @@ struct
       key      = "-c-pack-resources";
       category = "Numeric";
       doc      = " pack variables based on resources (such as dynamically allocated blocks)";
-      spec     = ArgExt.Set opt_pack_resources;
+      spec     = Set opt_pack_resources;
       default  = string_of_bool !opt_pack_resources;
     }
 
@@ -447,7 +447,14 @@ struct
     let () = debug "packs_of_var %a" pp_var v in
     match v.vkind with
     | Memory.Cells.Domain.Domain.V_c_cell ({base = { base_kind = Var v; base_valid = true}} as c) ->
-      let user_only = not (is_c_scalar_type v.vtyp) in
+      let user_only = not (is_c_scalar_type v.vtyp) && (
+          (* if there are scalar fields in a struct, keep it *)
+          match remove_typedef_qual v.vtyp with
+          | T_c_record({c_record_kind = C_struct} as record) ->
+            not @@ List.exists (fun rf ->
+                is_c_scalar_type rf.c_field_type) record.c_record_fields
+          | _ ->
+            true) in
       packs_of_base ~user_only ctx c.base
 
     | Memory.String_length.Domain.V_c_string_length (base,_) -> packs_of_base ctx base

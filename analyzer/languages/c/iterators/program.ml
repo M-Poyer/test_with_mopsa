@@ -60,7 +60,7 @@ struct
       key = "-c-entry";
       category = "C";
       doc = " name of the entry function to be analyzed";
-      spec = ArgExt.Set_string opt_entry_function;
+      spec = Set_string (opt_entry_function, ArgExt.empty);
       default = "main";
     }
 
@@ -71,7 +71,7 @@ struct
       key = "-c-check-unreachable-memory";
       category = "C";
       doc = " check for unreachable allocated memory";
-      spec = ArgExt.Set opt_check_memory;
+      spec = Set opt_check_memory;
       default = "main";
     }
 
@@ -92,30 +92,30 @@ struct
       key = "-c-symbolic-args";
       category = "C";
       doc = " set the number of symbolic arguments given to main (syntax: min[:max])";
-      spec = ArgExt.String (fun s -> opt_symbolic_args := Some (parse_symbolic_args_spec s));
+      spec = String ((fun s -> opt_symbolic_args := Some (parse_symbolic_args_spec s)), ArgExt.empty);
       default = "";
     }
 
-  let opt_arg_max_size = ref None 
+  let opt_arg_max_size = ref None
 
   let () =
     register_domain_option name {
       key = "-c-symbolic-args-max-size";
       category = "C";
       doc = " set the maximum allocated size of all symbolic arguments";
-      spec = ArgExt.Int (fun s -> opt_arg_max_size := Some s);
+      spec = Int ((fun s -> opt_arg_max_size := Some s), ArgExt.empty);
       default = "18446744073709551615";
     }
 
 
-  let opt_arg_min_size = ref None 
+  let opt_arg_min_size = ref None
 
   let () =
     register_domain_option name {
       key = "-c-symbolic-args-min-size";
       category = "C";
       doc = " set the maximum allocated size of all symbolic arguments";
-      spec = ArgExt.Int (fun s -> opt_arg_min_size := Some s);
+      spec = Int ((fun s -> opt_arg_min_size := Some s), ArgExt.empty);
       default = "1"
     }
 
@@ -153,7 +153,14 @@ struct
         in
         if cvar.cvar_scope = Variable_extern then acc
         else
-          let stmt = mk_c_declaration v init cvar.cvar_scope cvar.cvar_range in
+          let decl = mk_c_declaration v init cvar.cvar_scope cvar.cvar_range in
+          let stmt =
+            match cvar.cvar_before_stmts, cvar.cvar_after_stmts with
+            | [], [] -> decl
+            | before, [] -> mk_block (before @ [decl]) cvar.cvar_range
+            | [], after -> mk_block (decl::after) cvar.cvar_range
+            | before, after -> mk_block (before @ [decl] @ after) cvar.cvar_range
+          in
           acc >>% man.exec stmt
       ) (Post.return flow)
 
@@ -547,6 +554,8 @@ struct
         cvar_uid = 0;
         cvar_orig_name = "#i";
         cvar_uniq_name = "#i";
+        cvar_before_stmts = [];
+        cvar_after_stmts = [];
       }) (size_type flow) in
     List.fold_left
       (fun acc arg -> acc >>% assume_valid_string arg qi range man)

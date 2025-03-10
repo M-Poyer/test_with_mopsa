@@ -468,7 +468,7 @@ struct
       key = "-cell-deref-expand";
       category = "C";
       doc = " maximal number of expanded cells when dereferencing a pointer";
-      spec = ArgExt.Set_int opt_deref_expand;
+      spec = Set_int (opt_deref_expand, ArgExt.empty);
       default = "1";
     }
 
@@ -479,7 +479,7 @@ struct
       key = "-cell-smash";
       category = "C";
       doc = " activate the on-demand smashing when the expansion threshold is reached";
-      spec = ArgExt.Set opt_smash;
+      spec = Set opt_smash;
       default = "";
     }
 
@@ -489,7 +489,7 @@ struct
       key = "-cell-smash-only-pointers";
       category = "C";
       doc = " the on-demand smashing happens only on pointers";
-      spec = ArgExt.Set opt_smash;
+      spec = Set opt_smash;
       default = "";
     }
 
@@ -694,9 +694,7 @@ struct
     let (a, s, s') = join man ctx (a,s) (a',s') in
     (a, s, s', true)
 
-  let merge pre (a,e) (a',e') =
-    assert false
-
+  let merge _ _ _ = assert false
 
   (** {2 Cell expansion} *)
   (** ****************** *)
