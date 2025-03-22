@@ -24,15 +24,16 @@
  *)
 
 
+open Mopsa_utils
 open Bot
-open IntCong
+open CongUtils.IntCong
 
 
 let mk_big () =
   Z.add (Z.shift_left (Z.of_int (Random.bits ())) 60)
         (Z.add (Z.shift_left (Z.of_int (Random.bits ())) 30)
                (Z.of_int (Random.bits ())))
-   
+
 let congs =
   [zero; one; mone; minf_inf;
    cst_int 2; cst_int 18; cst_int (-25); cst (mk_big()); cst (Z.neg (mk_big ()));
@@ -63,8 +64,8 @@ let sample_cong ((a,b):t) : Z.t list =
         Z.add b (Z.mul a (mk_big())); Z.sub b (Z.mul a (mk_big()));
         Z.add b (Z.mul a (mk_big())); Z.sub b (Z.mul a (mk_big()));
        ]
-  
-  
+
+
 let test_bin_val opname cop a1 a2 a3 c1 c2 =
   try
     let c3 = cop c1 c2 in
@@ -75,7 +76,7 @@ let test_bin_val opname cop a1 a2 a3 c1 c2 =
         (Z.to_string c1) opname (Z.to_string c2) (Z.to_string c3);
   with Division_by_zero -> ()
 
-          
+
 let test_bin_val_bot opname cop a1 a2 a3 c1 c2 =
   try
     match a3 with
@@ -98,7 +99,7 @@ let test_bin_val_bot opname cop a1 a2 a3 c1 c2 =
         with _ -> ())
   with Division_by_zero -> ()
 
-          
+
 let test_bin opname test aop cop =
   Printf.printf "testing %s\n%!" opname;
   List.iter
@@ -256,10 +257,10 @@ let test_bwd_bin_val opname cop a1 a2 r a' c1 c2 =
              (Z.to_string c1) opname (Z.to_string c2) (Z.to_string c)
   with Division_by_zero -> ()
 
-       
+
 let wrap2 lo up a =
   wrap a (Z.of_int lo) (Z.of_int up)
-  
+
 let wrap_scalar lo up a =
   let lo,up = Z.of_int lo, Z.of_int up in
   Z.add lo (Z.erem (Z.sub a lo) (Z.succ (Z.sub up lo)))
@@ -313,4 +314,4 @@ let test () =
 
 
 let _ = test ()
-      
+

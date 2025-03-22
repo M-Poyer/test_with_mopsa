@@ -1,0 +1,8 @@
+(executables
+ (names intItvTest floatItvTest intCongTest)
+ (libraries mopsa_utils)
+ (link_flags -linkall)
+ (public_names intItvTest floatItvTest intCongTest))
+
+(cram
+ (deps %{bin:intItvTest} %{bin:floatItvTest} %{bin:intCongTest}))
