@@ -1,6 +1,6 @@
 (executables
  (names intItvTest floatItvTest intCongTest)
- (libraries mopsa_utils)
+ (libraries mopsa_utils qcheck-core qcheck-core.runner)
  (link_flags -linkall)
  (public_names intItvTest floatItvTest intCongTest))
 
