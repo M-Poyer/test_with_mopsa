@@ -149,12 +149,17 @@ end)
 (* operator tests *)
 (* ************** *)
 
+let wrap2 lo up a =
+  wrap a (Z.of_int lo) (Z.of_int up)
+
 let main () =
   let tests = [
     TestFactory.test_unop "-" Z.neg neg;
     TestFactory.test_unop "abs" Z.abs abs ;
     TestFactory.test_unop "succ" Z.succ succ ;
     TestFactory.test_unop "pred" Z.pred pred ;
+    TestFactory.test_unop "wrap [0,255]" (Common.wrap_scalar 0 255) (wrap2 0 255);
+    TestFactory.test_unop "wrap [-128,127]" (Common.wrap_scalar (-128) 127) (wrap2 (-128) 127);
     TestFactory.test_binop "+" Z.add add;
     TestFactory.test_binop "-" Z.sub sub;
     TestFactory.test_binop "*" Z.mul mul;

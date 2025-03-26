@@ -52,6 +52,10 @@ open Bot
 let test_count = 100000
 (* number of tests to execute *)
 
+let wrap_scalar lo up a =
+  let lo,up = Z.of_int lo, Z.of_int up in
+  Z.add lo (Z.erem (Z.sub a lo) (Z.succ (Z.sub up lo)))
+
 module type DOMAIN = sig
   type t 
   val arbitrary: (t * Z.t) QCheck.arbitrary

@@ -160,18 +160,14 @@ end)
 let wrap2 lo up a =
   wrap a (Z.of_int lo) (Z.of_int up)
 
-let wrap_scalar lo up a =
-  let lo,up = Z.of_int lo, Z.of_int up in
-  Z.add lo (Z.erem (Z.sub a lo) (Z.succ (Z.sub up lo)))
-
 let test () =
   let tests = [
     TestFactory.test_unop "neg" Z.neg neg;
     TestFactory.test_unop "abs" Z.abs abs;
     TestFactory.test_unop "succ" Z.succ succ;
     TestFactory.test_unop "pred" Z.pred pred;
-    TestFactory.test_unop "wrap [0,255]" (wrap_scalar 0 255) (wrap2 0 255);
-    TestFactory.test_unop "wrap [-128,127]" (wrap_scalar (-128) 127) (wrap2 (-128) 127);
+    TestFactory.test_unop "wrap [0,255]" (Common.wrap_scalar 0 255) (wrap2 0 255);
+    TestFactory.test_unop "wrap [-128,127]" (Common.wrap_scalar (-128) 127) (wrap2 (-128) 127);
     TestFactory.test_binop "join left" (fun a b -> a) join;
     TestFactory.test_binop "join right" (fun a b -> b) join;
     (*TestFactory.test_binop_bot "meet" (fun a b -> if a <> b then QCheck.assume_fail (); a) meet;*)
