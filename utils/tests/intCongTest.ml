@@ -34,9 +34,32 @@ let mk_big () =
         (Z.add (Z.shift_left (Z.of_int (Random.bits ())) 30)
                (Z.of_int (Random.bits ())))
 
+let mk_big_z =
+  let open QCheck.Gen in
+  triple pint pint pint >>= fun (x,y,z) ->
+  return (
+    Z.add (Z.shift_left (Z.of_int x) 60)
+          (Z.add (Z.shift_left (Z.of_int y) 30)
+                 (Z.of_int z)))
+
+let mk_cong =
+  let open QCheck.Gen in
+  pair mk_big_z mk_big_z >>= fun (a,b) ->
+  (* check the invariant, i.e., a = 0 || a > b >= 0 *)
+  if Z.zero = a then return (a,b) else
+  if Z.gt a b then return (a,b) else
+  return (a,Z.pred a) (* a-1 >= 0 as a > 0 *)
+
+let mk_cst =
+  let open QCheck.Gen in
+  pair bool mk_big_z >>= fun (b,x) ->
+  match b with
+  | true -> return (cst x)
+  | false -> return (cst (Z.neg x))
+
 let congs =
   [zero; one; mone; minf_inf;
-   cst_int 2; cst_int 18; cst_int (-25); cst (mk_big()); cst (Z.neg (mk_big ()));
+   cst_int 2; cst_int 18; cst_int (-25);
    of_int 2 0; of_int 2 1;
    of_int 3 0; of_int 3 1; of_int 3 2;
    of_int 4 0; of_int 4 1; of_int 4 2; of_int 4 3;
@@ -45,218 +68,94 @@ let congs =
    of_int 12 0; of_int 12 1; of_int 12 3; of_int 12 4; of_int 12 6;
    of_int 13 0; of_int 13 7;
    of_int 25 0; of_int 28 12; of_int 29993 23498;
-   of_z (mk_big()) (mk_big()); of_z (mk_big()) (mk_big()); of_z (mk_big()) (mk_big());
-   of_z (mk_big()) (mk_big()); of_z (mk_big()) (mk_big()); of_z (mk_big()) (mk_big());
-   of_z (mk_big()) (mk_big()); of_z (mk_big()) (mk_big()); of_z (mk_big()) (mk_big());
   ]
 
-
-let sample_cong ((a,b):t) : Z.t list =
-  if a = Z.zero then [b]
-  else [b; Z.add b a; Z.sub b a;
+let sample_cong ((a,b):t) =
+  let open QCheck.Gen in
+  if a = Z.zero then (assert (contains b (a,b)); return b)
+  else
+    bool >>= fun p ->
+    match p with
+    | true ->
+      let candidates = [b; Z.add b a; Z.sub b a;
         Z.add b (Z.mul a (Z.of_int 2));
         Z.add b (Z.mul a (Z.of_int 3));
         Z.add b (Z.mul a (Z.of_int 4));
         Z.sub b (Z.mul a (Z.of_int 2));
         Z.sub b (Z.mul a (Z.of_int 3));
         Z.sub b (Z.mul a (Z.of_int 4));
-        Z.add b (Z.mul a (mk_big())); Z.sub b (Z.mul a (mk_big()));
-        Z.add b (Z.mul a (mk_big())); Z.sub b (Z.mul a (mk_big()));
-        Z.add b (Z.mul a (mk_big())); Z.sub b (Z.mul a (mk_big()));
-       ]
+      ] in
+      List.iter (fun x -> assert (contains x (a,b))) candidates;
+      oneofl candidates
+    | false ->
+      pair bool mk_big_z >>= fun (is_sum,x) ->
+      let z = ((if is_sum then Z.add else Z.sub) b (Z.mul a x)) in
+      (if not (contains z (a,b)) then
+        let s = Format.asprintf "%a %a %a" Z.pp_print z Z.pp_print a Z.pp_print b in
+        raise (Failure s));
+      return z
 
+let generator_cong =
+  let open QCheck.Gen in
+  int_bound 2 >>= fun n ->
+  match n with
+  | 0 -> oneofl congs
+  | 1 -> mk_cong
+  | _ -> mk_cst
 
-let test_bin_val opname cop a1 a2 a3 c1 c2 =
-  try
-    let c3 = cop c1 c2 in
-    if not (contains c3 a3) then
-      Printf.printf
-        "error: %a %s %a = %a; %s %s %s = %s\n"
-        print a1 opname print a2 print a3
-        (Z.to_string c1) opname (Z.to_string c2) (Z.to_string c3);
-  with Division_by_zero -> ()
+let generator_z =
+  let open QCheck.Gen in
+  generator_cong >>= fun cong ->
+  sample_cong cong >>= fun z ->
+  return (cong,z)
 
+let arbitrary_z =
+  let open QCheck.Iter in
+  let print (cong,z) =
+    Format.asprintf "%a ⇝ %a" CongUtils.IntCong.fprint cong Z.pp_print z
+  in
+  QCheck.make ~print generator_z
 
-let test_bin_val_bot opname cop a1 a2 a3 c1 c2 =
-  try
-    match a3 with
-    | Nb aa3 ->
-       (try
-          let c3 = cop c1 c2 in
-          if not (contains c3 aa3) then
-            Printf.printf
-              "error: %a %s %a = %a; %s %s %s = %s\n"
-              print a1 opname print a2 print aa3
-              (Z.to_string c1) opname (Z.to_string c2) (Z.to_string c3);
-        with _ -> ())
-    | BOT ->
-       (try
-          let c3 = cop c1 c2 in
-          Printf.printf
-            "error: %a %s %a = ⊥; %s %s %s = %s\n"
-            print a1 opname print a2
-            (Z.to_string c1) opname (Z.to_string c2) (Z.to_string c3);
-        with _ -> ())
-  with Division_by_zero -> ()
+let generator_z2 =
+  let open QCheck.Gen in
+  pair generator_cong generator_cong >>= fun (cong1,cong2) ->
+  sample_cong cong1 >>= fun z1 ->
+  sample_cong cong2 >>= fun z2 ->
+  assert (contains z1 cong1);
+  assert (contains z2 cong2);
+  return (cong1,cong2,z1,z2)
 
+let arbitrary_z2 =
+  let open QCheck.Iter in
+  let print (cong1,cong2,z1,z2) =
+    Format.asprintf "(%a,%a) ⇝ (%a,%a)" CongUtils.IntCong.fprint cong1 CongUtils.IntCong.fprint cong2 Z.pp_print z1 Z.pp_print z2
+  in
+  QCheck.make ~print generator_z2
 
-let test_bin opname test aop cop =
-  Printf.printf "testing %s\n%!" opname;
-  List.iter
-    (fun a1 ->
-      List.iter
-        (fun a2 ->
-          try
-            let a3 = aop a1 a2 in
-            List.iter
-              (fun c1 ->
-                List.iter
-                  (fun c2 ->
-                    test opname cop a1 a2 a3 c1 c2
-                  ) (sample_cong a2)
-              ) (sample_cong a1)
-          with Division_by_zero -> ()
-        ) congs
-    ) congs
+let generator_z3 =
+  let open QCheck.Gen in
+  triple generator_cong generator_cong generator_cong >>= fun (cong1,cong2,cong3) ->
+  sample_cong cong1 >>= fun z1 ->
+  sample_cong cong2 >>= fun z2 ->
+  sample_cong cong3 >>= fun z3 ->
+  return (cong1,cong2,cong3,z1,z2,z3)
 
+let arbitrary_z3 =
+  let open QCheck.Iter in
+  let print (cong1,cong2,cong3,z1,z2,z3) =
+    Format.asprintf "(%a,%a,%a) ⇝ (%a,%a,%a)" CongUtils.IntCong.fprint cong1 CongUtils.IntCong.fprint cong2 CongUtils.IntCong.fprint cong3 Z.pp_print z1 Z.pp_print z2 Z.pp_print z3
+  in
+  QCheck.make ~print generator_z3
 
-
-let test_un_val opname cop a1 a3 c1 =
-  try
-    let c3 = cop c1 in
-    if not (contains c3 a3) then
-      Printf.printf
-        "error: %s %a = %a; %s %s = %s\n"
-        opname print a1 print a3
-        opname (Z.to_string c1) (Z.to_string c3);
-  with Division_by_zero -> ()
-
-let test_un opname test aop cop =
-  Printf.printf "testing %s\n%!" opname;
-  List.iter
-    (fun a1 ->
-      try
-        let a3 = aop a1 in
-        List.iter
-          (fun c1 ->
-            test opname cop a1 a3 c1
-          ) (sample_cong a1)
-      with Division_by_zero -> ()
-    ) congs
-
-
-
-let test_bwd_un opname test aop cop =
-  Printf.printf "testing %s\n%!" opname;
-  List.iter
-    (fun a1 ->
-      List.iter
-        (fun r ->
-          try
-            let a1' = aop a1 r in
-            List.iter
-              (fun c1 ->
-                test opname cop a1 r a1' c1
-              ) (sample_cong a1)
-          with Division_by_zero -> ()
-       ) congs
-    ) congs
-
-let test_bwd_un_val opname cop a1 r a1' c1 =
-  try
-    let c = cop c1 in
-    if contains c r then
-      match a1' with
-      | BOT ->
-         Printf.printf
-           "error: %s %a = %a -> ⊥; %s %s = %s\n"
-           opname print a1 print r
-           opname (Z.to_string c1) (Z.to_string c)
-      | Nb aa ->
-         if not (contains c1 aa) then
-           Printf.printf
-             "error: %s %a = %a -> %a; %s %s = %s\n"
-             opname print a1 print r print aa
-             opname (Z.to_string c1) (Z.to_string c)
-  with Division_by_zero -> ()
-
-
-let test_filter opname test aop cop =
-  Printf.printf "testing %s\n%!" opname;
-  List.iter
-    (fun a1 ->
-      List.iter
-        (fun a2 ->
-          try
-            let a' = aop a1 a2 in
-            List.iter
-              (fun c1 ->
-                List.iter
-                  (fun c2 ->
-                    test opname cop a1 a2 a' c1 c2
-                  ) (sample_cong a2)
-              ) (sample_cong a1)
-          with Division_by_zero -> ()
-       ) congs
-    ) congs
-
-let test_filter_val opname cop a1 a2 a' c1 c2 =
-  try
-    if cop c1 c2 then
-      match a' with
-      | BOT ->
-         Printf.printf
-           "error: %a %s %a -> ⊥; %s %s %s\n"
-           print a1 opname print a2
-           (Z.to_string c1) opname (Z.to_string c2)
-      | Nb (a1',a2') ->
-         if not (contains c1 a1' && contains c2 a2') then
-           Printf.printf
-             "error: %a %s %a -> %a,%a; %s %s %s\n"
-             print a1 opname print a2 print a1' print a2'
-             (Z.to_string c1) opname (Z.to_string c2)
-  with Division_by_zero -> ()
-
-let test_bwd_bin opname test aop cop =
-  Printf.printf "testing %s\n%!" opname;
-  List.iter
-    (fun a1 ->
-      List.iter
-        (fun a2 ->
-          List.iter
-            (fun r ->
-              try
-                let a' = aop a1 a2 r in
-                List.iter
-                  (fun c1 ->
-                    List.iter
-                      (fun c2 ->
-                        test opname cop a1 a2 r a' c1 c2
-                      ) (sample_cong a2)
-                  ) (sample_cong a1)
-              with Division_by_zero -> ()
-           ) congs
-        ) congs
-    ) congs
-
-let test_bwd_bin_val opname cop a1 a2 r a' c1 c2 =
-  try
-    let c = cop c1 c2 in
-    if contains c r then
-      match a' with
-      | BOT ->
-         Printf.printf
-           "error: %a %s %a = %a -> ⊥; %s %s %s = %s\n"
-           print a1 opname print a2 print r
-           (Z.to_string c1) opname (Z.to_string c2) (Z.to_string c)
-      | Nb (a1',a2') ->
-         if not (contains c1 a1' && contains c2 a2') then
-           Printf.printf
-             "error: %a %s %a = %a -> %a,%a; %s %s %s = %s\n"
-             print a1 opname print a2 print r print a1' print a2'
-             (Z.to_string c1) opname (Z.to_string c2) (Z.to_string c)
-  with Division_by_zero -> ()
-
+module TestFactory = Common.Make(struct
+  type t = CongUtils.IntCong.t
+  let arbitrary = arbitrary_z
+  let arbitrary2 = arbitrary_z2
+  let arbitrary3 = arbitrary_z3
+  let filter_shift = fun _ _ -> true
+  let filter_shift2 = fun _ _ _ -> true
+  let contains = CongUtils.IntCong.contains
+end)
 
 let wrap2 lo up a =
   wrap a (Z.of_int lo) (Z.of_int up)
@@ -266,52 +165,52 @@ let wrap_scalar lo up a =
   Z.add lo (Z.erem (Z.sub a lo) (Z.succ (Z.sub up lo)))
 
 let test () =
-  test_un "neg" test_un_val neg Z.neg;
-  test_un "abs" test_un_val abs Z.abs;
-  test_un "succ" test_un_val succ Z.succ;
-  test_un "pred" test_un_val pred Z.pred;
-  test_un "wrap [0,255]" test_un_val (wrap2 0 255) (wrap_scalar 0 255);
-  test_un "wrap [-128,127]" test_un_val (wrap2 (-128) 127) (wrap_scalar (-128) 127);
-  test_bin "join left" test_bin_val join (fun a b -> a);
-  test_bin "join right" test_bin_val join (fun a b -> b);
-  test_bin "meet" test_bin_val_bot meet (fun a b -> if a <> b then failwith "meet"; a);
-  test_bin "+" test_bin_val add Z.add;
-  test_bin "-" test_bin_val sub Z.sub;
-  test_bin "*" test_bin_val mul Z.mul;
-  test_bin "/" test_bin_val_bot div Z.div;
-  test_bin "%" test_bin_val_bot rem Z.rem;
-  test_un "bool" test_un_val log_cast (fun a -> if a = Z.zero then Z.zero else Z.one);
-  test_un "!" test_un_val log_not (fun a -> if a <> Z.zero then Z.zero else Z.one);
-  test_bin "||" test_bin_val log_or (fun a b -> if a <> Z.zero || b <> Z.zero then Z.one else Z.zero);
-  test_bin "&&" test_bin_val log_and (fun a b -> if a <> Z.zero && b <> Z.zero then Z.one else Z.zero);
-  test_bin "^^" test_bin_val log_xor (fun a b -> if (a <> Z.zero) <> (b <> Z.zero) then Z.one else Z.zero);
-  test_bin "log ==" test_bin_val log_eq (fun a b -> if a = b then Z.one else Z.zero);
-  test_bin "log !=" test_bin_val log_neq (fun a b -> if a <> b then Z.one else Z.zero);
-  test_bin "log <" test_bin_val log_lt (fun a b -> if a < b then Z.one else Z.zero);
-  test_bin "log >" test_bin_val log_gt (fun a b -> if a > b then Z.one else Z.zero);
-  test_bin "log <=" test_bin_val log_leq (fun a b -> if a <= b then Z.one else Z.zero);
-  test_bin "log >=" test_bin_val log_geq (fun a b -> if a >= b then Z.one else Z.zero);
-  test_bin "<<" test_bin_val_bot shift_left (fun a b -> Z.shift_left a (Z.to_int b));
-  test_bin ">>" test_bin_val_bot shift_right (fun a b -> Z.shift_right a (Z.to_int b));
-  test_bin ">>>" test_bin_val_bot shift_right_trunc (fun a b -> Z.shift_right_trunc a (Z.to_int b));
-  test_un "~" test_un_val bit_not Z.lognot;
-  test_filter "filter =" test_filter_val filter_eq (=);
-  test_filter "filter !=" test_filter_val filter_neq (<>);
-  test_filter "filter <=" test_filter_val filter_leq (<=);
-  test_filter "filter >=" test_filter_val filter_geq (>=);
-  test_filter "filter <" test_filter_val filter_lt (<);
-  test_filter "filter >" test_filter_val filter_gt (>);
-  test_bwd_un "bwd neg" test_bwd_un_val bwd_neg Z.neg;
-  test_bwd_un "bwd abs" test_bwd_un_val bwd_abs Z.abs;
-  test_bwd_un "bwd succ" test_bwd_un_val bwd_succ Z.succ;
-  test_bwd_un "bwd pred" test_bwd_un_val bwd_pred Z.pred;
-  test_bwd_bin "bwd +" test_bwd_bin_val bwd_add Z.add;
-  test_bwd_bin "bwd -" test_bwd_bin_val bwd_sub Z.sub;
-  test_bwd_bin "bwd *" test_bwd_bin_val bwd_mul Z.mul;
-  test_bwd_un "bwd ~" test_bwd_un_val bwd_bit_not Z.lognot;
-  test_bwd_bin "bwd %" test_bwd_bin_val bwd_rem Z.rem;
-  ()
-
+  let tests = [
+    TestFactory.test_unop "neg" Z.neg neg;
+    TestFactory.test_unop "abs" Z.abs abs;
+    TestFactory.test_unop "succ" Z.succ succ;
+    TestFactory.test_unop "pred" Z.pred pred;
+    TestFactory.test_unop "wrap [0,255]" (wrap_scalar 0 255) (wrap2 0 255);
+    TestFactory.test_unop "wrap [-128,127]" (wrap_scalar (-128) 127) (wrap2 (-128) 127);
+    TestFactory.test_binop "join left" (fun a b -> a) join;
+    TestFactory.test_binop "join right" (fun a b -> b) join;
+    (*TestFactory.test_binop_bot "meet" (fun a b -> if a <> b then QCheck.assume_fail (); a) meet;*)
+    TestFactory.test_binop "+" Z.add add;
+    TestFactory.test_binop "-" Z.sub sub;
+    TestFactory.test_binop "*" Z.mul mul;
+    TestFactory.test_binop_bot "/" Z.div div;
+    TestFactory.test_binop_bot "%" Z.rem rem;
+    TestFactory.test_unop "bool" (fun a -> if a = Z.zero then Z.zero else Z.one) log_cast;
+    TestFactory.test_unop "!" (fun a -> if a <> Z.zero then Z.zero else Z.one) log_not;
+    TestFactory.test_binop "||" (fun a b -> if a <> Z.zero || b <> Z.zero then Z.one else Z.zero) log_or;
+    TestFactory.test_binop "&&" (fun a b -> if a <> Z.zero && b <> Z.zero then Z.one else Z.zero) log_and;
+    TestFactory.test_binop "^^" (fun a b -> if (a <> Z.zero) <> (b <> Z.zero) then Z.one else Z.zero) log_xor;
+    TestFactory.test_binop "log ==" (fun a b -> if a = b then Z.one else Z.zero) log_eq;
+    TestFactory.test_binop "log !=" (fun a b -> if a <> b then Z.one else Z.zero) log_neq;
+    TestFactory.test_binop "log <" (fun a b -> if a < b then Z.one else Z.zero) log_lt;
+    TestFactory.test_binop "log >" (fun a b -> if a > b then Z.one else Z.zero) log_gt;
+    TestFactory.test_binop "log <=" (fun a b -> if a <= b then Z.one else Z.zero) log_leq;
+    TestFactory.test_binop "log >=" (fun a b -> if a >= b then Z.one else Z.zero) log_geq;
+    TestFactory.test_binop_bot "<<" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail ();  Z.shift_left a (Z.to_int b)) shift_left;
+    TestFactory.test_binop_bot ">>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.shift_right a (Z.to_int b)) shift_right;
+    TestFactory.test_binop_bot ">>>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.shift_right_trunc a (Z.to_int b)) shift_right_trunc;
+    TestFactory.test_unop "~" Z.lognot bit_not;
+    TestFactory.test_filter "filter =" (=) filter_eq;
+    TestFactory.test_filter "filter !=" (!=) filter_neq;
+    TestFactory.test_filter "filter <=" (<=) filter_leq;
+    TestFactory.test_filter "filter >=" (>=) filter_geq;
+    TestFactory.test_filter "filter <" (<) filter_lt;
+    TestFactory.test_filter "filter >" (>) filter_gt;
+    TestFactory.test_bwd_unop "bwd neg" Z.neg bwd_neg;
+    TestFactory.test_bwd_unop "bwd abs" Z.abs bwd_abs;
+    TestFactory.test_bwd_unop "bwd succ" Z.succ bwd_succ;
+    TestFactory.test_bwd_unop "bwd pred" Z.pred bwd_pred;
+    TestFactory.test_bwd_binop "bwd +" Z.add bwd_add;
+    TestFactory.test_bwd_binop "bwd -" Z.sub bwd_sub;
+    TestFactory.test_bwd_binop "bwd *" Z.mul bwd_mul;
+    TestFactory.test_bwd_unop "bwd ~" Z.lognot bwd_bit_not;
+    TestFactory.test_bwd_binop "bwd %" Z.rem bwd_rem;
+  ] in
+  QCheck_base_runner.run_tests_main tests
 
 let _ = test ()
-

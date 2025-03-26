@@ -21,29 +21,6 @@
 
 (**
   IntItvTest - Unit tests for integer intervals.
-
-  This module uses property-based testing for four kind of operators:
-    - Given a concrete operator ⋄ : 𝕫 → 𝕫, a sound abstraction of ⋄ is any
-      operator ⋄# : A → A such that γ(⋄# D#) ⊇ ⋄ γ(D#).
-      Testing of this condition is done directly by checking that the
-      elements of the right-hand side belong also to the left-hand side.
-
-    - This can be generalized to binary operators ⋄ : 𝕫 → 𝕫 → 𝕫,
-      by letting ⋄# : A → A → A be any operator satisfying:
-      γ(D1# ⋄# D2#) ⊇ (D1#) ⋄ γ(D2#). Testing is done in the same way.
-
-    - Given a concrete operator ⋄ : 𝕫 → 𝕫 and a sound abstraction of it, we
-      can define a backward refinement ⋄<-# : A → A → A any operator
-      such that γ(⋄<-#(D#,R#)) ⊇ { v ∈ γ(D#) | ⋄ v ∈ γ(R#) }. Testing this
-      condition is done by applying ⋄ to γ(D#) and, if the result belongs
-      to γ(R#), checking that they belong to γ(⋄<-#(D#,R#)).
-
-    - Likewise for a binary operator ⋄ : 𝕫 → 𝕫 → 𝕫, we let
-      ⋄<-# : A → A → A → (A * A) any operator such that
-      γ(⋄<-#(D1#,D2#,R#))_1 ⊇ { v  ∈ γ(D1#) | ∃v' ∈ γ(D2#). v ⋄ v' ∈ γ(R#) } and
-      γ(⋄<-#(D1#,D2#,R#))_2 ⊇ { v' ∈ γ(D2#) | ∃v  ∈ γ(D1#). v ⋄ v' ∈ γ(R#) }.
-      Testing is done in a similar way (we draw from both abstract elements).
-
  *)
 
 open Mopsa_utils
@@ -92,7 +69,7 @@ let interesting_intervals =
 (* random sampling *)
 (* *************** *)
 
-let generator_z ((lo,hi):t) =
+let sample_z ((lo,hi):t) =
   let open QCheck.Gen in
   match lo, hi with
   | B.MINF, B.PINF -> map Z.of_int int
@@ -101,155 +78,126 @@ let generator_z ((lo,hi):t) =
   | B.Finite l, B.Finite h -> map (Z.add l) (map (fun z -> Z.rem z (Z.succ (Z.sub h l))) (map Z.of_int pint))
   | _ -> failwith "IntItvTest.sample: invalid interval"
 
-let arbitrary_z a =
-  let open QCheck.Iter in
-  let print z =
-    Format.asprintf "%a ⇝ %a" ItvUtils.IntItv.fprint a Z.pp_print z
-  in
-  QCheck.make (generator_z a) ~print
-
-let generator_z2 a a' =
+let generator_itv =
   let open QCheck.Gen in
-  pair (generator_z a) (generator_z a')
+  bool >>= fun b ->
+  match b with
+  | false -> oneofl interesting_intervals
+  | true ->
+    pair (int_range (-1000) 1000) (int_range (-1000) 1000) >>= fun (x,y) ->
+    let l,h = min x y, max x y in
+    return (ItvUtils.IntItv.of_int l h)
 
-let arbitrary_z2 a a' =
+let generator_z =
+  let open QCheck.Gen in
+  generator_itv >>= fun itv ->
+  sample_z itv >>= fun z ->
+  return (itv,z)
+
+let arbitrary_z =
   let open QCheck.Iter in
-  let print (z,z') =
-    Format.asprintf "(%a,%a) ⇝ (%a,%a)" ItvUtils.IntItv.fprint a ItvUtils.IntItv.fprint a' Z.pp_print z Z.pp_print z'
+  let print (itv,z) =
+    Format.asprintf "%a ⇝ %a" ItvUtils.IntItv.fprint itv Z.pp_print z
   in
-  QCheck.make (generator_z2 a a') ~print
+  QCheck.make ~print generator_z
 
+let generator_z2 =
+  let open QCheck.Gen in
+  pair generator_itv generator_itv >>= fun (itv1,itv2) ->
+  sample_z itv1 >>= fun z1 ->
+  sample_z itv2 >>= fun z2 ->
+  return (itv1,itv2,z1,z2)
 
-(* operator tests *)
-(* ************** *)
-
-(* forward operators *)
-let test_unop (name:string) (cop: Z.t -> Z.t) (aop: t -> t) =
-  let name = Format.sprintf "unop (%s)" name in
-  let property a =
-    let a' = aop a in
-    fun c ->
-    let c' = cop c in
-    contains c' a'
+let arbitrary_z2 =
+  let open QCheck.Iter in
+  let print (itv1,itv2,z1,z2) =
+    Format.asprintf "(%a,%a) ⇝ (%a,%a)" ItvUtils.IntItv.fprint itv1 ItvUtils.IntItv.fprint itv2 Z.pp_print z1 Z.pp_print z2
   in
-  List.map (fun a ->
-    QCheck.Test.make ~count:test_count ~name (arbitrary_z a)
-    (property a)
-  ) interesting_intervals
+  QCheck.make ~print generator_z2
 
-let test_binop_gen ~contains ~filter (name:string) (cop: Z.t -> Z.t -> Z.t) (aop: t -> t -> 'a) =
-  let name = Format.sprintf "binop (%s)" name in
-  let property a a' =
-    let a'' = aop a a' in
-    fun (c,c') ->
-    try
-      let c'' = cop c c' in
-      contains c'' a''
-    with Division_by_zero | Invalid_argument _ -> true
+let generator_z3 =
+  let open QCheck.Gen in
+  triple generator_itv generator_itv generator_itv >>= fun (itv1,itv2,itv3) ->
+  sample_z itv1 >>= fun z1 ->
+  sample_z itv2 >>= fun z2 ->
+  sample_z itv3 >>= fun z3 ->
+  return (itv1,itv2,itv3,z1,z2,z3)
+
+let arbitrary_z3 =
+  let open QCheck.Iter in
+  let print (itv1,itv2,itv3,z1,z2,z3) =
+    Format.asprintf "(%a,%a,%a) ⇝ (%a,%a,%a)" ItvUtils.IntItv.fprint itv1 ItvUtils.IntItv.fprint itv2 ItvUtils.IntItv.fprint itv3 Z.pp_print z1 Z.pp_print z2 Z.pp_print z3
   in
-  List.map2 (fun a a' -> a,a') interesting_intervals interesting_intervals |>
-  List.filter (fun (a,a') -> filter a a') |>
-  List.map (fun (a,a') ->
-    QCheck.Test.make ~count:test_count ~name (arbitrary_z2 a a')
-    (property a a')
-  )
-
-let contains_bot c a = match a with
-  | Nb a -> contains c a
-  | BOT -> false
+  QCheck.make ~print generator_z3
 
 let filter_shift _ (_,h) =
   B.is_positive h && B.leq h (B.of_int 256)
 
-let test_binop = test_binop_gen ~contains ~filter:(fun _ _ -> true)
-let test_binop_bot = test_binop_gen ~contains:contains_bot ~filter:(fun _ _ -> true)
-let test_binop_shift = test_binop_gen ~contains ~filter:filter_shift
-let test_binop_bot_shift = test_binop_gen ~contains:contains_bot ~filter:filter_shift
-
-(* backward operators *)
-let test_bwd_unop (name:string) (cop: Z.t -> Z.t) (aop: t -> t -> t_with_bot) =
-  let property a r =
-    let a' = aop a r in (* refine `a` *)
-    fun c ->
-    let c' = cop c in
-    if contains c' r then contains_bot c a' else true
-  in
-  List.map2 (fun a r ->
-    QCheck.Test.make ~count:test_count ~name (arbitrary_z a)
-    (property a r)
-  ) interesting_intervals interesting_intervals
-
-let test_bwd_binop_gen ~filter (name:string) (cop: Z.t -> Z.t -> Z.t) (aop: t -> t -> t -> (t*t) with_bot) =
-  let property a a' r =
-    let a',a'' = aop a a' r |> Bot.bot_split in (* refine `a` and `a'` *)
-    fun (c,c') ->
-    try
-      let c'' = cop c c' in
-      if contains c'' r then contains_bot c a' else true
-    with Division_by_zero | Invalid_argument _ -> true
-  in
-  ListExt.map3 (fun a a' r -> a,a',r) interesting_intervals interesting_intervals interesting_intervals |>
-  List.filter (fun (a,a',r) -> filter a a' r) |>
-  List.map (fun (a,a',r) ->
-    QCheck.Test.make ~count:test_count ~name (arbitrary_z2 a a')
-    (property a a' r)
-  )
-
-let filter_shift _ (_,h) _ =
+let filter_shift2 _ (_,h) _ =
   B.is_positive h && B.leq h (B.of_int 256)
 
-let test_bwd_binop = test_bwd_binop_gen ~filter:(fun _ _ _ -> true)
-let test_bwd_binop_shift = test_bwd_binop_gen ~filter:filter_shift
+module TestFactory = Common.Make(struct
+  type t = ItvUtils.IntItv.t
+  let arbitrary = arbitrary_z
+  let arbitrary2 = arbitrary_z2
+  let arbitrary3 = arbitrary_z3
+  let filter_shift = filter_shift
+  let filter_shift2 = filter_shift2
+  let contains = contains
+end)
+
+(* operator tests *)
+(* ************** *)
 
 let main () =
   let tests = [
-    test_unop "-" Z.neg neg;
-    test_unop "abs" Z.abs abs ;
-    test_unop "succ" Z.succ succ ;
-    test_unop "pred" Z.pred pred ;
-    test_binop "+" Z.add add;
-    test_binop "-" Z.sub sub;
-    test_binop "*" Z.mul mul;
-    test_binop_bot "/" Z.div div;
-    test_binop_bot "/↓" Z.ediv ediv;
-    test_binop_bot "%" Z.rem rem;
-    test_binop_bot "%↓" Z.erem erem;
-    test_binop_bot_shift "<<" (fun a b -> Z.shift_left a (Z.to_int b)) shift_left;
-    test_binop_bot_shift ">>" (fun a b -> Z.shift_right a (Z.to_int b)) shift_right;
-    test_binop_bot_shift ">>>" (fun a b -> Z.div a (Z.shift_left Z.one (Z.to_int b))) shift_right_trunc;
-    test_unop "~" Z.lognot bit_not;
-    test_binop "&" Z.logand bit_and;
-    test_binop "|" Z.logor bit_or;
-    test_binop "^" Z.logxor bit_xor;
-    test_unop "bool" (fun a -> if a = Z.zero then Z.zero else Z.one) log_cast;
-    test_unop "!" (fun a -> if a <> Z.zero then Z.zero else Z.one) log_not;
-    test_binop "||" (fun a b -> if a <> Z.zero || b <> Z.zero then Z.one else Z.zero) log_or;
-    test_binop "&&" (fun a b -> if a <> Z.zero && b <> Z.zero then Z.one else Z.zero) log_and;
-    test_bwd_unop "bwd -" Z.neg bwd_neg;
-    test_bwd_unop "bwd abs" Z.abs bwd_abs;
-    test_bwd_unop "bwd succ" Z.succ bwd_succ;
-    test_bwd_unop "bwd pred" Z.pred bwd_pred;
-    test_bwd_binop "bwd +" Z.add bwd_add;
-    test_bwd_binop "bwd -" Z.sub bwd_sub;
-    test_bwd_binop "bwd *" Z.mul bwd_mul;
-    test_bwd_binop "bwd /" Z.div bwd_div;
-    test_bwd_binop "/↓" Z.ediv bwd_ediv;
-    test_bwd_binop "%" Z.rem bwd_rem;
-    test_bwd_binop "%↓" Z.erem bwd_erem;
-    test_bwd_unop "bwd ~" Z.lognot bwd_bit_not;
-    test_bwd_binop "bwd ^" Z.logxor bwd_bit_xor;
-    test_bwd_binop "bwd |" Z.logor bwd_bit_or;
-    test_bwd_binop "bwd &" Z.logand bwd_bit_and;
-    test_bwd_binop_shift "bwd <<" (fun a b -> Z.shift_left a (Z.to_int b)) bwd_shift_left;
-    test_bwd_binop_shift "bwd >>" (fun a b -> Z.shift_right a (Z.to_int b)) bwd_shift_right;
-    test_bwd_binop_shift "bwd >>>" (fun a b -> Z.div a (Z.shift_left Z.one (Z.to_int b))) bwd_shift_right_trunc;
-    test_bwd_binop "bwd log ==" (fun a b -> if a = b then Z.one else Z.zero) bwd_log_eq;
-    test_bwd_binop "bwd log !=" (fun a b -> if a <> b then Z.one else Z.zero) bwd_log_neq;
-    test_bwd_binop "bwd log <" (fun a b -> if a < b then Z.one else Z.zero) bwd_log_lt;
-    test_bwd_binop "bwd log >" (fun a b -> if a > b then Z.one else Z.zero) bwd_log_gt;
-    test_bwd_binop "bwd log <=" (fun a b -> if a <= b then Z.one else Z.zero) bwd_log_leq;
-    test_bwd_binop "bwd log >=" (fun a b -> if a >= b then Z.one else Z.zero) bwd_log_geq;
-  ] |> List.flatten in
+    TestFactory.test_unop "-" Z.neg neg;
+    TestFactory.test_unop "abs" Z.abs abs ;
+    TestFactory.test_unop "succ" Z.succ succ ;
+    TestFactory.test_unop "pred" Z.pred pred ;
+    TestFactory.test_binop "+" Z.add add;
+    TestFactory.test_binop "-" Z.sub sub;
+    TestFactory.test_binop "*" Z.mul mul;
+    TestFactory.test_binop_bot "/" Z.div div;
+    TestFactory.test_binop_bot "/↓" Z.ediv ediv;
+    TestFactory.test_binop_bot "%" Z.rem rem;
+    TestFactory.test_binop_bot "%↓" Z.erem erem;
+    TestFactory.test_binop_bot_shift "<<" (fun a b -> Z.shift_left a (Z.to_int b)) shift_left;
+    TestFactory.test_binop_bot_shift ">>" (fun a b -> Z.shift_right a (Z.to_int b)) shift_right;
+    TestFactory.test_binop_bot_shift ">>>" (fun a b -> Z.div a (Z.shift_left Z.one (Z.to_int b))) shift_right_trunc;
+    TestFactory.test_unop "~" Z.lognot bit_not;
+    TestFactory.test_binop "&" Z.logand bit_and;
+    TestFactory.test_binop "|" Z.logor bit_or;
+    TestFactory.test_binop "^" Z.logxor bit_xor;
+    TestFactory.test_unop "bool" (fun a -> if a = Z.zero then Z.zero else Z.one) log_cast;
+    TestFactory.test_unop "!" (fun a -> if a <> Z.zero then Z.zero else Z.one) log_not;
+    TestFactory.test_binop "||" (fun a b -> if a <> Z.zero || b <> Z.zero then Z.one else Z.zero) log_or;
+    TestFactory.test_binop "&&" (fun a b -> if a <> Z.zero && b <> Z.zero then Z.one else Z.zero) log_and;
+    TestFactory.test_bwd_unop "bwd -" Z.neg bwd_neg;
+    TestFactory.test_bwd_unop "bwd abs" Z.abs bwd_abs;
+    TestFactory.test_bwd_unop "bwd succ" Z.succ bwd_succ;
+    TestFactory.test_bwd_unop "bwd pred" Z.pred bwd_pred;
+    TestFactory.test_bwd_binop "bwd +" Z.add bwd_add;
+    TestFactory.test_bwd_binop "bwd -" Z.sub bwd_sub;
+    TestFactory.test_bwd_binop "bwd *" Z.mul bwd_mul;
+    TestFactory.test_bwd_binop "bwd /" Z.div bwd_div;
+    TestFactory.test_bwd_binop "/↓" Z.ediv bwd_ediv;
+    TestFactory.test_bwd_binop "%" Z.rem bwd_rem;
+    TestFactory.test_bwd_binop "%↓" Z.erem bwd_erem;
+    TestFactory.test_bwd_unop "bwd ~" Z.lognot bwd_bit_not;
+    TestFactory.test_bwd_binop "bwd ^" Z.logxor bwd_bit_xor;
+    TestFactory.test_bwd_binop "bwd |" Z.logor bwd_bit_or;
+    TestFactory.test_bwd_binop "bwd &" Z.logand bwd_bit_and;
+    TestFactory.test_bwd_binop_shift "bwd <<" (fun a b -> Z.shift_left a (Z.to_int b)) bwd_shift_left;
+    TestFactory.test_bwd_binop_shift "bwd >>" (fun a b -> Z.shift_right a (Z.to_int b)) bwd_shift_right;
+    TestFactory.test_bwd_binop_shift "bwd >>>" (fun a b -> Z.div a (Z.shift_left Z.one (Z.to_int b))) bwd_shift_right_trunc;
+    TestFactory.test_bwd_binop "bwd log ==" (fun a b -> if a = b then Z.one else Z.zero) bwd_log_eq;
+    TestFactory.test_bwd_binop "bwd log !=" (fun a b -> if a <> b then Z.one else Z.zero) bwd_log_neq;
+    TestFactory.test_bwd_binop "bwd log <" (fun a b -> if a < b then Z.one else Z.zero) bwd_log_lt;
+    TestFactory.test_bwd_binop "bwd log >" (fun a b -> if a > b then Z.one else Z.zero) bwd_log_gt;
+    TestFactory.test_bwd_binop "bwd log <=" (fun a b -> if a <= b then Z.one else Z.zero) bwd_log_leq;
+    TestFactory.test_bwd_binop "bwd log >=" (fun a b -> if a >= b then Z.one else Z.zero) bwd_log_geq;
+  ] in
   QCheck_base_runner.run_tests_main tests
 
 let _ = main ()
