@@ -180,6 +180,10 @@ let test () =
     TestFactory.test_binop "*" Z.mul mul;
     TestFactory.test_binop_bot "/" Z.div div;
     TestFactory.test_binop_bot "%" Z.rem rem;
+    TestFactory.test_binop_bot "<<" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail ();  Z.shift_left a (Z.to_int b)) shift_left;
+    TestFactory.test_binop_bot ">>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.shift_right a (Z.to_int b)) shift_right;
+    TestFactory.test_binop_bot ">>>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.shift_right_trunc a (Z.to_int b)) shift_right_trunc;
+    TestFactory.test_unop "~" Z.lognot bit_not;
     TestFactory.test_unop "bool" (fun a -> if a = Z.zero then Z.zero else Z.one) log_cast;
     TestFactory.test_unop "!" (fun a -> if a <> Z.zero then Z.zero else Z.one) log_not;
     TestFactory.test_binop "||" (fun a b -> if a <> Z.zero || b <> Z.zero then Z.one else Z.zero) log_or;
@@ -191,10 +195,6 @@ let test () =
     TestFactory.test_binop "log >" (fun a b -> if a > b then Z.one else Z.zero) log_gt;
     TestFactory.test_binop "log <=" (fun a b -> if a <= b then Z.one else Z.zero) log_leq;
     TestFactory.test_binop "log >=" (fun a b -> if a >= b then Z.one else Z.zero) log_geq;
-    TestFactory.test_binop_bot "<<" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail ();  Z.shift_left a (Z.to_int b)) shift_left;
-    TestFactory.test_binop_bot ">>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.shift_right a (Z.to_int b)) shift_right;
-    TestFactory.test_binop_bot ">>>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.shift_right_trunc a (Z.to_int b)) shift_right_trunc;
-    TestFactory.test_unop "~" Z.lognot bit_not;
     TestFactory.test_filter "filter =" (=) filter_eq;
     TestFactory.test_filter "filter !=" (!=) filter_neq;
     TestFactory.test_filter "filter <=" (<=) filter_leq;
@@ -210,6 +210,9 @@ let test () =
     TestFactory.test_bwd_binop "bwd *" Z.mul bwd_mul;
     TestFactory.test_bwd_unop "bwd ~" Z.lognot bwd_bit_not;
     TestFactory.test_bwd_binop "bwd %" Z.rem bwd_rem;
+    TestFactory.test_bwd_binop_shift "bwd <<" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.shift_left a (Z.to_int b)) bwd_shift_left;
+    TestFactory.test_bwd_binop_shift "bwd >>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.shift_right a (Z.to_int b)) bwd_shift_right;
+    TestFactory.test_bwd_binop_shift "bwd >>>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.div a (Z.shift_left Z.one (Z.to_int b))) bwd_shift_right_trunc;
   ] in
   QCheck_base_runner.run_tests_main tests
 
