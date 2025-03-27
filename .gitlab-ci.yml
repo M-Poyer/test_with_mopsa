@@ -269,10 +269,20 @@ test-interactive:
   script:
     - eval `opam config env`
     - echo $PWD
-    - cd analyzer/tests/c/
+    - pushd analyzer/tests/c/
     - echo "load script interactive.script" | ../../../bin/mopsa-c -silent -engine=interactive interactive.c | tee out
     - head -n 82 out | tail -n 48 > out.out
     - diff <(sed "16,17,28d" out.out) <(sed "16,17,28d" interactive.out)
+    - popd
+    - pushd analyzer/tests/universal/
+    - echo "load script interactive.script" | ../../../bin/mopsa-universal -silent -engine=interactive interactive.u | tee out
+    - tail -n 27 out > out.out
+    - diff out.out interactive.out
+    - popd
+    - pushd analyzer/tests/c/
+    - echo "load script interactive2.script" | ../../../bin/mopsa-c -silent -engine=interactive interactive2.c | tee out
+    - tail -n 46 out > out.out
+    - diff out.out interactive2.out
 
 
 
