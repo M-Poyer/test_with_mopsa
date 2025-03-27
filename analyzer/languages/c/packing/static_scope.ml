@@ -358,7 +358,7 @@ struct
     | Var { vkind = Cstubs.Aux_vars.V_c_primed_base b } ->
       packs_of_base ~user_only ctx b
 
-    | Var ({ vkind = V_c_stack_var(_, v)}) ->
+    | Var ({ vkind = V_stack_var(_, v)}) ->
       packs_of_base ~user_only ctx {b with base_kind = Var v}
 
     (* Resource are put in the function scope corresponding to their allocation area *)
@@ -468,7 +468,7 @@ struct
     | Memory.Variable_length_array.Domain.V_c_variable_length vv -> packs_of_var ctx vv
     | Cstubs.Aux_vars.V_c_bytes a -> packs_of_base ctx (mk_addr_base a)
     | Cstubs.Aux_vars.V_c_primed_base b -> packs_of_base ctx b
-    | V_c_stack_var(_, vv) -> packs_of_var ctx vv
+    | V_stack_var(_, vv) -> packs_of_var ctx vv
     | _ -> packs_of_base ctx (mk_var_base v)
 
 end
