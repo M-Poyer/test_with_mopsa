@@ -254,7 +254,7 @@ struct
     let f = List.hd cs in
     let f = find_c_fundec_by_name f.call_fun_orig_name flow in
     let last_param = List.rev f.c_func_parameters |> List.hd in
-    let param = match param.vkind with V_var_attr (v, _) -> v | _ -> assert false in
+    let param = match param.vkind with V_var_attr (v, _) -> v | _ -> param in
     if Format.asprintf "%a" pp_var last_param <> Format.asprintf "%a" pp_var param
     then panic_at range "va_start: %a is not the last named parameter"
         pp_var param
