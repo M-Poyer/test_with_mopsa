@@ -89,7 +89,7 @@ let register_option (opt: string ref) (domain_name: string) (key: string) (descr
       key;
       category = "Heap";
       doc = Format.asprintf " allocation policy used %s" descr;
-      spec = Symbol (["all"; "range"; "callstack"; "range_callstack"],
+      spec = Symbol (["all"; "range"; "callstack"; "range_callstack"; "range_control"],
                             (function s -> opt := s));
       default = !opt;
     };

@@ -284,10 +284,12 @@ let () =
       );
     }
 
-let () = Universal.Heap.Policies.register_mk_addr (fun default ak ->
-             match ak with
-             | A_stub_resource _ -> Universal.Heap.Policies.mk_addr_stack_range ak
-             | _ -> default ak)
+let opt_stub_resource_allocation_policy : string ref = ref "range_callstack"
+let () = Universal.Heap.Policies.register_option opt_stub_resource_allocation_policy "stubs.iterators.body" "-stub-alloc-pol" "for stub resources (malloc, ...)"
+    (fun default ak -> match ak with
+       | A_stub_resource _ ->
+         (Universal.Heap.Policies.of_string !opt_stub_resource_allocation_policy) ak
+       | _ -> default ak)
 
 
 (** {2 Utility functions} *)
