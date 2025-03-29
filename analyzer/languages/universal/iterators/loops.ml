@@ -324,7 +324,7 @@ struct
 
   let keep_unroll c p =
     match p with
-    | None -> false
+    | None -> true
     | Some i -> c < i
 
   let rec unroll count policy cond body man flow =
