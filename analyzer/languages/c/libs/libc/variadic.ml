@@ -185,7 +185,7 @@ struct
 
     (* Add unnamed parameters and initialize them *)
     let cs = Flow.get_callstack flow in
-    let cs' = push_callstack fundec.c_func_org_name ~uniq:fundec.c_func_unique_name range cs in
+    let cs' = push_callstack_cs fundec.c_func_org_name ~uniq:fundec.c_func_unique_name range cs in
     let params, typs, _, post =
       unnamed |>
       List.fold_left (fun (params, typs, i, acc) arg ->

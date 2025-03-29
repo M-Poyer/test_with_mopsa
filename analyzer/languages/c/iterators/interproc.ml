@@ -124,7 +124,7 @@ struct
   let is_recursive_call f range flow =
     let f_orig = f.c_func_org_name in
     let f_uniq = f.c_func_unique_name in
-    let cs = Callstack.push_callstack f_orig ~uniq:f_uniq range (Flow.get_callstack flow) in
+    let cs = ControlCtx.push_callstack_cs f_orig ~uniq:f_uniq range (Flow.get_callstack flow) in
     Universal.Iterators.Interproc.Common.check_recursion f_orig f_uniq range cs
 
   let is_local_scope = function

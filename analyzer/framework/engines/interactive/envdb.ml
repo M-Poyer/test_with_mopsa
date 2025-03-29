@@ -21,7 +21,7 @@
 
 open Core.All
 open Mopsa_utils
-open Callstack
+open ControlCtx
 open Action
 
 module FileMap = MapExt.StringMap
@@ -40,7 +40,7 @@ let add_envdb action ctx (env:'a) man (db:'a envdb) =
   let range = action_range action in
   let file = Location.get_range_file range |> Params.Paths.absolute_path in
   let line = Location.get_range_line range in
-  let cs = find_ctx callstack_ctx_key ctx in
+  let cs = find_ctx control_ctx_key ctx |> extract_callstack in
   match FileMap.find_opt file db with
   | None ->
     FileMap.add file (LineMap.singleton line (action, CallstackMap.singleton cs env)) db

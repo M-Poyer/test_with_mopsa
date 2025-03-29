@@ -117,7 +117,7 @@ struct
     if depth = cur_depth then () else
     if depth = cur_depth + 1 then call_detected (callstack_top cs) else
     if depth = cur_depth - 1 then return_detected ()
-    else debug "unsupported call stack configuration: current = %d, previous = %d@.current = %a@.previous = %a@." cur_depth depth (Format.pp_print_list Format.pp_print_string) !cur.callstack Callstack.pp_callstack cs
+    else debug "unsupported call stack configuration: current = %d, previous = %d@.current = %a@.previous = %a@." cur_depth depth (Format.pp_print_list Format.pp_print_string) !cur.callstack ControlCtx.pp_callstack cs
 
 
   (** {2 Statistics} *)
@@ -208,7 +208,7 @@ struct
   let on_before_eval route semantic exp man flow = ()
 
   let on_after_eval route semantic exp man flow eval =
-    observe_callstack (Cases.get_ctx eval |> find_ctx Context.callstack_ctx_key) exp.erange
+    observe_callstack (Cases.get_callstack eval) exp.erange
 
   let on_finish man flow =
     let t = Sys.time () in

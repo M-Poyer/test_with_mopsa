@@ -26,7 +26,7 @@ open C.Ast
 open C.Common.Points_to
 open Top
 
-type ('a, _) query += Q_cpython_attached_callstack : addr -> ('a, Callstack.callstack) query
+type ('a, _) query += Q_cpython_attached_callstack : addr -> ('a, ControlCtx.control_ctx) query
 
 let () = register_query {
              join = (let f: type a r. query_pool -> (a, r) query -> r -> r -> r =
@@ -49,9 +49,9 @@ module Domain =
     module Callstacks = struct
       module CallstackSet = Framework.Lattices.Powerset.Make
                             (struct
-                              type t = Callstack.callstack
-                              let compare = Callstack.compare_callstack
-                              let print = unformat pp_callstack
+                              type t = ControlCtx.control_ctx
+                              let compare = ControlCtx.compare_control_ctx
+                              let print = unformat pp_control_ctx
                             end)
 
       include CallstackSet
@@ -95,7 +95,7 @@ module Domain =
           | P_block({base_kind = Addr a}, _, _) ->
              get_env T_cur man flow >>$ fun cur flow ->
              set_env T_cur
-               (add a (Callstacks.singleton (Flow.get_callstack flow)) cur)
+               (add a (Callstacks.singleton (Flow.get_control_ctx flow)) cur)
                man flow
              >>% fun flow ->
              Eval.singleton (mk_one range) flow

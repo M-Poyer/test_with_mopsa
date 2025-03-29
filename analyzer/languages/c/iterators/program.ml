@@ -714,7 +714,7 @@ struct
       (* Get global variables *)
       let globals = List.map fst prog.c_globals in
       (* Get local variables of all functions in the callstack, following the same order *)
-      let locals = List.fold_right (fun call acc -> (get_locals prog call.Callstack.call_fun_orig_name) @ acc
+      let locals = List.fold_right (fun call acc -> (get_locals prog call.ControlCtx.call_fun_orig_name) @ acc
                      ) cs []
       in
       let all_vars = globals @ locals in

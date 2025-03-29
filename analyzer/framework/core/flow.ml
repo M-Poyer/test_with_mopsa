@@ -26,7 +26,7 @@ open Lattice
 open Context
 open Token
 open Alarm
-open Callstack
+open ControlCtx
 
 
 (****************************************************************************)
@@ -156,28 +156,31 @@ let create ctx report tmap = {
   report;
 }
 
-let get_callstack flow =
+let get_control_ctx flow =
   get_ctx flow |>
-  find_ctx callstack_ctx_key
+  find_ctx control_ctx_key
 
+let get_callstack flow =
+  get_control_ctx flow |>
+  extract_callstack
 
-let set_callstack cs flow =
+let set_control_ctx cc flow =
   set_ctx (
     get_ctx flow |>
-    add_ctx Context.callstack_ctx_key cs
+    add_ctx Context.control_ctx_key cc
   ) flow
 
 let push_callstack fname ?(uniq=fname) range flow =
-  set_callstack (
-    get_callstack flow |>
+  set_control_ctx (
+    get_control_ctx flow |>
     push_callstack fname ~uniq range
   ) flow
 
 let pop_callstack flow =
-  let hd, cs = get_callstack flow |>
+  let hd, cc = get_control_ctx flow |>
                pop_callstack
   in
-  hd, set_callstack cs flow
+  hd, set_control_ctx cc flow
 
 let bottom_from flow : 'a flow =
   bottom (get_ctx flow) (get_report flow)

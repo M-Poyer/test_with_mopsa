@@ -33,7 +33,7 @@ open Context
 open Lattice
 open Token
 open Alarm
-open Callstack
+open ControlCtx
 open Change
 
 
@@ -170,9 +170,12 @@ val remove_report : 'a flow -> 'a flow
 
 val create : 'a ctx -> report -> 'a TokenMap.t -> 'a flow
 
+val get_control_ctx : 'a flow -> control_ctx
+
 val get_callstack : 'a flow -> callstack
 
-val set_callstack : callstack -> 'a flow -> 'a flow
+val set_control_ctx : control_ctx -> 'a flow -> 'a flow
+(* DEPRECATED: please use {push,pop}_callstack *)
 
 val push_callstack : string -> ?uniq:string -> Location.range -> 'a flow -> 'a flow
 

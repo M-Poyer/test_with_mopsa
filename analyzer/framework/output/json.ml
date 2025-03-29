@@ -25,7 +25,7 @@ open Mopsa_utils
 open Yojson.Basic
 open ArgExt
 open Core.All
-open Callstack
+open ControlCtx
 open Location
 open Common
 
@@ -67,8 +67,21 @@ let render_call (c:callsite)  =
     "range", render_range c.call_range;
   ]
 
-let render_callstack cs  =
+let render_loop (l:loopsite)  =
+  `Assoc [
+    "loop_info", `String (match l.loop_info with
+        | Unrolling n -> Format.asprintf "unrolling %d" n
+        | Fixpoint_iteration -> "fixpoint iteration");
+    "range", render_range l.loop_range;
+  ]
+
+let render_callstack cs =
   `List (List.map render_call cs)
+
+let render_control_context cs  =
+  `List (List.map (function
+      | Call c -> render_call c
+      | Loop l -> render_loop l) cs)
 
 let aggregate_alarms report =
   RangeCallStackMap.fold
@@ -211,7 +224,7 @@ let panic exn ~btrace ~time ~files ~out _ =
         | Some r -> [ "range", render_range r ] )
     @ (match cs with
         | None -> []
-        | Some c -> [ "callstack", render_callstack c ] )
+        | Some c -> [ "callstack", render_control_context c ] )
   in
   print out (`Assoc assoc)
 

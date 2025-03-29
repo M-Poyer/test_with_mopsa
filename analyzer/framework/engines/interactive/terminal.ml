@@ -22,7 +22,7 @@
 open Core.All
 open Mopsa_utils
 open Location
-open Callstack
+open ControlCtx
 open Interface
 open Format
 open Breakpoint
@@ -869,8 +869,8 @@ struct
          | Exceptions.PanicAtLocation (range, msg, "") -> fprintf fmt "panic in %a: %s@." Location.pp_range range msg
          | Exceptions.PanicAtLocation (range, msg, loc) -> fprintf fmt "%a: panic raised in %s: %s@." Location.pp_range range loc msg
 
-         | Exceptions.PanicAtFrame (range, cs, msg, "") -> fprintf fmt "panic in %a: %s@\nTrace:@\n%a@." Location.pp_range range msg pp_callstack cs
-         | Exceptions.PanicAtFrame (range, cs, msg, loc) -> fprintf fmt "%a: panic raised in %s: %s@\nTrace:@\n%a@." Location.pp_range range loc msg pp_callstack cs
+         | Exceptions.PanicAtFrame (range, cs, msg, "") -> fprintf fmt "panic in %a: %s@\nTrace:@\n%a@." Location.pp_range range msg pp_control_ctx cs
+         | Exceptions.PanicAtFrame (range, cs, msg, loc) -> fprintf fmt "%a: panic raised in %s: %s@\nTrace:@\n%a@." Location.pp_range range loc msg pp_control_ctx cs
 
          | Exceptions.SyntaxError (range, msg) -> fprintf fmt "%a: syntax error: %s@." Location.pp_range range msg
          | Exceptions.UnnamedSyntaxError range -> fprintf fmt "%a: syntax error@." Location.pp_range range

@@ -67,7 +67,7 @@ struct
       let cs = Flow.get_callstack flow in
       let globals = prog.universal_gvars in
       let locals = List.rev @@
-        List.fold_left (fun acc call -> (get_locals prog call.Callstack.call_fun_orig_name) @ acc) [] cs in
+        List.fold_left (fun acc call -> (get_locals prog call.ControlCtx.call_fun_orig_name) @ acc) [] cs in
       Cases.singleton (globals @ locals) flow
       |> OptionExt.return 
 
