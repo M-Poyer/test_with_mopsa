@@ -120,7 +120,7 @@ val get_callstack: ('a,'r) cases -> callstack
 val pop_callstack: ('a, 'r) cases -> callsite * ('a, 'r) cases
 (** [pop_callstack cases] updates cases to pop the last call stack element from the control context, and returns the popped element *)
 
-val within_extended_control_ctx : control_info -> ('a, 'r) cases -> (('a, 'r) cases -> ('a, 's) cases) -> ('a, 's) cases
+val within_extended_control_ctx : control_info -> 'a flow -> ('a flow -> ('a, 'r) cases) -> ('a, 'r) cases
 
 (** {1 Changes} *)
 (** *********** *)

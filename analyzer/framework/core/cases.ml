@@ -104,11 +104,11 @@ let pop_callstack cases =
   let hd, cc = get_control_ctx cases |> ControlCtx.pop_callstack in
   hd, set_control_ctx cc cases
 
-let within_extended_control_ctx control_info cases_init kont =
-  let init_ctx = get_control_ctx cases_init in
+let within_extended_control_ctx control_info (flow_init: 'a flow) kont =
+  let init_ctx = Flow.get_control_ctx flow_init in
   let cases_post_kont =
-    cases_init |>
-    set_control_ctx (control_info :: init_ctx) |>
+    flow_init |>
+    Flow.set_control_ctx (control_info :: init_ctx) |>
     kont
   in
   set_control_ctx init_ctx cases_post_kont
