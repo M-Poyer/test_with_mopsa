@@ -70,7 +70,7 @@ let mk_addr_stack addr_kind addr_mode range cs =
 let mk_addr_all addr_kind addr_mode range cs  =
   { addr_kind; addr_mode; addr_partitioning = G_all }
 
-let mk_addr_chain : (addr_kind -> mode -> range -> callstack -> addr) ref =
+let mk_addr_chain : (addr_kind -> mode -> range -> control_ctx -> addr) ref =
   ref (fun ak _ _ _ -> assert false)
 let mk_addr ak m r cs = !mk_addr_chain ak m r cs
 let register_mk_addr f = mk_addr_chain := f !mk_addr_chain
@@ -80,11 +80,10 @@ let register_option (opt: string ref) (domain_name: string) (key: string) (descr
       key;
       category = "Heap";
       doc = Format.asprintf " allocation policy used %s" descr;
-      spec = Symbol (["all"; "range"; "callstack"; "range_callstack"],
-                            (function s -> opt := s));
+      spec = Symbol (["all"; "range"; "callstack"; "range_callstack"; "range_control"],
+                     (function s -> opt := s; register_mk_addr f));
       default = !opt;
-    };
-  register_mk_addr f
+    }
 
 let of_string opt = match opt with
     | "all" -> mk_addr_all
