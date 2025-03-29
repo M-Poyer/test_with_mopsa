@@ -89,10 +89,11 @@ let register_option (opt: string ref) (domain_name: string) (key: string) (descr
       key;
       category = "Heap";
       doc = Format.asprintf " allocation policy used %s" descr;
-      spec = Symbol (["all"; "range"; "callstack"; "range_callstack"; "range_control"],
-                     (function s -> opt := s; register_mk_addr f));
+      spec = Symbol (["all"; "range"; "callstack"; "range_callstack"],
+                            (function s -> opt := s));
       default = !opt;
-    }
+    };
+  register_mk_addr f
 
 let of_string opt = match opt with
     | "all" -> mk_addr_all
