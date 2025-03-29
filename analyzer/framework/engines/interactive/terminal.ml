@@ -608,8 +608,8 @@ struct
 
   let pp_output_command action envdb man flow fmt = function
     | BackTrace ->
-      let cs = Flow.get_callstack flow in
-      fprintf fmt "%a@." pp_callstack cs
+      let cs = Flow.get_control_ctx flow in
+      fprintf fmt "%a@." pp_control_ctx cs
 
     | MopsaBackTrace ->
       let (in_file_descr, out_file_descr) = Unix.pipe () in
