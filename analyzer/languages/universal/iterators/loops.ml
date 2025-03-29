@@ -276,73 +276,86 @@ struct
     Option.some
 
   let decr_iteration cond body man flow_init flow =
-    Flow.remove T_continue flow |>
-    Flow.remove T_break |>
-    Flow.remove_report |>
-    man.exec (mk_assume cond cond.erange) >>%
-    man.exec body >>% fun flow ->
-    merge_cur_and_continue man flow |>
-    Flow.join man.lattice flow_init |>
-    Post.return
+    Cases.within_extended_control_ctx (Loop {loop_range = body.srange; loop_info = Fixpoint_iteration}) (Post.return flow) (fun post ->
+        post >>% fun flow ->
+        Flow.remove T_continue flow |>
+        Flow.remove T_break |>
+        Flow.remove_report |>
+        man.exec (mk_assume cond cond.erange) >>%
+        man.exec body >>% fun flow ->
+        merge_cur_and_continue man flow |>
+        Flow.join man.lattice flow_init |>
+        Post.return
+      )
 
   let rec lfp count delay cond body man flow_init flow =
-    debug "lfp called, range = %a, count = %d" pp_range body.srange count;
-    (* Ignore continue and break flows of the previous iterations *)
-    Flow.remove T_continue flow |>
-    Flow.remove T_break |>
-    (* Ignore report of the previous iterations *)
-    Flow.set_report (Flow.get_report flow_init) |>
-    (* Apply condition and execute body *)
-    man.exec (mk_assume cond cond.erange) >>%
-    man.exec body >>% fun f ->
-    (* Merge cur and continue flows *)
-    let flow' = merge_cur_and_continue man f |>
-                Flow.join man.lattice flow_init
-    in
-    (* Check convergence of cur flow *)
-    let cur = Flow.get T_cur man.lattice flow in
-    let cur' = Flow.get T_cur man.lattice flow' in
-    let is_sub = man.lattice.subset (Flow.get_ctx flow') cur' cur in
-    debug "lfp range %a is_sub: %b" pp_range body.srange is_sub;
-    if is_sub then
-      (* Convergence *)
-      Post.return flow'
-    else if delay = 0 then
-      (* Widen *)
-      let wflow = Flow.widen man.lattice flow flow' in
-      lfp (count+1) !opt_loop_widening_delay cond body man flow_init wflow
-    else
-      (* Delay *)
-      lfp (count+1) (delay - 1) cond body man flow_init flow'
+    Cases.within_extended_control_ctx (Loop {loop_range = body.srange; loop_info = Fixpoint_iteration}) (Post.return flow) (fun post ->
+        post >>% fun flow ->
+        debug "lfp called, range = %a, count = %d" pp_range body.srange count;
+        (* Ignore continue and break flows of the previous iterations *)
+        Flow.remove T_continue flow |>
+        Flow.remove T_break |>
+        (* Ignore report of the previous iterations *)
+        Flow.set_report (Flow.get_report flow_init) |>
+        (* Apply condition and execute body *)
+        man.exec (mk_assume cond cond.erange) >>%
+        man.exec body >>% fun f ->
+        (* Merge cur and continue flows *)
+        let flow' = merge_cur_and_continue man f |>
+                    Flow.join man.lattice flow_init
+        in
+        (* Check convergence of cur flow *)
+        let cur = Flow.get T_cur man.lattice flow in
+        let cur' = Flow.get T_cur man.lattice flow' in
+        let is_sub = man.lattice.subset (Flow.get_ctx flow') cur' cur in
+        debug "lfp range %a is_sub: %b" pp_range body.srange is_sub;
+        if is_sub then
+          (* Convergence *)
+          Post.return flow'
+        else if delay = 0 then
+          (* Widen *)
+          let wflow = Flow.widen man.lattice flow flow' in
+          lfp (count+1) !opt_loop_widening_delay cond body man flow_init wflow
+        else
+          (* Delay *)
+          lfp (count+1) (delay - 1) cond body man flow_init flow'
+      )
 
+  let keep_unroll c p =
+    match p with
+    | None -> false
+    | Some i -> c < i
 
-  let rec unroll i cond body man flow =
-    debug "unrolling iteration %a in %a"
-      (OptionExt.print ~none:"" ~some:"" Format.pp_print_int) i
-      pp_range (srange body);
-    if i = Some 0 then
+  let rec unroll count policy cond body man flow =
+    if not (keep_unroll count policy) then
       Cases.singleton (false, Flow.bottom (Flow.get_ctx flow) (Flow.get_report flow)) flow
     else
-      let post1 =
-        man.exec {skind = S_assume cond; srange = cond.erange} flow >>%
-        man.exec body >>% fun f ->
-        merge_cur_and_continue man f |>
-        Post.return
-      in
+      let () = debug "unrolling iteration [%d/%a] in %a"
+          count
+          (OptionExt.print ~none:"" ~some:"" Format.pp_print_int) policy
+          pp_range (srange body) in
+      Cases.within_extended_control_ctx (Loop {loop_range = body.srange; loop_info = Unrolling count}) (Post.return flow) (fun post ->
+          let post1 =
+            post >>%
+            man.exec {skind = S_assume cond; srange = cond.erange} >>%
+            man.exec body >>% fun f ->
+            merge_cur_and_continue man f |>
+            Post.return
+          in
 
-      let post2 =
-        man.exec (mk_assume (mk_not cond cond.erange) cond.erange) (Flow.set_ctx (Cases.get_ctx post1) flow)
-      in
+          let post2 =
+            man.exec (mk_assume (mk_not cond cond.erange) cond.erange) (Flow.set_ctx (Cases.get_ctx post1) flow)
+          in
 
-      post1 >>% fun flow1 ->
-      post2 >>% fun flow2 ->
-      if Flow.subset man.lattice flow1 flow then
-        let () = debug "stabilisation reached in unrolling!" in
-        Cases.singleton (true, flow2) flow1
-      else
-        unroll (OptionExt.lift (fun ii -> (ii - 1)) i) cond body man (Flow.copy_ctx flow2 flow1) >>$ fun (flag, flow2') flow1' ->
-        Cases.singleton (flag, Flow.join man.lattice flow2 flow2') flow1'
-
+          post1 >>% fun flow1 ->
+          post2 >>% fun flow2 ->
+          if Flow.subset man.lattice flow1 flow then
+            let () = debug "stabilisation reached in unrolling!" in
+            Cases.singleton (true, flow2) flow1
+          else
+            unroll (count+1) policy cond body man (Flow.copy_ctx flow2 flow1) >>$ fun (flag, flow2') flow1' ->
+            Cases.singleton (flag, Flow.join man.lattice flow2 flow2') flow1'
+        )
 
   let rec exec stmt man flow =
     match skind stmt with
@@ -358,9 +371,9 @@ struct
       begin if !opt_loop_use_cache then
           match join_w_old_lfp man flow0 (stmt.srange, Flow.get_callstack flow0) with
           | Some flow0 -> Cases.singleton (false, Flow.bottom (Flow.get_ctx flow0) (Flow.get_report flow0)) flow0
-          | None -> unroll (get_range_unrolling stmt.srange) cond body man flow0
+          | None -> unroll 0 (get_range_unrolling stmt.srange) cond body man flow0
         else
-          unroll (get_range_unrolling stmt.srange) cond body man flow0
+          unroll 0 (get_range_unrolling stmt.srange) cond body man flow0
       end >>$? fun (is_fp, flow_out) flow_init ->
 
       begin

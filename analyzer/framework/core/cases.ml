@@ -104,6 +104,15 @@ let pop_callstack cases =
   let hd, cc = get_control_ctx cases |> ControlCtx.pop_callstack in
   hd, set_control_ctx cc cases
 
+let within_extended_control_ctx control_info cases_init kont =
+  let init_ctx = get_control_ctx cases_init in
+  let cases_post_kont =
+    cases_init |>
+    set_control_ctx (control_info :: init_ctx) |>
+    kont
+  in
+  set_control_ctx init_ctx cases_post_kont
+
 let get_case_cleaners (case:'r case) : StmtSet.t =
   match case with
   | Result(_,_,cleaners) -> cleaners
