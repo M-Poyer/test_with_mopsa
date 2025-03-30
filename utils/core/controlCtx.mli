@@ -106,6 +106,10 @@ val pop_callstack : control_ctx -> callsite * control_ctx
     Raises [Bad_control_ctx] if the control context starts with Loop info.
 *)
 
+val pop_callstack_cs : callstack -> callsite * callstack
+(** Similar as [pop_callstack] but works on callstacks only. *)
+
+
 val callstack_top : callstack -> callsite
 (** [callstack_top cs] returns the last call site in [cs].
     Raises [Empty_callstack] if the call stack is empty. *)

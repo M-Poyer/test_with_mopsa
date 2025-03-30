@@ -279,15 +279,15 @@ struct
     | Var { vkind = V_cvar {cvar_scope = Variable_parameter f}; vtyp }
       when is_c_scalar_type vtyp
       ->
-      let cs = find_ctx Context.control_ctx_key ctx in
-      if is_empty_control_ctx cs
+      let cs = find_ctx Context.control_ctx_key ctx |> ControlCtx.extract_callstack in
+      if is_empty_callstack cs
       then packs_of_function ~user_only f.c_func_unique_name
       else
-        let _, cs' = pop_callstack cs in
-        if is_empty_control_ctx cs'
+        let _, cs' = pop_callstack_cs cs in
+        if is_empty_callstack cs'
         then packs_of_function ~user_only f.c_func_unique_name
         else
-          let caller, _ = pop_callstack cs' in
+          let caller, _ = pop_callstack_cs cs' in
           packs_of_function ~user_only f.c_func_unique_name @
           packs_of_function ~user_only caller.call_fun_uniq_name
 

@@ -131,7 +131,13 @@ let pop_callstack cc =
   match cc with
   | [] -> raise Empty_callstack
   | Loop _ :: _ -> raise Bad_control_ctx
-  | Call c :: tl -> c, tl 
+  | Call c :: tl -> c, tl
+
+let pop_callstack_cs cc =
+  match cc with
+  | [] -> raise Empty_callstack
+  | c :: tl -> c, tl
+
 
 let callstack_top (cs:callstack) : callsite =
   try List.hd cs
