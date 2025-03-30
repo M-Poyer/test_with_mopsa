@@ -500,10 +500,10 @@ module Domain =
                    | Some TOP -> [Python.Ast.mk_py_top T_string range]
                  in
                  (* get callstack used when this exception was raised *)
-                 let exc_cs = match exc_pt with
+                 (match exc_pt with
                    | P_block ({base_kind = Addr a}, _, _) ->
-                      ask_and_reduce man.ask (Callstack_tracking.Q_cpython_attached_callstack a) flow
-                   | _ -> assert false in
+                     man.ask (Callstack_tracking.Q_cpython_attached_callstack a) flow
+                   | _ -> assert false) >>$ fun exc_cs flow ->
                  (* clean C exception state for next times *)
                  let old_cs = Flow.get_control_ctx flow in
                  let flow = Flow.set_control_ctx exc_cs flow in
