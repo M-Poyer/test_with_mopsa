@@ -160,6 +160,9 @@ end)
 let wrap2 lo up a =
   wrap a (Z.of_int lo) (Z.of_int up)
 
+let bwd_wrap2 lo up a r =
+  bwd_wrap a ((Z.of_int lo),(Z.of_int up)) r
+
 let test () =
   let tests = [
     TestFactory.test_unop "neg" Z.neg neg;
@@ -201,6 +204,8 @@ let test () =
     TestFactory.test_bwd_unop "bwd abs" Z.abs bwd_abs;
     TestFactory.test_bwd_unop "bwd succ" Z.succ bwd_succ;
     TestFactory.test_bwd_unop "bwd pred" Z.pred bwd_pred;
+    TestFactory.test_bwd_unop "bwd_wrap [0,255]" (Common.wrap_scalar 0 255) (bwd_wrap2 0 255);
+    TestFactory.test_bwd_unop "bwd_wrap [-128,127]" (Common.wrap_scalar (-128) 127) (bwd_wrap2 (-128) 127);
     TestFactory.test_bwd_binop "bwd +" Z.add bwd_add;
     TestFactory.test_bwd_binop "bwd -" Z.sub bwd_sub;
     TestFactory.test_bwd_binop "bwd *" Z.mul bwd_mul;
