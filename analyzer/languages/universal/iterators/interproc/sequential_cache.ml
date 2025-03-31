@@ -127,7 +127,14 @@ struct
             | Some _ ->
               match func.fun_return_var with
               | Some v -> Some v
-              | None   -> Some (mk_return exp)
+              | None   ->
+                let cs = Callstack.push_callstack
+                  func.fun_orig_name
+                  ~uniq:func.fun_uniq_name
+                  range
+                  (Flow.get_callstack flow)
+                in
+                Some (mk_return cs exp)
           in
           (* mk_range_attr_var range (Format.asprintf "ret_var_%s" func.fun_uniq_name) T_any in *)
           let res = inline func params locals body ret range man in_flow_cur in

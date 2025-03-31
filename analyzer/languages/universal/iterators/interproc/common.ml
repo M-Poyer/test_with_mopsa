@@ -127,8 +127,8 @@ let () =
   }
 
 (** Constructor of return variables *)
-let mk_return call =
-  let uniq_name = Format.asprintf "ret(%a)@@%a" pp_expr call pp_range call.erange in
+let mk_return cs call =
+  let uniq_name = Format.asprintf "ret(%a)@@%a" pp_expr call Callstack.pp_callstack_short cs in
   mkv uniq_name (V_return call) call.etyp
 
 
