@@ -86,15 +86,32 @@ let normalize_ctx cases =
   let ctx = get_most_recent_ctx cases in
   set_ctx ctx cases
 
-let get_callstack r =
+let get_control_ctx r =
   get_ctx r |>
-  find_ctx Context.callstack_ctx_key
+  find_ctx Context.control_ctx_key
 
-let set_callstack cs r =
+let set_control_ctx cc r =
   set_ctx (
     get_ctx r |>
-    add_ctx Context.callstack_ctx_key cs
+    add_ctx Context.control_ctx_key cc
   ) r
+
+let get_callstack r =
+  get_control_ctx r |>
+  ControlCtx.extract_callstack
+
+let pop_callstack cases =
+  let hd, cc = get_control_ctx cases |> ControlCtx.pop_callstack in
+  hd, set_control_ctx cc cases
+
+let within_extended_control_ctx control_info (flow_init: 'a flow) kont =
+  let init_ctx = Flow.get_control_ctx flow_init in
+  let cases_post_kont =
+    flow_init |>
+    Flow.set_control_ctx (control_info :: init_ctx) |>
+    kont
+  in
+  set_control_ctx init_ctx cases_post_kont
 
 let get_case_cleaners (case:'r case) : StmtSet.t =
   match case with

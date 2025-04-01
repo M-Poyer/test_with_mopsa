@@ -34,6 +34,7 @@ open Ast.Stmt
 open Flow
 open Change
 open Context
+open ControlCtx
 open Callstack
 open Lattice
 
@@ -111,12 +112,16 @@ val set_ctx : 'a ctx -> ('a,'r) cases -> ('a,'r) cases
 val copy_ctx : ('a,'r) cases -> ('a,'s) cases -> ('a,'s) cases
 (** [copy_ctx c1 c2] changes the context of cases [c2] to the context of [c1]. *)
 
+val get_control_ctx: ('a,'r) cases -> control_ctx
+(** [get_control_ctx c] returns the control context of cases [c]. *)
+
 val get_callstack: ('a,'r) cases -> callstack
 (** [get_callstack c] returns the callstack of cases [c]. *)
 
-val set_callstack: callstack-> ('a,'r) cases -> ('a,'r) cases
-(** [set_callstack cs c] returns a copy of [c] with callstack [cs]. *)
+val pop_callstack: ('a, 'r) cases -> callsite * ('a, 'r) cases
+(** [pop_callstack cases] updates cases to pop the last call stack element from the control context, and returns the popped element *)
 
+val within_extended_control_ctx : control_info -> 'a flow -> ('a flow -> ('a, 'r) cases) -> ('a, 'r) cases
 
 (** {1 Changes} *)
 (** *********** *)

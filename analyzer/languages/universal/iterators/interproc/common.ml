@@ -25,7 +25,6 @@
 open Mopsa
 open Ast
 
-
 let name = "universal.iterators.interproc.common"
 let debug fmt = Debug.debug ~channel:name fmt
 
@@ -147,8 +146,8 @@ module ReturnKey = GenContextKey(
 let return_key = ReturnKey.key
 
 let get_last_call_site flow =
-  let cs = Flow.get_callstack flow in
-  let hd, _ = pop_callstack cs in
+  let cs = Flow.get_control_ctx flow in
+  let hd, _ = ControlCtx.pop_callstack cs in
   hd.call_range
 
 
@@ -293,9 +292,7 @@ let exec_fun_body f body ret range man flow =
         (add_ctx return_key ret (Cases.get_ctx post2)) post2 in
 
   (* Restore call stack *)
-  let _,cs = Cases.get_callstack post3 |>
-             Callstack.pop_callstack in
-  let post4 = Cases.set_callstack cs post3 in
+  let _, post4 = Cases.pop_callstack post3 in
 
   post4 >>% fun flow3 ->
 
