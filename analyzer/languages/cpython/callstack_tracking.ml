@@ -71,14 +71,11 @@ module Domain =
       let join a1 a2 = CallstackSet.join a1 a2 |> bound
 
       let widen ctx a1 a2 =
-        let r =
-          if CallstackSet.subset (control_ctx_remove_loop_info a2) (control_ctx_remove_loop_info a1) then
-            (* FIXME: maybe we could remove unroll in favor of fixpoint_iteration here, it would simplify things for the query (which previously assumed the set had a size at most 1 *)
-            join a1 a2
-          else
-            widen ctx a1 a2 in
-          Debug.debug ~channel:"cs" "%a ∇ %a = %a" (format print) a1 (format print) a2 (format print) r;
-          r
+        if CallstackSet.subset (control_ctx_remove_loop_info a2) (control_ctx_remove_loop_info a1) then
+          (* FIXME: maybe we could remove unroll in favor of fixpoint_iteration here, it would simplify things for the query (which previously assumed the set had a size at most 1 *)
+          join a1 a2
+        else
+          widen ctx a1 a2
 
       let add v t =
         add v t |> bound
