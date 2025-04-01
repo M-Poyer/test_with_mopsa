@@ -19,7 +19,7 @@
 (*                                                                          *)
 (****************************************************************************)
 
-(** Control context - representation of the call stack and loop analysis positino of a program analysis *)
+(** Control context - representation of the call stack and loop analysis position of a program analysis *)
 
 open Callstack
 open Location
