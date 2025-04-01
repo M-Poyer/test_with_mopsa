@@ -69,6 +69,17 @@ let split (l:'a list) : 'a list * 'a list =
     If [a,b = split l], then [l = a @ b].
  *)
 
+ let[@tail_mod_cons] rec map3 f l1 l2 l3 =
+  match (l1, l2, l3) with
+    ([], [], []) -> []
+  | ([a1], [b1], [c1]) ->
+      let r1 = f a1 b1 c1 in
+      [r1]
+  | (a1::a2::l1, b1::b2::l2, c1::c2::l3) ->
+      let r1 = f a1 b1 c1 in
+      let r2 = f a2 b2 c2 in
+      r1::r2::map3 f l1 l2 l3
+  | (_, _, _) -> invalid_arg "List.map3"
 
 (** {2 Printing} *)
 
@@ -145,7 +156,7 @@ let par_iteri (nb_threads:int) (f: int -> 'a -> unit) (l:'a list) : unit =
     let mtx = Mutex.create () in
     let i = ref 0 in
     let ll = ref l in
-    let rec consumer () = 
+    let rec consumer () =
       Mutex.lock mtx;
       match !ll with
       | a::b when !exn = None->

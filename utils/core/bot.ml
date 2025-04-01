@@ -60,6 +60,9 @@ let bot_apply2 (a1:'a) (a2:'a) (f:'b ->'b -> 'a) (b1:'b with_bot) (b2:'b with_bo
 let bot_merge2 a b =
   match a,b with Nb x, Nb y -> Nb (x,y) | _ -> BOT
 
+let bot_split a =
+  match a with BOT -> BOT, BOT | Nb (x,y) -> Nb x, Nb y
+
 let bot_equal (f:'a->'b->bool) (a:'a with_bot) (b:'b with_bot) : bool =
   match a,b with BOT, BOT -> true | Nb x, Nb y -> f x y | _ -> false
 

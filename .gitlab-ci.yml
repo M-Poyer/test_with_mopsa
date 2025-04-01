@@ -275,6 +275,16 @@ test-interactive:
     - diff <(sed "16,17,28d" out.out) <(sed "16,17,28d" interactive.out)
 
 
+##############
+# Unit tests #
+##############
+
+test-unit:
+  stage: test
+  dependencies: [build_job]
+  script:
+    - eval `opam config env`
+    - dune runtest --profile release
 
 #####################
 # Push to dockerhub #
