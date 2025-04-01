@@ -216,7 +216,7 @@ struct
        (try
          let allvars =
            List.fold_left (fun acc call ->
-               (get_locals body call.ControlCtx.call_fun_orig_name) @ acc
+               (get_locals body call.call_fun_orig_name) @ acc
              ) globals cs
          in
          Some (Cases.singleton allvars flow)

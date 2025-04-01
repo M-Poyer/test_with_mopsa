@@ -25,7 +25,6 @@
 open Mopsa
 open Ast
 
-
 let name = "universal.iterators.interproc.common"
 let debug fmt = Debug.debug ~channel:name fmt
 
@@ -148,7 +147,7 @@ let return_key = ReturnKey.key
 
 let get_last_call_site flow =
   let cs = Flow.get_control_ctx flow in
-  let hd, _ = pop_callstack cs in
+  let hd, _ = ControlCtx.pop_callstack cs in
   hd.call_range
 
 

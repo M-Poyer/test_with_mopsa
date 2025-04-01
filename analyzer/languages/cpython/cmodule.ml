@@ -1499,7 +1499,7 @@ module Domain =
            (fun earg flow ->
              debug "eval ~translate:Universal %a ~> %a" pp_expr (List.hd args) pp_expr earg;
              (* FIXME: forced to attach the value as an addr_attr in universal, and convert it afterwards when going back to python... *)
-             debug "allocating int at range %a callstack %a" pp_range range ControlCtx.pp_callstack (Flow.get_callstack flow);
+             debug "allocating int at range %a callstack %a" pp_range range pp_callstack (Flow.get_callstack flow);
              alloc_py_addr man (A_py_instance (fst @@ find_builtin "int")) range flow >>$
                fun int_addr flow ->
                debug "got int_addr %a, putting %a as value" pp_addr (Addr.from_expr int_addr) pp_expr earg;

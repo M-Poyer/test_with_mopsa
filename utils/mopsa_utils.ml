@@ -26,6 +26,7 @@ module Bot = Bot
 module Compare = Compare
 module Location = Location
 module ControlCtx = ControlCtx
+module Callstack = Callstack
 module Debug = Debug
 module Exceptions = Exceptions
 module OptionExt = OptionExt

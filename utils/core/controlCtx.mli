@@ -22,23 +22,7 @@
 (** Control context - representation of the call stack and loop analysis positino of a program analysis *)
 
 open Location
-
-(** {1 Call sites} *)
-(** ************** *)
-
-type callsite = {
-  call_fun_orig_name:  string; (** Original name of the called function *)
-  call_fun_uniq_name:  string; (** Unique name of the called function *)
-  call_range: range;           (** Call location *)
-}
-(** Call site is the location of a call in the program *)
-
-val pp_callsite : Format.formatter -> callsite -> unit
-(** Print a call site *)
-
-val compare_callsite : callsite -> callsite -> int
-(** Compare two call sites *)
-
+open Callstack
 
 (** {1 Loop sites} *)
 (** ************** *)
@@ -61,41 +45,14 @@ type control_info =
 
 type control_ctx = control_info list
 
-val within_enriched_loop_ctx : control_ctx -> loopsite -> (control_ctx -> 'a) -> 'a
-
-type callstack = callsite list
-
 val extract_callstack : control_ctx -> callstack
 
-val pp_callstack : Format.formatter -> callstack -> unit
-(** Print a call stack *)
-
-val pp_callstack_short : Format.formatter -> callstack -> unit
-(** Print a call stack in a short style *)
-
-val compare_callstack : callstack -> callstack -> int
-(** Compare two call stacks *)
-
-val empty_callstack : callstack
-(** Empty call stack *)
-
-val is_empty_callstack : callstack -> bool
-(** Check that a call stack is empty *)
-
-val callstack_length : callstack -> int
-(** Return the length of a call stack *)
+val within_enriched_loop_ctx : control_ctx -> loopsite -> (control_ctx -> 'a) -> 'a
 
 val push_callstack : string -> ?uniq:string -> range -> control_ctx -> control_ctx
 (** [push_callstack orig ~uniq range cs] adds the call to function
     [orig] at location [range] at the top of the call stack [cs].
     The default unique function name of the function is its original name. *)
-
-val push_callstack_cs : string -> ?uniq:string -> range -> callstack -> callstack
-(** Similar as [push_callstack] but works on callstacks only. Useful for variables depending on callstacks only *)
-
-
-exception Empty_callstack
-(** Exception raised when a call stack is empty *)
 
 exception Bad_control_ctx
 (** Exception raised when a Call is expected at the top of the control context and a Loop is found (or conversely) *)
@@ -106,22 +63,11 @@ val pop_callstack : control_ctx -> callsite * control_ctx
     Raises [Bad_control_ctx] if the control context starts with Loop info.
 *)
 
-val pop_callstack_cs : callstack -> callsite * callstack
-(** Similar as [pop_callstack] but works on callstacks only. *)
-
-
-val callstack_top : callstack -> callsite
-(** [callstack_top cs] returns the last call site in [cs].
-    Raises [Empty_callstack] if the call stack is empty. *)
-
-val callstack_begins_with : callstack -> callstack -> bool
-(** [callstack_begins_with ext cs] checks that [ext] is an extension of [cs], i.e. ext = x @ cs *)
-
 val pp_control_ctx : Format.formatter -> control_ctx -> unit
 (** Print control context *)
 
 val compare_control_ctx : control_ctx -> control_ctx -> int
-(** Compare control context *) 
+(** Compare control context *)
 
 val empty_control_ctx : control_ctx
 (** Empty control context *)

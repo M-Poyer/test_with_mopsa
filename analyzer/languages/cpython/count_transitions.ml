@@ -32,7 +32,7 @@ struct
       mutable c2py: int;
     }
 
-  let table : (ControlCtx.callstack, entry) Hashtbl.t = Hashtbl.create 1
+  let table : (callstack, entry) Hashtbl.t = Hashtbl.create 1
 
   let cut_callstack cs = if cs = [] then [] else [List.hd @@ List.rev cs]
 

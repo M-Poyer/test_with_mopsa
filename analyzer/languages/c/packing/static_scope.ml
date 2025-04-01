@@ -247,7 +247,7 @@ struct
       try let _ = Str.search_forward (Str.regexp_string "share/mopsa/stubs/c/") file 0 in true
       with Not_found -> false in 
     (
-      ControlCtx.callstack_length cs > 0 &&
+      callstack_length cs > 0 &&
       not (is_range_in_mopsa_stubs @@ (ListExt.last cs).call_range)
       (* not (is_range_in_mopsa_stubs range) *)
     )
@@ -283,11 +283,11 @@ struct
       if is_empty_callstack cs
       then packs_of_function ~user_only f.c_func_unique_name
       else
-        let _, cs' = pop_callstack_cs cs in
+        let _, cs' = pop_callstack cs in
         if is_empty_callstack cs'
         then packs_of_function ~user_only f.c_func_unique_name
         else
-          let caller, _ = pop_callstack_cs cs' in
+          let caller, _ = pop_callstack cs' in
           packs_of_function ~user_only f.c_func_unique_name @
           packs_of_function ~user_only caller.call_fun_uniq_name
 
@@ -343,7 +343,7 @@ struct
             | [] -> assert false 
           in
           process (List.rev cs) in
-        let () = debug "cs = %a@.fname = %s@.f1 = %a@.f2 = %a" ControlCtx.pp_callstack_short cs fname  (OptionExt.print (fun fmt x -> Format.pp_print_string fmt x.call_fun_uniq_name)) f1 (OptionExt.print (fun fmt x -> Format.pp_print_string fmt x.call_fun_uniq_name)) f2 in
+        let () = debug "cs = %a@.fname = %s@.f1 = %a@.f2 = %a" pp_callstack_short cs fname  (OptionExt.print (fun fmt x -> Format.pp_print_string fmt x.call_fun_uniq_name)) f1 (OptionExt.print (fun fmt x -> Format.pp_print_string fmt x.call_fun_uniq_name)) f2 in
         match f2, f1 with
         | None, None -> []
         | Some _, None -> assert false

@@ -22,6 +22,7 @@
 open Mopsa_utils
 open Lattice
 open Location
+open Callstack
 open ControlCtx
 open Format
 
