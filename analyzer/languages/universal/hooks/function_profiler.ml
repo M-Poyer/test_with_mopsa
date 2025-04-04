@@ -208,7 +208,7 @@ struct
   let on_before_eval route semantic exp man flow = ()
 
   let on_after_eval route semantic exp man flow eval =
-    observe_callstack (Cases.get_ctx eval |> find_ctx Context.callstack_ctx_key) exp.erange
+    observe_callstack (Cases.get_callstack eval) exp.erange
 
   let on_finish man flow =
     let t = Sys.time () in

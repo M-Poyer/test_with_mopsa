@@ -46,7 +46,7 @@ let pp_at range fmt =
 
 exception Panic of string (** message *) * string (** OCaml line of code *)
 exception PanicAtLocation of Location.range * string (** message *) * string (** OCaml line of code *)
-exception PanicAtFrame of Location.range * Callstack.callstack * string (** message *) * string (** OCaml line of code *)
+exception PanicAtFrame of Location.range * ControlCtx.control_ctx * string (** message *) * string (** OCaml line of code *)
 
 (** Raise a panic exception using a formatted string *)
 let panic ?(loc="") fmt =

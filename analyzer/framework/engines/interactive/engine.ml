@@ -27,6 +27,7 @@ open Toplevel
 open Format
 open Location
 open Callstack
+open ControlCtx
 open Breakpoint
 open Query
 module I = Interface

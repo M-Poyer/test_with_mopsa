@@ -252,24 +252,24 @@ Registration is done using the utility functor ``GenContextKey``:
    end
    
 
-For example, the framework defines a context key to store the current callstack as follows (see :ref:`here<Callstacks>` for a description of the Callstacks API):
+For example, the framework defines a context key to store the current callstack as follows (see :ref:`here<ControlCtx>` for a description of the control context API):
 
 .. code-block:: ocaml
 
-   module CallstackKey = GenContextKey
+   module ControlCtxKey = GenContextKey
     (struct
-      type 'a t = callstack
-      let print pp fmt cs = pp_callstack fmt cs
+      type 'a t = control_ctx
+      let print pp fmt cs = pp_control_ctx fmt cs
     end)
 
-    let callstack_ctx_key = CallstackKey.key
+    let control_ctx_key = ControlCtxKey.key
 
 Given a flow ``f``, one can retrieve the current callstack as follows:
 
 .. code-block:: ocaml
 
    let ctx = Flow.get_ctx f in
-   let cs = find_ctx callstack_ctx_key ctx in
+   let cs = find_ctx control_ctx_key ctx in
    ...
 
 The full Context API is described bellow:

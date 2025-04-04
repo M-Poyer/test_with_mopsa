@@ -500,20 +500,20 @@ module Domain =
                    | Some TOP -> [Python.Ast.mk_py_top T_string range]
                  in
                  (* get callstack used when this exception was raised *)
-                 let exc_cs = match exc_pt with
+                 (match exc_pt with
                    | P_block ({base_kind = Addr a}, _, _) ->
-                      ask_and_reduce man.ask (Callstack_tracking.Q_cpython_attached_callstack a) flow
-                   | _ -> assert false in
+                     man.ask (Callstack_tracking.Q_cpython_attached_callstack a) flow
+                   | _ -> assert false) >>$ fun exc_cs flow ->
                  (* clean C exception state for next times *)
-                 let old_cs = Flow.get_callstack flow in
-                 let flow = Flow.set_callstack exc_cs flow in
+                 let old_cs = Flow.get_control_ctx flow in
+                 let flow = Flow.set_control_ctx exc_cs flow in
                  man.exec (mk_c_call_stmt (C.Ast.find_c_fundec_by_name "PyErr_Clear" flow) [] range) flow >>% fun flow ->
                  man.exec (Python.Ast.mk_raise
                              (Python.Ast.mk_py_call
                                 (Python.Ast.mk_py_object (exc_addr, None) range)
                                 args range)
                              range) flow >>% fun flow ->
-                                             let flow = Flow.set_callstack old_cs flow in
+                                             let flow = Flow.set_control_ctx old_cs flow in
                                              Eval.empty flow
             | Some TOP -> assert false
             | None ->
@@ -1499,7 +1499,7 @@ module Domain =
            (fun earg flow ->
              debug "eval ~translate:Universal %a ~> %a" pp_expr (List.hd args) pp_expr earg;
              (* FIXME: forced to attach the value as an addr_attr in universal, and convert it afterwards when going back to python... *)
-             debug "allocating int at range %a callstack %a" pp_range range Callstack.pp_callstack (Flow.get_callstack flow);
+             debug "allocating int at range %a callstack %a" pp_range range pp_callstack (Flow.get_callstack flow);
              alloc_py_addr man (A_py_instance (fst @@ find_builtin "int")) range flow >>$
                fun int_addr flow ->
                debug "got int_addr %a, putting %a as value" pp_addr (Addr.from_expr int_addr) pp_expr earg;

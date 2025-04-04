@@ -247,7 +247,7 @@ struct
       try let _ = Str.search_forward (Str.regexp_string "share/mopsa/stubs/c/") file 0 in true
       with Not_found -> false in 
     (
-      Callstack.callstack_length cs > 0 &&
+      callstack_length cs > 0 &&
       not (is_range_in_mopsa_stubs @@ (ListExt.last cs).call_range)
       (* not (is_range_in_mopsa_stubs range) *)
     )
@@ -280,7 +280,7 @@ struct
     | Var ({ vkind = V_var_attr ({ vkind = V_cvar {cvar_scope = Variable_parameter f}; vtyp }, _) })
       when is_c_scalar_type vtyp
       ->
-      let cs = find_ctx Context.callstack_ctx_key ctx in
+      let cs = find_ctx Context.control_ctx_key ctx |> ControlCtx.extract_callstack in
       if is_empty_callstack cs
       then packs_of_function ~user_only f.c_func_unique_name
       else
@@ -324,7 +324,7 @@ struct
 
     (* Return variables are also part of the caller and the callee packs *)
     | Var { vkind = Universal.Iterators.Interproc.Common.V_return call } ->
-      let cs = find_ctx Context.callstack_ctx_key ctx in
+      let cs = find_ctx Context.control_ctx_key ctx |> extract_callstack in
       let r = if is_empty_callstack cs
       then []
       else
@@ -344,7 +344,7 @@ struct
             | [] -> assert false 
           in
           process (List.rev cs) in
-        let () = debug "cs = %a@.fname = %s@.f1 = %a@.f2 = %a" Callstack.pp_callstack_short cs fname  (OptionExt.print (fun fmt x -> Format.pp_print_string fmt x.call_fun_uniq_name)) f1 (OptionExt.print (fun fmt x -> Format.pp_print_string fmt x.call_fun_uniq_name)) f2 in
+        let () = debug "cs = %a@.fname = %s@.f1 = %a@.f2 = %a" pp_callstack_short cs fname  (OptionExt.print (fun fmt x -> Format.pp_print_string fmt x.call_fun_uniq_name)) f1 (OptionExt.print (fun fmt x -> Format.pp_print_string fmt x.call_fun_uniq_name)) f2 in
         match f2, f1 with
         | None, None -> []
         | Some _, None -> assert false
@@ -442,7 +442,7 @@ struct
 
   (** Packing function returning packs of a variable *)
   let rec packs_of_var ctx v =
-    if !opt_pack_only_stubs && is_outside_stub_init (find_ctx callstack_ctx_key ctx) then
+    if !opt_pack_only_stubs && is_outside_stub_init (find_ctx control_ctx_key ctx |> extract_callstack) then
       let () = debug "packs_of_var %a, globals due to pack_only_stubs" pp_var v in [Globals]
     else
     let () = debug "packs_of_var %a" pp_var v in

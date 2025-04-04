@@ -54,7 +54,7 @@ struct
 
   let packs_of_var ctx var = 
     let r = S.packs_of_var ctx var in
-    let () = debug "packs_of_var %a = %a@.%a" pp_var var (Format.pp_print_list (format S.print)) r pp_callstack (find_ctx Context.callstack_ctx_key ctx) in
+    let () = debug "packs_of_var %a = %a@.%a" pp_var var (Format.pp_print_list (format S.print)) r pp_control_ctx (find_ctx Context.control_ctx_key ctx) in
     r
 
   (** Get the interval of a variable in all packs *)

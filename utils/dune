@@ -4,4 +4,4 @@
  (library_flags -linkall)
  (libraries mopsa.mopsa_utils.core containers bitfields congUtils itvUtils))
 
-(dirs * \ tests)
+(dirs *)

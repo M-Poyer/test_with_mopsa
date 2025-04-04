@@ -40,6 +40,7 @@ open Mopsa_utils
 open Lattice
 open Context
 open Location
+open ControlCtx
 open Callstack
 open Format
 
