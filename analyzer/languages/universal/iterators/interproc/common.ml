@@ -371,14 +371,13 @@ let inline f params locals body ret range man flow =
           mk_remove_var v range
         ) locals) range)
   in
-  post >>% fun flow ->
-  let flow =
+  (try
     (* we updated the program before analyzing the renamed function, we can now get rid of it *)
-    try
-      let u_program = get_u_program flow in
-      set_u_program {u_program with universal_fundecs = List.tl u_program.universal_fundecs} flow
-    with Not_found -> flow
-  in
+    let u_program = find_ctx u_program_ctx (Cases.get_ctx post) in
+    let u_program = {u_program with universal_fundecs = List.tl u_program.universal_fundecs} in
+    Cases.set_ctx (Cases.get_ctx post |> add_ctx u_program_ctx u_program) post
+  with Not_found -> post)
+  >>% fun flow ->
 
   match ret with
   | None ->

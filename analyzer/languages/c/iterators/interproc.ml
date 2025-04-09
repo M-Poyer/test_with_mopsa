@@ -512,13 +512,14 @@ struct
           else
             man.eval (mk_top c_func_return range) flow
       in
+      let ret =
+        (* we updated the program before analyzing the renamed function, we can now get rid of it *)
+        let c_program = find_ctx c_program_ctx (Cases.get_ctx ret) in
+        let c_program = {c_program with c_functions = List.tl c_program.c_functions} in
+        Cases.set_ctx (Cases.get_ctx ret |> add_ctx c_program_ctx c_program) ret
+      in
       (* free alloca addresses *)
       ret >>$ fun e flow ->
-      let flow =
-        (* we updated the program before analyzing the renamed function, we can now get rid of it *)
-        let c_program = get_c_program flow in
-        set_c_program {c_program with c_functions = List.tl c_program.c_functions} flow
-      in
       get_env T_cur man flow >>$ fun callee_addrs flow ->
       let flow = set_env_flow T_cur caller_alloca_addrs man flow in
       AddrSet.fold
