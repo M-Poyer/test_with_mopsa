@@ -21,7 +21,6 @@
 
 (** Reduced product of simplified (leaf) domains *)
 
-open Mopsa_utils
 open Core.All
 open Common
 open Sig.Reduction.Simplified

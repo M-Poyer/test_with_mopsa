@@ -39,7 +39,7 @@ module UidSet = Set.Make(struct type t=uid let compare=compare end)
 module StringMap = Map.Make(String)
 
 type range = Clang_AST.range
-module RangeMap = Mopsa_utils.MapExt.Make(struct type t = range let compare = Stdlib.compare end)
+module RangeMap = MapExt.Make(struct type t = range let compare = Stdlib.compare end)
 (** Source locations. *)
 
 type comment = Clang_AST.comment
@@ -47,7 +47,7 @@ type comment = Clang_AST.comment
 
 type macro = Clang_AST.macro
 (** preprocessor macros *)
-                
+
 type character_kind = Clang_AST.character_kind
 
 type target_info = Clang_AST.target_info

@@ -570,7 +570,7 @@ let main () =
     | "ln" -> apply ln
     | "mopsa" -> print dbfile args; exit 0
     | _ ->
-       Mopsa_utils.Debug.warn "unrecognized tool %s, skipped" tool
+       Debug.warn "unrecognized tool %s, skipped" tool
   );
 
   (* now execute the original command *)

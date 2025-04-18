@@ -23,8 +23,8 @@
 
 (** Builder *)
 module Make
-    (K : ValueSig.S)
-    (E : ValueSig.S)
+    (K : Core.ValueSig.S)
+    (E : Core.ValueSig.S)
   :
   sig
     type +'a map

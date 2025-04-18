@@ -21,7 +21,6 @@
 
 (** Management of command-line options *)
 
-open Mopsa_utils
 open ArgExt
 module StringSet = SetExt.StringSet
 

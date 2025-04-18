@@ -25,7 +25,6 @@
 
 open Core.All
 open Sig.Abstraction.Value
-open Mopsa_utils
 
 
 (** {2 Identifier for the non-relation domain} *)

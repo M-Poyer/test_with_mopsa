@@ -21,7 +21,7 @@
 
 (** Management of command-line options *)
 
-open Mopsa_utils.ArgExt
+open ArgExt
 
 
 (** {2 Registration} *)

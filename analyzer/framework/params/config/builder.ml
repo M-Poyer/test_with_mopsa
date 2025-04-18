@@ -22,7 +22,6 @@
 
 (** Build a domain from a configuration *)
 
-open Mopsa_utils
 open Core.Route
 open Syntax
 open Sig.Combiner.Stacked

@@ -22,8 +22,6 @@
 (** Common utility definitions used by combiners *)
 
 open Core.All
-open Mopsa_utils
-
 
 (** Kinds of domain combiners *)
 type combiner =

@@ -21,7 +21,6 @@
 
 (** Format the results of the analysis in JSON. *)
 
-open Mopsa_utils
 open Yojson.Basic
 open ArgExt
 open Core.All

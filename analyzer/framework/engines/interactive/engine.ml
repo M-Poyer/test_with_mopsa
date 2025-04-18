@@ -21,7 +21,6 @@
 
 (** Engine for interactive analysis sessions *)
 
-open Mopsa_utils
 open Core.All
 open Toplevel
 open Format

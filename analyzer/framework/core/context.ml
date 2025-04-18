@@ -21,7 +21,7 @@
 
 (** Flow-insensitive context *)
 
-open Mopsa_utils.Eq
+open Eq
 
 type ('a,_) ctx_key = ..
 
@@ -169,7 +169,7 @@ struct
 
 end
 
-open Mopsa_utils.Callstack
+open Callstack
 
 module CallstackKey = GenContextKey
     (struct

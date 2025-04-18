@@ -26,7 +26,6 @@
     not partial functions and return always a result.
 *)
 
-open Mopsa_utils
 open Core.All
 open Sig.Combiner.Domain
 

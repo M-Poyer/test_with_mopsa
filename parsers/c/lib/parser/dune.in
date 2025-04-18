@@ -2,6 +2,7 @@
  (name mopsa_c_parser)
  (public_name mopsa.mopsa_c_parser)
  (libraries mopsa_utils zarith)
+ (flags (:standard -open Mopsa_utils.Core -open Mopsa_utils.Containers))
  (foreign_stubs
   (language cxx)
   (names Clang_to_ml)

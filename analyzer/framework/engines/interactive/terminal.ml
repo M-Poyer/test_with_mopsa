@@ -20,7 +20,6 @@
 (****************************************************************************)
 
 open Core.All
-open Mopsa_utils
 open Location
 open Callstack
 open Interface

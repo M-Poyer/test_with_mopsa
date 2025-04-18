@@ -24,7 +24,6 @@
 open Core.All
 open Sig.Abstraction.Value
 open Common
-open Mopsa_utils
 
 
 module Make(V1:VALUE)(V2:VALUE) : VALUE with type t = V1.t * V2.t =
