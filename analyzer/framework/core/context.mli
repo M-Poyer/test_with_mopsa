@@ -130,5 +130,5 @@ module GenContextKey
     val key : ('a,'a Value.t) ctx_key
   end
 
-val callstack_ctx_key : ('a,Callstack.callstack) ctx_key
-(** Key for storing the callstack *)
+val control_ctx_key : ('a, ControlCtx.control_ctx) ctx_key
+(** Key for storing the control context *)

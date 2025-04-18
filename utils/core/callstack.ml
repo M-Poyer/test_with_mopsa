@@ -2,7 +2,7 @@
 (*                                                                          *)
 (* This file is part of MOPSA, a Modular Open Platform for Static Analysis. *)
 (*                                                                          *)
-(* Copyright (C) 2017-2019 The MOPSA Project.                               *)
+(* Copyright (C) 2017-... The MOPSA Project.                                *)
 (*                                                                          *)
 (* This program is free software: you can redistribute it and/or modify     *)
 (* it under the terms of the GNU Lesser General Public License as published *)
@@ -37,9 +37,9 @@ let pp_callsite fmt c =
 let compare_callsite c c' =
   if c == c' then 0
   else Compare.compose [
-    (fun () -> compare c.call_fun_uniq_name c'.call_fun_uniq_name);
-    (fun () -> compare_range c.call_range c'.call_range);
-  ]
+      (fun () -> compare c.call_fun_uniq_name c'.call_fun_uniq_name);
+      (fun () -> compare_range c.call_range c'.call_range);
+    ]
 
 type callstack = callsite list
 
@@ -69,18 +69,18 @@ let is_empty_callstack = function
 
 let callstack_length (cs:callstack) : int = List.length cs
 
-
-let push_callstack orig ?(uniq=orig) range cs =
-  { call_fun_orig_name = orig;
-    call_fun_uniq_name = uniq;
-    call_range = range } :: cs
+let push_callstack orig ?(uniq=orig) range cc =
+  ({ call_fun_orig_name = orig;
+     call_fun_uniq_name = uniq;
+     call_range = range }) :: cc
 
 exception Empty_callstack
 
-let pop_callstack cs =
-  match cs with
+let pop_callstack cc =
+  match cc with
   | [] -> raise Empty_callstack
-  | _ -> List.hd cs, List.tl cs
+  | c :: tl -> c, tl
+
 
 let callstack_top (cs:callstack) : callsite =
   try List.hd cs

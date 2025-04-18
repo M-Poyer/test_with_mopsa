@@ -1,0 +1,10 @@
+In order to turn the command line output of MOPSA into a `html` file, the
+`ansi2html` command line tool can be used.
+
+It is enough to pipe the output of MOPSA to `ansi2html` to generate some html
+output. As a post-processing (done by hand, but as a future improvement this
+could be automated) the header and the `<body>` tags shall be removed, and the
+main part shall be wrapped in a `<div class="highlight">` tag.
+
+See also the other `*.out.html` files as a reference on how the output should
+look like.

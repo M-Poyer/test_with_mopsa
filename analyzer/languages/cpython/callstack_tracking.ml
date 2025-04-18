@@ -26,7 +26,7 @@ open C.Lang.Ast
 open C.Common.Points_to
 open Top
 
-type ('a, _) query += Q_cpython_attached_callstack : addr -> ('a, Callstack.callstack) query
+type ('a, _) query += Q_cpython_attached_callstack : addr -> ('a, ControlCtx.control_ctx) query
 
 let () = register_query {
              join = (let f: type a r. query_pool -> (a, r) query -> r -> r -> r =
@@ -49,20 +49,33 @@ module Domain =
     module Callstacks = struct
       module CallstackSet = Framework.Lattices.Powerset.Make
                             (struct
-                              type t = Callstack.callstack
-                              let compare = Callstack.compare_callstack
-                              let print = unformat pp_callstack
+                              type t = ControlCtx.control_ctx
+                              let compare = ControlCtx.compare_control_ctx
+                              let print = unformat ControlCtx.pp_control_ctx
                             end)
 
       include CallstackSet
 
+      let control_ctx_remove_loop_info (c:t) : t =
+        CallstackSet.map (fun s -> List.map (fun x -> ControlCtx.Call x) (ControlCtx.extract_callstack s)) c
+
       let max_size = 1
       let bound (x:t) : t =
         match x with
-        | Nt s when Set.cardinal s <= max_size -> x
+        | Nt s ->
+          let r = control_ctx_remove_loop_info (Nt s) in
+          if CallstackSet.cardinal r <= max_size then x
+          else TOP
         | _ -> TOP
 
       let join a1 a2 = CallstackSet.join a1 a2 |> bound
+
+      let widen ctx a1 a2 =
+        if CallstackSet.subset (control_ctx_remove_loop_info a2) (control_ctx_remove_loop_info a1) then
+          (* FIXME: maybe we could remove unroll in favor of fixpoint_iteration here, it would simplify things for the query (which previously assumed the set had a size at most 1 *)
+          join a1 a2
+        else
+          widen ctx a1 a2
 
       let add v t =
         add v t |> bound
@@ -95,7 +108,7 @@ module Domain =
           | P_block({base_kind = Addr a}, _, _) ->
              get_env T_cur man flow >>$ fun cur flow ->
              set_env T_cur
-               (add a (Callstacks.singleton (Flow.get_callstack flow)) cur)
+               (add a (Callstacks.singleton (Flow.get_control_ctx flow)) cur)
                man flow
              >>% fun flow ->
              Eval.singleton (mk_one range) flow
@@ -122,8 +135,9 @@ module Domain =
       | Q_cpython_attached_callstack a ->
          get_env T_cur man flow >>$? fun cur flow ->
          OptionExt.lift (fun cs ->
-             assert(Callstacks.cardinal cs = 1);
-             Cases.singleton (Callstacks.choose cs) flow)
+             Cases.join_list
+               ~empty:(fun () -> assert false)
+               (List.map (fun s -> Cases.singleton s flow) (Callstacks.elements cs)))
            (find_opt a cur)
 
       | _ -> None

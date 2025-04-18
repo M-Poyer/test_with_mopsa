@@ -24,7 +24,7 @@
 open Core.All
 open Format
 open Location
-open Callstack
+open ControlCtx
 
 
 (** {2 Debug queries} *)

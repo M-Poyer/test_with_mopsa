@@ -509,8 +509,8 @@ struct
 
   (** Evaluate a call to a stub *)
   let eval_stub_call stub args return range man flow =
+      let cc = Flow.get_control_ctx flow in
       (* Update the callstack *)
-      let cs = Flow.get_callstack flow in
       let flow = Flow.push_callstack stub.stub_func_name range flow in
       (* Initialize parameters *)
       init_params args stub.stub_func_params range man flow >>% fun flow ->
@@ -527,7 +527,7 @@ struct
       (* Clean assignments *)
       clean_all_assigns stub.stub_func_assigns (tag_range stub.stub_func_range "clean") man flow >>% fun flow ->
       (* Restore the callstack *)
-      let flow = Flow.set_callstack cs flow in
+      let flow = Flow.set_control_ctx cc flow in
       let clean_range = tag_range range "clean" in
       let cleaners = List.map (fun param -> mk_remove_var param clean_range) stub.stub_func_params in
 

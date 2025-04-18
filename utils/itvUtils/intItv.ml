@@ -30,7 +30,6 @@
 open Core.Bot
 module B = IntBound
 
-
 (** {2 Types} *)
 
 
