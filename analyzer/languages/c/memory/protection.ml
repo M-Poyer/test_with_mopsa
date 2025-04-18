@@ -23,8 +23,8 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Stubs.Ast
 open Universal.Numeric.Common
 open Common

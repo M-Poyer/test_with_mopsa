@@ -3,7 +3,23 @@
 (library
  (name mopsa_analyzer)
  (public_name mopsa.mopsa_analyzer)
- (libraries mopsa_utils yojson apron)
+ (libraries
+   mopsa_utils
+   mopsa_universal_parser
+   mopsa_c_parser
+   mopsa_c_stubs_parser
+   mopsa_build_db
+   mopsa_py_parser
+   yojson
+   apron apron.boxMPQ apron.octMPQ apron.polkaMPQ
+  (select languages.universal.numeric.relational.elinainst.ml from
+   (elina -> languages.universal.numeric.relational.elinainst.real.ml)
+   (-> languages.universal.numeric.relational.elinainst.dummy.ml))
+  (select languages.universal.numeric.relational.ppliteinst.ml from
+   (apron.pplite -> languages.universal.numeric.relational.ppliteinst.real.ml)
+   (-> languages.universal.numeric.relational.ppliteinst.dummy.ml)
+  )
+ )
   ; framework mopsa languages.universal languages.stubs languages.cfg languages.repl languages.c languages.python languages.cpython)
  (modules :standard \ main)
  (library_flags -linkall)
@@ -19,5 +35,3 @@
 
 (include_subdirs qualified)
 (dirs :standard \ tests)
-
-

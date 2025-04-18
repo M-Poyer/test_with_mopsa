@@ -24,7 +24,8 @@
 
 open Mopsa
 open Format
-open Ast
+open Lang.Ast
+open Lang.Addr
 
 module Hook =
 struct
@@ -66,7 +67,7 @@ struct
         (fun acc e -> VisitParts acc)
         (fun (acce, accs) s ->
            match skind s with
-           | S_assign _ | Universal.Ast.S_return _ -> Keep (acce, StmtSet.add s accs)
+           | S_assign _ | Universal.Lang.Ast.S_return _ -> Keep (acce, StmtSet.add s accs)
            | S_py_function _
            | S_py_class _ -> VisitParts (acce, accs)
            | _ ->
@@ -96,7 +97,7 @@ struct
     | S_py_function _ | S_py_class _ -> ()
     | S_block (l, _) when l <> [] -> ()
     | S_assign (_, {ekind = E_py_object _}) -> ()
-    | Universal.Ast.S_expression {ekind = E_py_call({ekind = E_py_object ({addr_kind = Addr.A_py_function (F_user _)}, _)}, _, _)} -> ()
+    | Universal.Lang.Ast.S_expression {ekind = E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_user _)}, _)}, _, _)} -> ()
     | _ ->
       let range = srange stmt in
       try
@@ -138,7 +139,7 @@ struct
   let on_after_eval route semantic exp man flow evl =
     match ekind exp with
     (* to highlight the def bla(params): if bla is ever called *)
-    | E_py_call ({ekind = E_py_object ({addr_kind = Addr.A_py_function (F_user f)}, _)} as caller, _, _) ->
+    | E_py_call ({ekind = E_py_object ({addr_kind = A_py_function (F_user f)}, _)} as caller, _, _) ->
       let start = get_range_start f.py_func_range in
       let stop =
         let r = get_range_start f.py_func_body.srange in
@@ -148,7 +149,7 @@ struct
       entry.reachable_exprs <- ExprSet.add {caller with erange=range} entry.reachable_exprs
 
     (* to highlight the class Bla: if an object is ever instantiated *)
-    | E_py_call ({ekind = E_py_object ({addr_kind = Addr.A_py_class (C_user c, _)}, _)} as caller, _, _) ->
+    | E_py_call ({ekind = E_py_object ({addr_kind = A_py_class (C_user c, _)}, _)} as caller, _, _) ->
       let start = get_range_start c.py_cls_range in
       let stop =
         let r = get_range_start c.py_cls_body.srange in

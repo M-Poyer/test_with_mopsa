@@ -23,7 +23,7 @@
 
 open Mopsa
 open Sig.Abstraction.Partitioning
-open Ast
+open Lang.Ast
 
 module Domain =
 struct

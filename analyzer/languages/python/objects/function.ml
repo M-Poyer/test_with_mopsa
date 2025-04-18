@@ -23,9 +23,10 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang
+open Universal.Lang.Ast
 open Data_container_utils
 
 let name = "python.objects.function"
@@ -318,7 +319,7 @@ module Domain =
                     man.eval (mk_py_call (mk_py_object (find_builtin "cell") range) [] range) flow
                            ) >>$ fun cells flow ->
                 let cellmap = List.fold_left2 (fun map var cell -> VarMap.add var cell map) VarMap.empty pyfundec.py_func_cellvars cells in
-                let fun_body = Visitor.map_stmt
+                let fun_body = Core.Ast.Visitor.map_stmt
                                  (fun e -> match ekind e with
                                            | E_var (v, m) when List.mem v pyfundec.py_func_cellvars ->
                                               let cell = VarMap.find v cellmap in

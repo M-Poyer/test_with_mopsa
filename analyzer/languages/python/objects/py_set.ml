@@ -24,9 +24,10 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang
+open Universal.Lang.Ast
 open Data_container_utils
 
 let name = "python.objects.set"

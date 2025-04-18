@@ -24,10 +24,10 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Operators
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang.Operators
+open Universal.Lang.Ast
 
 module Domain = struct
 
@@ -50,12 +50,12 @@ module Domain = struct
        bind_result (fun el flow ->
              let e, x = match el with [e; x] -> e, x | _ -> assert false in
 
-             let op_fun = Operators.binop_to_incr_fun op in
+             let op_fun = Lang.Operators.binop_to_incr_fun op in
              man.eval     (mk_py_type x range) flow |>
              bind_result (fun cls flow ->
                    let cls = object_of_expr cls in
                    assume
-                     (Utils.mk_object_hasattr cls op_fun range)
+                     (Lang.Utils.mk_object_hasattr cls op_fun range)
                      man
                      ~fthen:(fun true_flow ->
                        let stmt = mk_assign x0 (mk_py_call (mk_py_object_attr cls op_fun range) [x; e] range) range in

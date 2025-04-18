@@ -454,7 +454,7 @@ struct
     if man.lattice.is_bottom (Flow.get T_cur man.lattice flow) then
       fprintf fmt "⊥@."
     else
-      Ast.Var.force_print_uniq_with_uid false (fun () ->
+      Core.Ast.Var.force_print_uniq_with_uid false (fun () ->
       let names =
         match names with
         | [] ->

@@ -23,8 +23,7 @@
 
 include Mopsa_utils
 
-include Framework
-        (* .Core.All *)
+include Framework.Core.All
 
 module Core = Framework.Core
 

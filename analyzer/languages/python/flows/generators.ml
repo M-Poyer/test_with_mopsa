@@ -25,9 +25,10 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang
+open Universal.Lang.Ast
 
 
 
@@ -227,7 +228,7 @@ module Domain = struct
 
            (* Modify the body of the generator by changing local variables into framed variables *)
            let is_local v = List.exists (fun v' -> compare_var v v' = 0) (func.py_func_locals @ func.py_func_parameters) in
-           let body' = Visitor.map_stmt
+           let body' = Framework.Core.Ast.Visitor.map_stmt
                          (fun expr ->
                            match ekind expr with
                            | E_var (v, m) when is_local v -> Keep {expr with ekind = E_var (mk_framed_var v self, m)}

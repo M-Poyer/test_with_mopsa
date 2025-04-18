@@ -24,10 +24,10 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Operators
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang.Operators
+open Universal.Lang.Ast
 
 
 module Domain = struct
@@ -77,13 +77,13 @@ module Domain = struct
         let switch flow =
           match op with
           | O_eq | O_ne ->
-            let flow = Flow.add_safe_check Alarms.CHK_PY_TYPEERROR range flow in
+            let flow = Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR range flow in
             assume (mk_expr ~etyp:(T_py None) (E_binop(O_py_is, e1, e2)) range) man flow
               ~fthen:(man.eval   (mk_py_bool (O_eq =  op) range))
               ~felse:(man.eval   (mk_py_bool (O_eq <> op) range))
           | _ ->
             Format.fprintf Format.str_formatter "'%s' not supported between instances of '%a' and '%a'" op_fun pp_addr_kind (akind @@ fst cls1) pp_addr_kind (akind @@ fst cls2);
-            man.exec (Utils.mk_builtin_raise_msg "TypeError" (Format.flush_str_formatter ()) range) flow >>%
+            man.exec (Lang.Utils.mk_builtin_raise_msg "TypeError" (Format.flush_str_formatter ()) range) flow >>%
             Eval.empty
             in
         let check_reverse flow =
@@ -97,7 +97,7 @@ module Domain = struct
                       assume (is_notimplemented cmp) man flow
                         ~fthen:switch
                         ~felse:(fun flow ->
-                          let flow = Flow.add_safe_check Alarms.CHK_PY_TYPEERROR cmp.erange flow in
+                          let flow = Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR cmp.erange flow in
                           Eval.singleton cmp flow)
                     )
                 )
@@ -114,7 +114,7 @@ module Domain = struct
                     man flow
                     ~fthen:check_reverse
                     ~felse:(fun flow ->
-                      Flow.add_safe_check Alarms.CHK_PY_TYPEERROR cmp.erange flow |>
+                      Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR cmp.erange flow |>
                         Eval.singleton cmp)
 
                 )
@@ -135,7 +135,7 @@ module Domain = struct
                   man flow
                   ~fthen:(call_op true)
                   ~felse:(fun flow ->
-                    Flow.add_safe_check Alarms.CHK_PY_TYPEERROR cmp.erange flow |>
+                    Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR cmp.erange flow |>
                     Eval.singleton cmp)
               )
           )

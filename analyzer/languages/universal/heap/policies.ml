@@ -22,7 +22,7 @@
 (** Policies for grouping heap addresses *)
 
 open Mopsa
-open Ast
+open Lang.Ast
 
 type addr_partitioning +=
    | G_range of range

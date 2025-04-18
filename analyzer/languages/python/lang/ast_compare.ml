@@ -23,7 +23,7 @@
 
 open Mopsa
 open Ast
-open Universal.Ast
+open Universal.Lang.Ast
 open Addr
 open Format
 

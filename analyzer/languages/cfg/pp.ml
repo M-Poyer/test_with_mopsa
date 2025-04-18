@@ -22,15 +22,15 @@
 (** Pretty-printing for CFG. *)
 
 open Mopsa
-open Universal.Ast
+open Universal.Lang.Ast
 open Ast
 
-  
+
 (*==========================================================================*)
                          (** {2 Text printing} *)
 (*==========================================================================*)
 
-   
+
 let cfg_printer = {
     CFG.print_node = (fun fmt n ->
       Format.fprintf fmt "%a:@;" pp_node_id (CFG.node_id n)
@@ -38,12 +38,12 @@ let cfg_printer = {
     CFG.print_edge = (fun fmt e ->
       Format.fprintf fmt "  @[<v>%a@]@;" pp_stmt (CFG.edge_data e)
     );
-    CFG.print_src = (fun fmt n port e -> 
+    CFG.print_src = (fun fmt n port e ->
       Format.fprintf
         fmt "  %a --[%a]-->@;"
         pp_node_id (CFG.node_id n) pp_token port
     );
-    CFG.print_dst = (fun fmt e port n -> 
+    CFG.print_dst = (fun fmt e port n ->
       Format.fprintf
         fmt "  --[%a]--> %a@;"
         pp_token port pp_node_id (CFG.node_id n)
@@ -60,7 +60,7 @@ let cfg_printer = {
     );
   }
 
-           
+
 let () =
   register_stmt_pp (fun next fmt s ->
       match s.skind with
@@ -72,7 +72,7 @@ let () =
          Format.pp_print_string fmt "skip"
       | _ -> next fmt s
     )
-  
+
 
 let () =
   register_token
@@ -99,13 +99,13 @@ let () =
     }
 
 
-    
+
 (*==========================================================================*)
                         (** {2 DOT output} *)
 (*==========================================================================*)
 
 let pp_location = Location.pp_position
-  
+
 let dot_printer =
   { CFG.dot_pp_node =
       (fun fmt n -> pp_location fmt (node_loc (CFG.node_id n)));
@@ -126,8 +126,3 @@ let output_dot (title:string) (filename:string) (cfg:cfg) : unit =
   CFG.print_dot dot_printer title fmt cfg.cfg_graph;
   Format.pp_print_flush fmt ();
   close_out f
-
-  
-  
-
-  

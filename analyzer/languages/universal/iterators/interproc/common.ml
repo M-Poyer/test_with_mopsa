@@ -23,7 +23,7 @@
 
 
 open Mopsa
-open Ast
+open Lang.Ast
 
 
 let name = "universal.iterators.interproc.common"

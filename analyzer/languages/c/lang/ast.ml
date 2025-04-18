@@ -23,7 +23,7 @@
 
 open Mopsa
 open Mopsa_c_parser
-open Universal.Ast
+open Universal.Lang.Ast
 
 
 (*==========================================================================*)

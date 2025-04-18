@@ -19,7 +19,7 @@
 (*                                                                          *)
 (****************************************************************************)
 
-open Universal.Ast
+open Universal.Lang.Ast
 open Mopsa
 
 module Rangeset = Set.Make(struct type t = range

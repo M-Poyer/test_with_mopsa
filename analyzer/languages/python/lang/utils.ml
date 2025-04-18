@@ -40,7 +40,7 @@ let mk_builtin_raise_args exn args range =
   mk_stmt (S_py_raise (Some (mk_py_call (mk_py_object (Addr.find_builtin exn) range) args range))) range
 
 let mk_builtin_raise_msg exn msg range =
-  let open Universal.Ast in
+  let open Universal.Lang.Ast in
   mk_builtin_raise_args exn [mk_constant ~etyp:(T_py (Some Str)) (C_string msg) range] range
 
 (** Creates an AST block, tagged by `range`, representing the call of a builtin defined as `f` (a string), to which a list of parameters is passed *)
@@ -48,7 +48,7 @@ let mk_builtin_call f params range =
   mk_py_call (mk_py_object (Addr.find_builtin f) range) params range
 
 let mk_hasattr obj attr range =
-  mk_builtin_call "hasattr" [obj; Universal.Ast.mk_string ~etyp:(T_py None) attr range] range
+  mk_builtin_call "hasattr" [obj; Universal.Lang.Ast.mk_string ~etyp:(T_py None) attr range] range
 
 let mk_object_hasattr obj attr range =
   mk_hasattr (mk_py_object obj range) attr range
@@ -69,8 +69,8 @@ let mk_try_stopiteration body except range =
        None
        except
     ]
-    (Universal.Ast.mk_block [] range)
-    (Universal.Ast.mk_block [] range)
+    (Universal.Lang.Ast.mk_block [] range)
+    (Universal.Lang.Ast.mk_block [] range)
     range
 
 
@@ -175,7 +175,7 @@ let bind_list_args ?(cleaners=true) man args flow range (f: var list -> 'b flow 
                           let tmp = mk_range_attr_var arg.erange (Format.asprintf "%xd(bla)" (Hashtbl.hash_param 30 100 cs)) (T_py None) in
                           (mk_assign (mk_var tmp arg.erange) arg arg.erange) :: stmts, tmp :: vars, RangeSet.add arg.erange argranges
                         ) ([], [], RangeSet.empty) (List.rev args) in
-  let stmt = Universal.Ast.mk_block stmt range in
+  let stmt = Universal.Lang.Ast.mk_block stmt range in
   let cases = f vars (man.exec stmt flow |> post_to_flow man) in
   if cleaners then
     Cases.add_cleaners (List.map (fun x -> mk_remove_var x range) vars) cases
@@ -194,7 +194,7 @@ let extract_oobject e = match ekind e with
   | _ -> assert false
 
 let get_eobj_itv man flow e =
-  let open Universal.Ast in
+  let open Universal.Lang.Ast in
   let mk_itv_from_z z  = Bot.Nb (ItvUtils.IntItv.cst z) in
   match ekind @@ extract_oobject e with
   | E_constant (C_int z) -> mk_itv_from_z z
@@ -232,5 +232,5 @@ let try_eval_expr ?(on_empty=fun exc_exp exc_str exc_msg flow -> assert false) ~
     )
 
 let check man cond range flow =
-  man.exec (Universal.Ast.mk_assert cond range) flow >>%
+  man.exec (Universal.Lang.Ast.mk_assert cond range) flow >>%
   man.eval (mk_py_none range)

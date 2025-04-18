@@ -24,9 +24,10 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang
+open Universal.Lang.Ast
 
 let name = "python.objects.range"
 
@@ -63,7 +64,7 @@ struct
     let cls = fst @@ find_builtin bltin in
     man.eval   (mk_alloc_addr ~mode:mode (A_py_instance cls) range) flow >>$
       (fun eaddr flow ->
-        let addr = Addr.from_expr eaddr in
+        let addr = Universal.Lang.Ast.Addr.from_expr eaddr in
         man.exec   (mk_add eaddr range) flow >>%
         Eval.singleton (mk_py_object (addr, oe) range)
       )

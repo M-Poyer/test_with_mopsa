@@ -23,9 +23,10 @@
 
 open Mopsa
 open Sig.Abstraction.Domain
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang
+open Universal.Lang.Ast
 
 type ('a, _) query += Q_python_addr_of_module : string -> ('a, addr option) query
 
@@ -117,7 +118,7 @@ module Domain =
             | None -> vroot
             | Some v -> v
           in
-          debug "performing assignement %a = %a" pp_var v Pp.pp_py_object obj;
+          debug "performing assignement %a = %a" pp_var v Lang.Pp.pp_py_object obj;
           Flow.add_safe_check Alarms.CHK_PY_MODULENOTFOUNDERROR range flow |>
             man.exec (mk_assign (mk_var v range) (mk_py_object obj range) range) >>%
           Post.return
@@ -186,7 +187,7 @@ module Domain =
 
 
     (** Search for the module in the search path and parse its body *)
-    and import_module man name range flow : ('a, Ast.py_object * bool) Cases.cases =
+    and import_module man name range flow : ('a, Lang.Ast.py_object * bool) Cases.cases =
       if is_builtin_module name
       then Cases.return (find_builtin_module name, false) flow
       else
@@ -248,7 +249,7 @@ module Domain =
                   in
                   (addr, None), body, false, flow
                 else
-                  let prog = Frontend.parse_program [filename] in
+                  let prog = Common.Frontend.parse_program [filename] in
                   let globals, body =
                     match prog.prog_kind with
                     | Py_program(_, globals, body) ->
@@ -268,7 +269,7 @@ module Domain =
                       {(mk_string filename range) with etyp=(T_py (Some Str))}
                       range
                   in
-                  let body = Universal.Ast.mk_block (name_assign::file_assign::body::[]) range in
+                  let body = Universal.Lang.Ast.mk_block (name_assign::file_assign::body::[]) range in
                   let addr = {
                     addr_kind = A_py_module (M_user(probable_name, globals));
                     addr_partitioning = G_all;
@@ -300,8 +301,8 @@ module Domain =
 
       let path = dir ^ "/" ^ file in
       let stmt =
-        match (Frontend.parse_program [path]).prog_kind with
-        | Ast.Py_program (_, _, b) -> b
+        match (Common.Frontend.parse_program [path]).prog_kind with
+        | Lang.Ast.Py_program (_, _, b) -> b
         | _ -> assert false in
       (* FIXME: does this work for recursive functions? *)
       let rec parse base stmt =
@@ -363,7 +364,7 @@ module Domain =
 
     and import_stubs_module man base name flow =
       debug "import_stubs_module %s %s" base name;
-      let prog = Frontend.parse_program [(base ^ "/" ^ name ^ ".pyi")] in
+      let prog = Common.Frontend.parse_program [(base ^ "/" ^ name ^ ".pyi")] in
       let globals, stmts = match prog.prog_kind with
         | Py_program(_, g, b) -> g, b
         | _ -> assert false in
@@ -375,7 +376,7 @@ module Domain =
 
         | S_assign ({ekind = E_var (v, _)}, e) ->
           debug "%s: adding alias %a[%s] = %a" base pp_var v v.vname pp_expr e;
-          let ee = Visitor.map_expr (fun exp -> match ekind exp with
+          let ee = Core.Ast.Visitor.map_expr (fun exp -> match ekind exp with
               | E_var (v, m) -> begin try Keep (Hashtbl.find type_aliases v) with Not_found -> Keep exp end
               | _ -> VisitParts exp) (fun s -> VisitParts s) e in
           add_type_alias v ee;
@@ -393,7 +394,7 @@ module Domain =
         | S_py_annot _
         | S_py_class _
         | S_py_function _ ->
-          let stmt = Visitor.map_stmt (fun e -> match ekind e with
+          let stmt = Core.Ast.Visitor.map_stmt (fun e -> match ekind e with
               | E_var (v, m) ->
                 begin
                   try

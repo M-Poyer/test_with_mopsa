@@ -23,9 +23,9 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Universal.Lang.Ast
 
 module Domain =
    struct
@@ -56,7 +56,7 @@ module Domain =
                (* Calls on non-object variables and constants is not allowed *)
                | E_var _ | E_constant _ ->
                  let msg = Format.asprintf "object is not callable" in
-                 let stmt = Utils.mk_builtin_raise_msg "TypeError" msg range in
+                 let stmt = Lang.Utils.mk_builtin_raise_msg "TypeError" msg range in
                  man.exec stmt flow >>%
                  Eval.empty
 
@@ -69,7 +69,7 @@ module Domain =
                | E_py_object ({addr_kind = A_py_c_class _}, _)
                | E_py_object ({addr_kind = A_py_c_module _}, _) ->
                   let exp = {exp with ekind = E_py_call(f, args, kwargs)} in
-                  let flow = Flow.add_safe_check Alarms.CHK_PY_TYPEERROR range flow in
+                  let flow = Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR range flow in
                   man.eval    exp flow
 
                | _ ->
@@ -77,10 +77,10 @@ module Domain =
                  assume
                    (mk_py_hasattr f "__call__" range)
                    ~fthen:(fun flow ->
-                     let flow = Flow.add_safe_check Alarms.CHK_PY_TYPEERROR range flow in
+                     let flow = Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR range flow in
                      man.eval    (mk_py_kall (mk_py_attr f "__call__" range) args kwargs range) flow)
                    ~felse:(fun flow ->
-                     man.exec (Utils.mk_builtin_raise_msg "TypeError" (Format.asprintf "%a object is not callable" pp_expr f) range) flow >>% Eval.empty
+                     man.exec (Lang.Utils.mk_builtin_raise_msg "TypeError" (Format.asprintf "%a object is not callable" pp_expr f) range) flow >>% Eval.empty
                      )
                    man flow
             ) in

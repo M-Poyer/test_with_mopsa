@@ -26,7 +26,7 @@
 *)
 
 open Mopsa
-open Universal.Ast
+open Universal.Lang.Ast
 open Format
 
 

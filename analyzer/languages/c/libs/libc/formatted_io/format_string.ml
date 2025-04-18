@@ -23,10 +23,10 @@
 (** Entry point for parsing format strings *)
 
 open Mopsa
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Placeholder
-open Ast
+open Lang.Ast
 open Common
 open Common.Points_to
 open Common.Alarms

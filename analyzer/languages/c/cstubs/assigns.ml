@@ -24,10 +24,10 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
 open Common.Points_to
-open Ast
+open Lang.Ast
 open Common
 open Common.Base
 open Common.Alarms

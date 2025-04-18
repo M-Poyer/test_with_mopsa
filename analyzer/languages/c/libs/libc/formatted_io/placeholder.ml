@@ -21,7 +21,7 @@
 
 (** Types corresponding to placeholders of format strings *)
 
-open Ast
+open Lang.Ast
 open Format
 open Framework.Core.Ast.Typ
 

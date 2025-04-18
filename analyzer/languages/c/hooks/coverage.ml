@@ -23,9 +23,9 @@
 
 open Mopsa
 open Format
-open Ast
+open Lang.Ast
 open Stubs.Ast
-open Universal.Ast
+open Universal.Lang.Ast
 
 
 module Hook =

@@ -24,9 +24,9 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
-open Ast
+open Lang.Ast
 open Common
 open Common.Points_to
 open Common.Base
@@ -131,7 +131,7 @@ struct
     match prog.prog_kind with
     | C_program p -> 
       set_c_program p flow |>
-      set_c_target_info !Frontend.target_info |>
+      set_c_target_info !Lang.Frontend.target_info |>
       Post.return |>
       Option.some
 
@@ -667,7 +667,7 @@ struct
               (name, stmt)
             )
         in
-        mk_stmt (Universal.Ast.S_unit_tests tests) (srange stmt)
+        mk_stmt (Universal.Lang.Ast.S_unit_tests tests) (srange stmt)
       in
 
       let tests = get_test_functions c_functions in

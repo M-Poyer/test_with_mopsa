@@ -20,7 +20,6 @@
 (****************************************************************************)
 
 open Mopsa
-open Sig.Abstraction.Simplified
 
 let opt_numeric = ref "polyhedra"
 
@@ -28,7 +27,7 @@ module type RELATIONAL =
 sig
   include Sig.Abstraction.Simplified.SIMPLIFIED
   val numeric_name : string
-  val bound_var : var -> t -> Intervals.Integer.Value.t
+  val bound_var : var -> t -> Values.Intervals.Integer.Value.t
   val assume : stmt -> (('a, bool) Core.Query.query -> bool) -> t -> t option
   val related_vars : var -> t -> var list
   val vars : t -> var list

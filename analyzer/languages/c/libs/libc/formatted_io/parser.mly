@@ -22,7 +22,7 @@
 (** Parser of C stubs *)
 
 %{
-  open Ast
+  open Lang.Ast
   open Placeholder
 
 

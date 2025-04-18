@@ -23,9 +23,9 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Universal.Lang.Ast
 
 module Domain =
   struct
@@ -43,11 +43,11 @@ module Domain =
         match mro with
         | [] ->
            let msg = Format.asprintf "'%s' object has no attribute '%s'" c attr in
-           man.exec (Utils.mk_builtin_raise_msg "AttributeError" msg range) flow >>%
+           man.exec (Lang.Utils.mk_builtin_raise_msg "AttributeError" msg range) flow >>%
              Eval.empty
         | cls::tl ->
            if is_builtin_attribute cls attr then
-             Flow.add_safe_check Alarms.CHK_PY_ATTRIBUTEERROR range flow |>
+             Flow.add_safe_check Lang.Alarms.CHK_PY_ATTRIBUTEERROR range flow |>
              Eval.singleton (mk_py_object (find_builtin_attribute cls attr) range)
            else
              search tl in
@@ -121,7 +121,7 @@ module Domain =
                end
             | _ -> assert false)
             ~felse:(fun flow ->
-              man.exec (Utils.mk_builtin_raise_msg "TypeError" (Format.asprintf "getattr(): attribute name must be string, not %a" pp_expr attr) range) flow >>% Eval.empty
+              man.exec (Lang.Utils.mk_builtin_raise_msg "TypeError" (Format.asprintf "getattr(): attribute name must be string, not %a" pp_expr attr) range) flow >>% Eval.empty
             )
         )
        |> OptionExt.return
@@ -136,7 +136,7 @@ module Domain =
               begin match oe with
               | Some {ekind = E_constant (C_string attr)} ->
                  OptionExt.none_to_exn @@
-                 Utils.try_eval_expr man (mk_py_attr obj attr range) flow
+                 Lang.Utils.try_eval_expr man (mk_py_attr obj attr range) flow
                    ~on_empty:(fun exc_exp exc_str _ flow ->
                      OptionExt.return @@
                        if exc_str = "AttributeError" then
@@ -150,7 +150,7 @@ module Domain =
               end
            | _ -> assert false)
             ~felse:(fun flow ->
-              man.exec (Utils.mk_builtin_raise_msg "TypeError" (Format.asprintf "getattr(): attribute name must be string, not %a" pp_expr attr) range) flow >>% Eval.empty
+              man.exec (Lang.Utils.mk_builtin_raise_msg "TypeError" (Format.asprintf "getattr(): attribute name must be string, not %a" pp_expr attr) range) flow >>% Eval.empty
             )
         )
          |> OptionExt.return
@@ -197,7 +197,7 @@ module Domain =
                          bind_list [exp; c_attr] man.eval flow >>$ (fun ee flow ->
                           let exp, c_attr = match ee with [e1;e2] -> e1, e2 | _ -> assert false in
                           OptionExt.none_to_exn @@
-                          Utils.try_eval_expr man (mk_py_call getattribute [exp; c_attr] range) flow
+                          Lang.Utils.try_eval_expr man (mk_py_call getattribute [exp; c_attr] range) flow
                             ~on_empty:(fun exc_exp exc_str exc_msg flow ->
                               OptionExt.return @@
                               if exc_str = "AttributeError" then
@@ -307,7 +307,7 @@ module Domain =
                end
             | _ -> assert false)
             ~felse:(fun flow ->
-              man.exec (Utils.mk_builtin_raise_msg "TypeError" (Format.asprintf "setattr(): attribute name must be string, not %a" pp_expr attr) range) flow >>% Eval.empty
+              man.exec (Lang.Utils.mk_builtin_raise_msg "TypeError" (Format.asprintf "setattr(): attribute name must be string, not %a" pp_expr attr) range) flow >>% Eval.empty
             )
         )
        |> OptionExt.return
@@ -326,7 +326,7 @@ module Domain =
                end
             | _ -> assert false)
             ~felse:(fun flow ->
-              man.exec (Utils.mk_builtin_raise_msg "TypeError" (Format.asprintf "delattr(): attribute name must be string, not %a" pp_expr attr) range) flow >>% Eval.empty
+              man.exec (Lang.Utils.mk_builtin_raise_msg "TypeError" (Format.asprintf "delattr(): attribute name must be string, not %a" pp_expr attr) range) flow >>% Eval.empty
             )
         )
        |> OptionExt.return

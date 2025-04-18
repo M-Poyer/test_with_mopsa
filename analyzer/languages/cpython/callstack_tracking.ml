@@ -21,8 +21,8 @@
 
 open Mopsa
 open Sig.Abstraction.Domain
-open Universal.Ast
-open C.Ast
+open Universal.Lang.Ast
+open C.Lang.Ast
 open C.Common.Points_to
 open Top
 

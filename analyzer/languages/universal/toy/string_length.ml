@@ -21,7 +21,7 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Ast
+open Lang.Ast
 
 type check +=
    | CHK_U_SUBSCRIPT_ACCESS

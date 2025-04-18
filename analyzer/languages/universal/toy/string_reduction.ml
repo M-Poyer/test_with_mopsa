@@ -20,7 +20,7 @@
 (****************************************************************************)
 
 open Mopsa
-open Ast
+open Lang.Ast
 open Sig.Reduction.Eval
 
 module Reduction =

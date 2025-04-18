@@ -25,7 +25,7 @@
 open Mopsa_c_parser
 open C_AST
 open Mopsa
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
 open Ast
 
@@ -578,10 +578,10 @@ and from_stmt ctx ((skind, range): C_AST.statement) : stmt =
       let vv = from_var ctx v in
       let init = from_init_option ctx v.var_init in
       Ast.S_c_declaration (vv, init, from_var_scope ctx v.var_kind)
-    | C_AST.S_expression e -> Universal.Ast.S_expression (from_expr ctx e)
+    | C_AST.S_expression e -> Universal.Lang.Ast.S_expression (from_expr ctx e)
     | C_AST.S_block block -> from_block ctx srange block |> Framework.Core.Ast.Stmt.skind
-    | C_AST.S_if (cond, body, orelse) -> Universal.Ast.S_if (from_expr ctx cond, from_block ctx end_range body, from_block ctx end_range orelse)
-    | C_AST.S_while (cond, body) -> Universal.Ast.S_while (from_expr ctx cond, from_block ctx end_range body)
+    | C_AST.S_if (cond, body, orelse) -> Universal.Lang.Ast.S_if (from_expr ctx cond, from_block ctx end_range body, from_block ctx end_range orelse)
+    | C_AST.S_while (cond, body) -> Universal.Lang.Ast.S_while (from_expr ctx cond, from_block ctx end_range body)
     | C_AST.S_do_while (body, cond) -> S_c_do_while (from_block ctx end_range body, from_expr ctx cond)
     | C_AST.S_for (init, test, increm, body) -> S_c_for(from_block ctx start_range init, from_expr_option ctx test, from_expr_option ctx increm, from_block ctx end_range body)
     | C_AST.S_jump (C_AST.S_goto (label, upd)) -> S_c_goto (label,from_scope_update ctx upd)
@@ -662,13 +662,13 @@ and from_expr ctx ((ekind, tc , range) : C_AST.expr) : expr =
   let etyp = from_typ ctx tc in
   let ekind =
     match ekind with
-    | C_AST.E_integer_literal n -> Universal.Ast.(E_constant (C_int n))
-    | C_AST.E_float_literal f -> Universal.Ast.(E_constant (C_float (float_of_string f)))
+    | C_AST.E_integer_literal n -> Universal.Lang.Ast.(E_constant (C_int n))
+    | C_AST.E_float_literal f -> Universal.Lang.Ast.(E_constant (C_float (float_of_string f)))
     | C_AST.E_character_literal (c, k)  -> E_constant(Ast.C_c_character (c, from_character_kind k))
-    | C_AST.E_string_literal (s, k) -> Universal.Ast.(E_constant (C_c_string (s, from_character_kind k)))
+    | C_AST.E_string_literal (s, k) -> Universal.Lang.Ast.(E_constant (C_c_string (s, from_character_kind k)))
     | C_AST.E_variable v -> E_var (from_var ctx v, None)
     | C_AST.E_function f -> Ast.E_c_function (find_function_in_context ctx erange f)
-    | C_AST.E_call (f, args) -> Universal.Ast.E_call(from_expr ctx f, Array.map (from_expr ctx) args |> Array.to_list)
+    | C_AST.E_call (f, args) -> Universal.Lang.Ast.E_call(from_expr ctx f, Array.map (from_expr ctx) args |> Array.to_list)
     | C_AST.E_unary (op, e) -> E_unop (from_unary_operator op etyp, from_expr ctx e)
     | C_AST.E_binary (op, e1, e2) -> E_binop (from_binary_operator op etyp, from_expr ctx e1, from_expr ctx e2)
     | C_AST.E_cast (e,C_AST.EXPLICIT) -> Ast.E_c_cast(from_expr ctx e, true)
@@ -680,7 +680,7 @@ and from_expr ctx ((ekind, tc , range) : C_AST.expr) : expr =
     | C_AST.E_member_access (r, i, f) -> Ast.E_c_member_access(from_expr ctx r, i, f)
     | C_AST.E_arrow_access (r, i, f) -> Ast.E_c_arrow_access(from_expr ctx r, i, f)
     | C_AST.E_statement s -> Ast.E_c_statement (from_block ctx erange s)
-    | C_AST.E_predefined s -> Universal.Ast.(E_constant (C_c_string (s, Ast.C_char_ascii)))
+    | C_AST.E_predefined s -> Universal.Lang.Ast.(E_constant (C_c_string (s, Ast.C_char_ascii)))
     | C_AST.E_var_args e -> Ast.E_c_var_args (from_expr ctx e)
     | C_AST.E_conditional (cond,e1,e2) -> Ast.E_c_conditional(from_expr ctx cond, from_expr ctx e1, from_expr ctx e2)
 

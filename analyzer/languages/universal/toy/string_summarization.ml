@@ -21,7 +21,7 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Ast
+open Lang.Ast
 
 module Domain =
 struct

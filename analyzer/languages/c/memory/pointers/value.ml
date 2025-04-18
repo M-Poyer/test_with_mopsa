@@ -25,8 +25,8 @@
 
 open Mopsa
 open Sig.Abstraction.Value
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Common.Points_to
 open Common.Base
 open Top

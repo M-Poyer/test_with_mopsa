@@ -23,11 +23,12 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Addr
-open Ast
-open Universal.Ast
+open Lang.Addr
+open Lang.Ast
+open Universal.Lang.Ast
 open MapExt
-
+open Lang
+    
 module Domain =
 struct
 

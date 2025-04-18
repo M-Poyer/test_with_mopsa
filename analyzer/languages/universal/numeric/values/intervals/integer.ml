@@ -22,7 +22,7 @@
 (** Interval abstraction of integer values. *)
 
 open Mopsa
-open Ast
+open Lang.Ast
 open Bot
 open Sig.Abstraction.Simplified_value
 open Common

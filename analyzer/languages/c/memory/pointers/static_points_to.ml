@@ -24,8 +24,8 @@
 
 
 open Mopsa
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Common.Base
 
 

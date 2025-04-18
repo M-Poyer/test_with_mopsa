@@ -22,14 +22,15 @@
 (** Soundness assumptions *)
 
 open Mopsa
-open Ast
+open Framework.Core.Alarm
+open Lang.Ast
 
-type assumption_kind += A_py_use_type_annot of range * var * Ast.py_func_sig
+type assumption_kind += A_py_use_type_annot of range * var * py_func_sig
 
 let () = register_assumption {
     print = (fun next fmt -> function
               | A_py_use_type_annot (r, v, annot) ->
-                 Format.fprintf fmt "Used type annotation %a(%a) -> %a@.Annotation source: %a" pp_var v Ast.pp_py_func_sig annot  (OptionExt.print pp_expr) annot.py_funcs_type_out pp_relative_range r
+                 Format.fprintf fmt "Used type annotation %a(%a) -> %a@.Annotation source: %a" pp_var v pp_py_func_sig annot  (OptionExt.print pp_expr) annot.py_funcs_type_out pp_relative_range r
               | a -> next fmt a
       );
     compare = (fun next a1 a2 ->
@@ -39,7 +40,7 @@ let () = register_assumption {
              [
                (fun () -> compare_range r1 r2);
                (fun () -> compare_var v1 v2);
-               (fun () -> Ast.compare_py_func_sig a1 a2);
+               (fun () -> compare_py_func_sig a1 a2);
              ]
         | _ -> next a1 a2
       );

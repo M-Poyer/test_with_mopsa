@@ -22,7 +22,7 @@
 (** Mapping between operators and magic functions. *)
 
 open Mopsa
-open Universal.Ast
+open Universal.Lang.Ast
 open Ast
 
 

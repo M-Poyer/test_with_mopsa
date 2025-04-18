@@ -25,7 +25,7 @@
 
 open Mopsa
 open Sig.Abstraction.Domain
-open Ast
+open Lang.Ast
 
 module Pool =
   Framework.Lattices.Powerset.Make

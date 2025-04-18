@@ -21,4 +21,5 @@
 
 (** Standalone Mopsa analyzer *)
 
-let () = Framework.Runner.run ()
+let () = Mopsa_analyzer.Framework.Runner.run ()
+

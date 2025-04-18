@@ -27,7 +27,7 @@ open Mopsa
 open Sig.Reduction.Simplified
 open Sig.Abstraction.Simplified
 open Static
-open Ast
+open Lang.Ast
 open Bot_top
 
 module ReductionMake(S : Static.STRATEGY) : SIMPLIFIED_REDUCTION =
@@ -44,11 +44,11 @@ struct
   *)
 
   (** Packing map with its underlying relational domain *)
-  type pack_map = PM : (S.pack,'a) M.map * (module Relational.Instances.RELATIONAL with type t = 'a) -> pack_map
+  type pack_map = PM : (S.pack,'a) M.map * (module Numeric.Relational.Instances.RELATIONAL with type t = 'a) -> pack_map
 
   (** Get the packing map and the underlying relational domain *)
   let get_pack_map man a : pack_map =
-    let (module R: Relational.Instances.RELATIONAL) = !Relational.Instances_choices.numeric_domain in
+    let (module R: Numeric.Relational.Instances.RELATIONAL) = !Numeric.Relational.Instances_choices.numeric_domain in
     let aa = man.get_env (D_static_packing (S.id,R.id)) a in
     PM (aa, (module R))
 
@@ -105,7 +105,7 @@ struct
     (* Currently disabled: creates major performance regressions in coreutils (200x analysis time on base64 *)
     if false (* not (I.subset itv' itv) *)
     then
-      let (module R: Relational.Instances.RELATIONAL) = !Relational.Instances_choices.numeric_domain in
+      let (module R: Numeric.Relational.Instances.RELATIONAL) = !Numeric.Relational.Instances_choices.numeric_domain in
       let packing_id = (D_static_packing (S.id,R.id)) in
       let rel_packs  = man.get_env packing_id post in
       match itv'', rel_packs with

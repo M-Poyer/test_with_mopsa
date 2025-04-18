@@ -168,10 +168,10 @@ let () =
       | E_py_list_comprehension(e, comprhs)
       | E_py_set_comprehension(e, comprhs)
       | E_py_generator_comprehension(e, comprhs) ->
-        let open Universal.Ast in
+        let open Universal.Lang.Ast in
         let iters, targets, conds = comprhs |> List.fold_left (fun (acc1, acc2, acc3) (target, iter, conds) ->
             (* todo: do not change conds into stmts, use the structure of comprhs in the rebuild function to know if sth is an iter or a compr *)
-            iter :: acc1, target :: acc2, (Universal.Ast.mk_block (List.map (fun x -> Universal.Ast.mk_expr_stmt x exp.erange) conds) exp.erange) :: acc3
+            iter :: acc1, target :: acc2, (Universal.Lang.Ast.mk_block (List.map (fun x -> Universal.Lang.Ast.mk_expr_stmt x exp.erange) conds) exp.erange) :: acc3
           ) ([], [], [])
         in
         {exprs = e :: iters; stmts = conds},

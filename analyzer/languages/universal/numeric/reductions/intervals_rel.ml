@@ -25,7 +25,7 @@
 
 open Mopsa
 open Sig.Reduction.Simplified
-open Ast
+open Lang.Ast
 
 module Reduction =
 struct

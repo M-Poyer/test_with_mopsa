@@ -23,12 +23,12 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Addr
-open Ast
-open Universal.Ast
-open Alarms
-open Utils
-
+open Lang.Addr
+open Lang.Ast
+open Universal.Lang.Ast
+open Lang.Alarms
+open Lang.Utils
+open Lang
 
 (*==========================================================================*)
 (**                               {2 Domain }                               *)

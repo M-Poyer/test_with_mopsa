@@ -23,9 +23,9 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Universal.Lang.Ast
 open Data_container_utils
 
 let name = "python.objects.dict"
@@ -136,7 +136,7 @@ struct
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.__new__", _))}, _)}, cls :: _, kwargs) ->
-      Utils.new_wrapper man range flow "dict" cls
+      Lang.Utils.new_wrapper man range flow "dict" cls
         ~fthennew:(
           let keys, values = List.split @@ List.map (fun (os, v) ->
                                                mk_string ~etyp:(T_py None) (OptionExt.none_to_exn os) range, v) kwargs in
@@ -145,7 +145,7 @@ struct
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.__init__" as f, _))}, _)}, args, [])
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.update" as f, _))}, _)}, args, []) ->
       (* FIXME: it's actually a bit more complicated than that, as you can pass **kwargs *)
-      Utils.check_instances f man flow range args
+      Lang.Utils.check_instances f man flow range args
         ["dict"; "dict"]
         (fun eargs flow ->
            let dict, snddict = match eargs with l::s::[] -> l, s | _ -> assert false in
@@ -158,7 +158,7 @@ struct
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.__setitem__" as f, _))}, _)}, args, []) ->
-      Utils.check_instances ~arguments_after_check:2 f man flow range args
+      Lang.Utils.check_instances ~arguments_after_check:2 f man flow range args
         ["dict"]
         (fun args flow ->
            let dict, key, value = match args with [d;k;v] -> d,k,v | _ -> assert false in
@@ -170,7 +170,7 @@ struct
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.copy" as f, _))}, _)}, args, []) ->
-      Utils.check_instances f man flow range args ["dict"]
+      Lang.Utils.check_instances f man flow range args ["dict"]
         (fun args flow ->
            let var_k, var_v = extract_vars (List.hd args) in
            man.eval (mk_expr ~etyp:(T_py None) (E_py_dict ([mk_var ~mode:(Some WEAK) var_k range], [mk_var ~mode:(Some WEAK) var_v range])) range) flow
@@ -178,7 +178,7 @@ struct
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.clear" as f, _))}, _)}, args, []) ->
-      Utils.check_instances f man flow range args ["dict"]
+      Lang.Utils.check_instances f man flow range args ["dict"]
         (fun args flow ->
            let var_k, var_v = extract_vars (List.hd args) in
            man.exec (mk_remove_var var_k range) flow >>%
@@ -189,17 +189,17 @@ struct
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.pop" as f, _))}, _)}, args, [])
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.__getitem__" as f, _))}, _)}, args, []) ->
-      Utils.check_instances ~arguments_after_check:1 f man flow range args ["dict"]
+      Lang.Utils.check_instances ~arguments_after_check:1 f man flow range args ["dict"]
         (fun args flow ->
            let var_k, var_v = extract_vars (List.hd args) in
 
-           let keyerror_f = man.exec (Utils.mk_builtin_raise "KeyError" range) flow |> post_to_flow man in
+           let keyerror_f = man.exec (Lang.Utils.mk_builtin_raise "KeyError" range) flow |> post_to_flow man in
            let keyerror = Eval.empty keyerror_f in
 
            let flow = Flow.copy_ctx keyerror_f flow in
            debug "evaluating %a" pp_var var_v;
            let evals =
-             Flow.add_safe_check Alarms.CHK_PY_KEYERROR range flow |>
+             Flow.add_safe_check Lang.Alarms.CHK_PY_KEYERROR range flow |>
              man.eval (mk_var var_v range) in
 
            Eval.join_list ~empty:(fun () -> Eval.empty flow) (evals :: Cases.copy_ctx evals keyerror :: [])
@@ -212,7 +212,7 @@ struct
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.get" as f, _))}, _)}, args, []) ->
-      Utils.check_instances ~arguments_after_check:2 f man flow range args ["dict"]
+      Lang.Utils.check_instances ~arguments_after_check:2 f man flow range args ["dict"]
         (fun args flow ->
            let var_k, var_v = extract_vars (List.hd args) in
 
@@ -224,30 +224,30 @@ struct
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.popitem" as f, _))}, _)}, args, []) ->
-      Utils.check_instances f man flow range args ["dict"]
+      Lang.Utils.check_instances f man flow range args ["dict"]
         (fun args flow ->
            let var_k, var_v = extract_vars (List.hd args) in
 
            let eval_r =
-             Flow.add_safe_check Alarms.CHK_PY_KEYERROR range flow |>
+             Flow.add_safe_check Lang.Alarms.CHK_PY_KEYERROR range flow |>
              man.eval   (mk_expr ~etyp:(T_py None) (E_py_tuple [mk_var var_k range; mk_var var_v range]) range) in
 
            let flow = Flow.set_ctx (Cases.get_ctx eval_r) flow in
 
-           let empty = man.exec (Utils.mk_builtin_raise "KeyError" range) flow >>% Eval.empty in
+           let empty = man.exec (Lang.Utils.mk_builtin_raise "KeyError" range) flow >>% Eval.empty in
 
            Eval.join_list ~empty:(fun () -> Eval.empty flow) ( empty ::  Cases.copy_ctx empty eval_r :: [])
         )
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.__contains__" as f, _))}, _)}, args, []) ->
-      Utils.check_instances f ~arguments_after_check:1 man flow range args ["dict"]
+      Lang.Utils.check_instances f ~arguments_after_check:1 man flow range args ["dict"]
         (fun args flow ->
            man.eval (mk_py_top (T_py (Some Bool)) range) flow)
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.__iter__" as f, _))}, _)}, args, []) ->
-         Utils.check_instances f man flow range args ["dict"]
+         Lang.Utils.check_instances f man flow range args ["dict"]
         (fun args flow ->
            let dict = List.hd args in
            let a = mk_alloc_addr (Py_list.A_py_iterator ("dict_keyiterator", None)) range in
@@ -264,7 +264,7 @@ struct
       man.eval {exp with ekind=E_py_call(call, dict::key::(mk_py_none range)::[], [])} flow |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.setdefault" as f, _))}, _)}, args, []) ->
-      Utils.check_instances f ~arguments_after_check:2 man flow range args ["dict"]
+      Lang.Utils.check_instances f ~arguments_after_check:2 man flow range args ["dict"]
         (fun args flow ->
            let dict, key, default = match args with a::b::c::[] -> a,b,c | _ -> assert false in
            let var_k, var_v = extract_vars dict in
@@ -284,7 +284,7 @@ struct
         | "dict.keys" -> "dict_keys"
         | "dict.values" -> "dict_values"
         | _ -> assert false in
-      Utils.check_instances n man flow range args ["dict"]
+      Lang.Utils.check_instances n man flow range args ["dict"]
         (fun args flow ->
            let dict = List.hd args in
            let a = mk_alloc_addr (A_py_dict_view viewname) range in
@@ -305,7 +305,7 @@ struct
         | "dict_values.__iter__" -> "dict_values", "dict_valueiterator"
         | "dict_keys.__iter__" -> "dict_keys", "dict_keyiterator"
         | _ -> assert false in
-      Utils.check_instances n man flow range args [case]
+      Lang.Utils.check_instances n man flow range args [case]
         (fun args flow ->
           man.eval   (mk_var (viewseq_of_addr @@ addr_of_eobj @@ List.hd args) range) flow >>$
             (fun dict_eobj flow ->
@@ -326,51 +326,51 @@ struct
        man.eval (List.hd args) flow |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict_keyiterator.__next__" as f, _))}, _)}, args, []) ->
-      Utils.check_instances f man flow range args ["dict_keyiterator"]
+      Lang.Utils.check_instances f man flow range args ["dict_keyiterator"]
         (fun args flow ->
           man.eval   (mk_var (Py_list.Domain.itseq_of_eobj @@ List.hd args) range) flow >>$
  (fun dict_eobj flow ->
                 let var_k = kvar_of_addr @@ addr_of_eobj dict_eobj in
                 let els =
-                  Flow.add_safe_check Alarms.CHK_PY_STOPITERATION range flow |>
+                  Flow.add_safe_check Lang.Alarms.CHK_PY_STOPITERATION range flow |>
                   man.eval (mk_var var_k ~mode:(Some WEAK) range) in
 
                 let flow = Flow.set_ctx (Cases.get_ctx els) flow in
-                let stopiteration = man.exec (Utils.mk_builtin_raise "StopIteration" range) flow >>% Eval.empty in
+                let stopiteration = man.exec (Lang.Utils.mk_builtin_raise "StopIteration" range) flow >>% Eval.empty in
                 Eval.join_list ~empty:(fun () -> Eval.empty flow) (Cases.copy_ctx stopiteration els :: stopiteration :: [])
               )
         )
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict_valueiterator.__next__" as f, _))}, _)}, args, []) ->
-      Utils.check_instances f man flow range args ["dict_valueiterator"]
+      Lang.Utils.check_instances f man flow range args ["dict_valueiterator"]
         (fun args flow ->
           man.eval   (mk_var (Py_list.Domain.itseq_of_eobj @@ List.hd args) range) flow >>$
  (fun dict_eobj flow ->
                 let var_v = vvar_of_addr @@ addr_of_eobj dict_eobj in
                 let els =
-                  Flow.add_safe_check Alarms.CHK_PY_STOPITERATION range flow |>
+                  Flow.add_safe_check Lang.Alarms.CHK_PY_STOPITERATION range flow |>
                   man.eval (mk_var var_v ~mode:(Some WEAK) range) in
 
                 let flow = Flow.set_ctx (Cases.get_ctx els) flow in
-                let stopiteration = man.exec (Utils.mk_builtin_raise "StopIteration" range) flow >>% Eval.empty in
+                let stopiteration = man.exec (Lang.Utils.mk_builtin_raise "StopIteration" range) flow >>% Eval.empty in
                 Eval.join_list ~empty:(fun () -> Eval.empty flow) (Cases.copy_ctx stopiteration els :: stopiteration :: [])
               )
         )
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict_itemiterator.__next__" as f, _))}, _)}, args, []) ->
-      Utils.check_instances f man flow range args ["dict_itemiterator"]
+      Lang.Utils.check_instances f man flow range args ["dict_itemiterator"]
         (fun args flow ->
           man.eval   (mk_var (Py_list.Domain.itseq_of_eobj @@ List.hd args) range) flow >>$
  (fun dict_eobj flow ->
                 let var_k, var_v = var_of_addr @@ addr_of_eobj dict_eobj in
                 let els =
-                  Flow.add_safe_check Alarms.CHK_PY_STOPITERATION range flow |>
+                  Flow.add_safe_check Lang.Alarms.CHK_PY_STOPITERATION range flow |>
                   man.eval (mk_expr ~etyp:(T_py None) (E_py_tuple [mk_var var_k ~mode:(Some WEAK) range;
                                                                    mk_var var_v ~mode:(Some WEAK) range]) range) in
                 let flow = Flow.set_ctx (Cases.get_ctx els) flow in
-                let stopiteration = man.exec (Utils.mk_builtin_raise "StopIteration" range) flow >>% Eval.empty in
+                let stopiteration = man.exec (Lang.Utils.mk_builtin_raise "StopIteration" range) flow >>% Eval.empty in
                 Eval.join_list ~empty:(fun () -> Eval.empty flow) (Cases.copy_ctx stopiteration els :: stopiteration :: [])
               )
         )
@@ -383,8 +383,8 @@ struct
           assume (mk_py_isinstance_builtin dict "dict" range) man flow
             ~fthen:(fun flow ->
                 let var_k, var_v = extract_vars dict in
-                Utils.check man
-                  (Utils.mk_builtin_call "bool" [
+                Lang.Utils.check man
+                  (Lang.Utils.mk_builtin_call "bool" [
                       (mk_binop ~etyp:(T_py None)
                          (mk_py_isinstance (mk_var ~mode:(Some WEAK) var_k range) type_k range)
                          O_py_and
@@ -393,12 +393,12 @@ struct
                     ] range)
                   range flow
               )
-            ~felse:(Utils.check man (mk_py_false range) range)
+            ~felse:(Lang.Utils.check man (mk_py_false range) range)
         )
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict.__len__" as f, _))}, _)}, args, []) ->
-      Utils.check_instances f man flow range args
+      Lang.Utils.check_instances f man flow range args
         ["dict"]
         (fun args flow ->
            man.eval   (mk_py_top T_int range) flow
@@ -406,7 +406,7 @@ struct
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict_items.__len__" as f, _))}, _)}, args, []) ->
-      Utils.check_instances f man flow range args
+      Lang.Utils.check_instances f man flow range args
         ["dict_items"]
         (fun args flow ->
            man.eval   (mk_py_top T_int range) flow
@@ -414,7 +414,7 @@ struct
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("dict_keys.__len__" as f, _))}, _)}, args, []) ->
-      Utils.check_instances f man flow range args
+      Lang.Utils.check_instances f man flow range args
         ["dict_keys"]
         (fun args flow ->
            man.eval   (mk_py_top T_int range) flow

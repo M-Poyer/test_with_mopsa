@@ -26,10 +26,10 @@
 *)
 
 open Mopsa
-open Addr
+open Lang.Addr
 open Universal.Packing.Static
-open Universal.Ast
-open Ast
+open Lang.Ast
+open Universal.Lang.Ast
 
 module Strategy =
 struct
@@ -68,7 +68,7 @@ struct
 
   (** Packing function returning packs of a variable *)
   let rec packs_of_var ctx v =
-    let _, globals, body = find_ctx Ast.py_program_ctx ctx in
+    let _, globals, body = find_ctx py_program_ctx ctx in
     let fundecs = Visitor.fold_stmt (fun acc e -> VisitParts acc)
                     (fun acc s ->
                       match skind s with

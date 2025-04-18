@@ -30,8 +30,8 @@
 
 open Mopsa
 open Universal.Packing.Static
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Common.Base
 
 
@@ -296,7 +296,7 @@ struct
     (*    eval_calls_in_args a *)
     | Var { vkind = V_range_attr(range, "arg"); vtyp }
       when is_c_scalar_type vtyp ->
-      let prog = find_ctx Ast.c_program_ctx ctx in
+      let prog = find_ctx Lang.Ast.c_program_ctx ctx in
       let o_caller = List.find_opt (fun f -> subset_range range f.c_func_range) prog.c_functions in
       OptionExt.apply (fun caller ->
           let o_callee = OptionExt.none_to_exn @@
@@ -408,7 +408,7 @@ struct
 
     | Addr { addr_kind = Stubs.Ast.A_stub_resource r;
              addr_partitioning = Universal.Heap.Policies.G_stack_range (cs, range) } when !opt_pack_resources ->
-      let prog = find_ctx Ast.c_program_ctx ctx in
+      let prog = find_ctx Lang.Ast.c_program_ctx ctx in
       let is_c_stub func =
         not (List.exists (fun c -> c.c_func_unique_name = func && c.c_func_stub = None) prog.c_functions) in
       let _path_contains p1 p2 =

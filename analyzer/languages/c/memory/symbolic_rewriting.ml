@@ -26,8 +26,8 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Bot
 open Common.Alarms
 open Machine_numbers.Domain
@@ -1078,7 +1078,7 @@ struct
 
   let init _ _ flow =
     debug "Enable the \"-enforce-sign-constraints\" option of the relational domain";
-    Relational.Domain.opt_enforce_sign_constraints := true;
+    Universal.Numeric.Relational.Domain.opt_enforce_sign_constraints := true;
     Post.return flow |>
     Option.some
 

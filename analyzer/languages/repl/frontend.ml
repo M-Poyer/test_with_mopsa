@@ -28,8 +28,8 @@ open Mopsa
 open Mopsa_universal_parser
 open Sig.Abstraction.Stateless
 open Lexing
-open Universal.Ast
-open Universal.Frontend
+open Universal.Lang.Ast
+open Universal.Lang.Frontend
 open Debug
 
 

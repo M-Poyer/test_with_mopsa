@@ -20,7 +20,7 @@
 (****************************************************************************)
 
 open Mopsa
-open Python.Addr
+open Python.Lang.Addr
 
 let builtin_exceptions =
   [

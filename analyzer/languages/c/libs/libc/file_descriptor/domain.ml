@@ -64,9 +64,9 @@
 
 open Mopsa
 open Sig.Abstraction.Domain
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
-open Ast
+open Lang.Ast
 open Common.Points_to
 open Common.Base
 module Itv = Universal.Numeric.Values.Intervals.Integer.Value

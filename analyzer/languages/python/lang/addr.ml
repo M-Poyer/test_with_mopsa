@@ -23,7 +23,7 @@
 
 open Mopsa
 open Ast
-open Universal.Ast
+open Universal.Lang.Ast
 
 let debug fmt = Debug.debug ~channel:"python.addr" fmt
 

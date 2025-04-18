@@ -23,6 +23,7 @@
 (** Build a domain from a configuration *)
 
 open Core.Route
+open Core.Ast
 open Syntax
 open Sig.Combiner.Stacked
 open Sig.Combiner.Domain
@@ -89,7 +90,7 @@ and make_simplified_domain (domain:domain) : (module SIMPLIFIED_COMBINER) =
     (module
       (struct
         include D
-        let semantics = Core.Semantic.SemanticSet.add semantic D.semantics
+        let semantics = Semantic.SemanticSet.add semantic D.semantics
         let routing_table = add_routes (Semantic semantic) domains D.routing_table
       end)
       : SIMPLIFIED_COMBINER
@@ -120,7 +121,7 @@ and make_stateless_domain (domain:domain) : (module STATELESS_COMBINER) =
     (module
       (struct
         include D
-        let semantics = Core.Semantic.SemanticSet.add semantic D.semantics
+        let semantics = Semantic.SemanticSet.add semantic D.semantics
         let routing_table = add_routes (Semantic semantic) domains D.routing_table
       end)
       : STATELESS_COMBINER
@@ -169,7 +170,7 @@ and make_standard_domain (domain:domain) : (module DOMAIN_COMBINER) =
     (module
       (struct
         include D
-        let semantics = Core.Semantic.SemanticSet.add semantic D.semantics
+        let semantics = Semantic.SemanticSet.add semantic D.semantics
         let routing_table = add_routes (Semantic semantic) domains D.routing_table
       end)
       : DOMAIN_COMBINER
@@ -244,7 +245,7 @@ and make_stacked_domain (domain:domain) : (module STACKED_COMBINER) =
     (module
       (struct
         include D
-        let semantics = Core.Semantic.SemanticSet.add semantic D.semantics
+        let semantics = Semantic.SemanticSet.add semantic D.semantics
         let routing_table = add_routes (Semantic semantic) domains D.routing_table
       end)
       : STACKED_COMBINER

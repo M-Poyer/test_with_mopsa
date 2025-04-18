@@ -24,9 +24,10 @@
 
 open Mopsa
 open Sig.Abstraction.Domain
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang
+open Universal.Lang.Ast
 
 
 module Domain =
@@ -73,7 +74,7 @@ struct
         match oty with
         | None -> acc
         | Some ty ->
-          Visitor.fold_expr
+          Core.Ast.Visitor.fold_expr
             (fun acc expr -> match ekind expr with
                | E_py_call ({ekind = E_var ({vkind = V_uniq ("TypeVar", _)}, _)}, {ekind = E_constant (C_string s)}::types, []) ->
                  let set = if types = [] then ESet.top else ESet.of_list types in
@@ -188,7 +189,7 @@ struct
                 match annot with
                 | None -> (flow_in, flow_notin)
                 | Some ant ->
-                   let nant = Visitor.map_expr
+                   let nant = Core.Ast.Visitor.map_expr
                                 (fun expr -> match ekind expr with
                                              | E_py_call ({ekind = E_var ({vkind = V_uniq ("TypeVar", _)}, _)} as tv, {ekind = E_constant (C_string s)}::types, []) ->
                                                 let nant = if is_method then
@@ -263,7 +264,7 @@ struct
             begin match signature.py_funcs_type_out with
               | Some e ->
                 debug "out = %a" pp_expr e;
-                let annot_out = Visitor.map_expr
+                let annot_out = Core.Ast.Visitor.map_expr
                   (fun expr -> match ekind expr with
                      | E_py_call ({ekind = E_var ({vkind = V_uniq ("TypeVar", _)}, _)} as tv, {ekind = E_constant (C_string s)}::types, []) when is_method ->
                        Keep {expr with ekind = E_py_call (tv, (
@@ -314,7 +315,7 @@ struct
                           raised_exn @ acc, flow_notok
                         else
                           let ret = (
-                              Flow.add_global_assumption (Soundness.A_py_use_type_annot (pyannot.py_funca_range, pyannot.py_funca_var, sign)) nflow |>
+                              Flow.add_global_assumption (Common.Soundness.A_py_use_type_annot (pyannot.py_funca_range, pyannot.py_funca_var, sign)) nflow |>
                               Flow.add_safe_check Alarms.CHK_PY_TYPEERROR range |>
                               Eval.singleton (mk_var ret_var range) ~cleaners:([mk_remove_var ret_var range]) >>$
  (man.eval)) in
@@ -447,7 +448,7 @@ struct
                     | _ ->
                       Exceptions.panic_at range "tname %a, abase %a" pp_expr (List.hd c.py_cls_a_abases) pp_expr abase in
                   let substi =
-                    Visitor.map_expr
+                    Core.Ast.Visitor.map_expr
                       (fun expr -> match ekind expr with
                          | E_py_call (
                              {ekind = E_var ({vkind = V_uniq ("TypeVar", _)}, _)},

@@ -58,11 +58,11 @@ struct
   let on_before_eval route semantic exp man flow =
     if is_cur_bottom man flow then () else
     match ekind exp with
-    | Python.Ast.E_py_call ({ekind = Python.Ast.E_py_object ({addr_kind = Python.Addr.A_py_c_function(name, uid, kind, oflags, self)}, _)}, args, kwargs) ->
+    | Python.Lang.Ast.E_py_call ({ekind = Python.Lang.Ast.E_py_object ({addr_kind = Python.Lang.Addr.A_py_c_function(name, uid, kind, oflags, self)}, _)}, args, kwargs) ->
        incr_py2c (Flow.get_callstack flow)
-    | C.Ast.E_c_builtin_call ("PyObject_CallFunction", _)
-    | C.Ast.E_c_builtin_call ("PyObject_CallMethod", _)
-    | C.Ast.E_c_builtin_call ("PyObject_CallObject", _) ->
+    | C.Lang.Ast.E_c_builtin_call ("PyObject_CallFunction", _)
+    | C.Lang.Ast.E_c_builtin_call ("PyObject_CallMethod", _)
+    | C.Lang.Ast.E_c_builtin_call ("PyObject_CallObject", _) ->
        incr_c2py (Flow.get_callstack flow)
     | _ -> ()
 

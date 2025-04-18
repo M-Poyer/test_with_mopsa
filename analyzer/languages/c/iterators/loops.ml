@@ -23,8 +23,8 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Common.Scope_update
 
 
@@ -58,7 +58,7 @@ struct
         | S_block(sl,vl) -> mk_block sl ~vars:[] init.srange, vl
         | _ -> init,[]
       in
-      let stmt = Universal.Ast.(
+      let stmt = Universal.Lang.Ast.(
           mk_block ~vars [
             init';
             mk_stmt (S_while (
@@ -71,7 +71,7 @@ struct
       man.exec stmt flow |> OptionExt.return
 
     | S_c_do_while(body, {ekind = E_constant (C_int z)}) when Z.equal z Z.zero ->
-      let open Universal_iterators__.Loops in
+      let open Universal.Iterators.Loops in
       let continue_before, break_before = Flow.get T_continue man.lattice flow, Flow.get T_break man.lattice flow in
       let flow = Flow.remove T_continue flow |> Flow.remove T_break in
       man.exec body flow >>%? fun flow ->
@@ -97,7 +97,7 @@ struct
          However we have to handle break statements from the unrolled first body...
       *)
       let range = stmt.srange in
-      let open Universal_iterators__.Loops in
+      let open Universal.Iterators.Loops in
       (* backup previous break and continue flows *)
       let continue_before, break_before = Flow.get T_continue man.lattice flow, Flow.get T_break man.lattice flow in
       let flow = Flow.remove T_continue flow |> Flow.remove T_break in

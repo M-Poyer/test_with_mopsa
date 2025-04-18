@@ -23,9 +23,10 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Addr
-open Universal.Ast
-open Ast
+open Lang.Addr
+open Lang.Ast
+open Lang
+open Universal.Lang.Ast
 
 let opt_desugar_for_range = ref true
 let opt_desugar_for_tuple = ref true

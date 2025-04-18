@@ -20,9 +20,9 @@
 (****************************************************************************)
 
 open Mopsa
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
-open Ast
+open Lang.Ast
 open Top
 
 

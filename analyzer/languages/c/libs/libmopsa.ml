@@ -23,8 +23,8 @@
 
 open Mopsa
 open Sig.Abstraction.Stateless
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Common.Points_to
 open Common.Base
 open Universal.Numeric.Common
@@ -321,7 +321,7 @@ struct
       OptionExt.return
 
     | E_c_builtin_call("_mopsa_assert_reachable", []) ->
-      let open Universal_iterators.Iterators.Unittest in
+      let open Universal.Iterators.Unittest in 
       let b = not (man.lattice.is_bottom (Flow.get T_cur man.lattice flow)) in
       let flow = if b then
         safe_assert_check exp.erange man flow

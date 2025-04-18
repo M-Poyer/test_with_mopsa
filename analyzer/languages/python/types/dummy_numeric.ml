@@ -21,10 +21,10 @@
 
 open Mopsa
 open Sig.Abstraction.Simplified_value
-open Ast
+open Lang.Ast
 open MapExt
-open Addr
-open Universal.Ast
+open Lang.Addr
+open Universal.Lang.Ast
 open Bot
 
 (** A dummy numerical domain for the type-only analysis. *)

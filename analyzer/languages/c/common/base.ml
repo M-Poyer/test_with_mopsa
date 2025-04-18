@@ -22,8 +22,8 @@
 (** Base storage of scalar values. *)
 
 open Mopsa
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 
 
 (** Kinds of bases *)
@@ -43,7 +43,7 @@ type base = {
 let pp_base_kind fmt = function
   | Var v -> pp_var fmt v
   | Addr (a) -> pp_addr fmt a
-  | String (s,k,_) -> Format.fprintf fmt "%a\"%s\"" Pp.pp_character_kind k (String.escaped s)
+  | String (s,k,_) -> Format.fprintf fmt "%a\"%s\"" Lang.Pp.pp_character_kind k (String.escaped s)
 
 let pp_base fmt b =
   Format.fprintf fmt "%s%a"
