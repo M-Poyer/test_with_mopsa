@@ -1,4 +1,0 @@
-(ocamllex lexer)
-(menhir (modules parser))
-
-(include_subdirs qualified)

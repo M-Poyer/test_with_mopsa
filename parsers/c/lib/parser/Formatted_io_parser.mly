@@ -22,8 +22,7 @@
 (** Parser of C stubs *)
 
 %{
-  open Lang.Ast
-  open Placeholder
+  open Formatted_io_placeholder
 
 
   let mk_output_placeholder width precision typ =
@@ -34,11 +33,11 @@
       }
     in
     let width_arg_placeholder = match snd width with
-      | true -> [mk None None (Int C_unsigned_int)]
+      | true -> [mk None None (Int UNSIGNED_INT)]
       | _ -> []
     in
     let precision_arg_placeholder = match snd precision with
-      | true -> [mk None None (Int C_unsigned_int)]
+      | true -> [mk None None (Int UNSIGNED_INT)]
       | _ -> []
     in
     width_arg_placeholder @ precision_arg_placeholder @ [mk (fst width) (fst precision) typ]
@@ -58,13 +57,13 @@
 %token H HH L LL CAP_L
 %token D I U F G E A P S WS X O C
 %token EOF
-%token <string> TOK_string 
+%token <string> TOK_string
 
 %start parse_output_format
 %start parse_input_format
 
-%type <Placeholder.output_format list> parse_output_format
-%type <Placeholder.input_placeholder list> parse_input_format
+%type <output_format list> parse_output_format
+%type <input_placeholder list> parse_input_format
 
 %type<input_placeholder> input_placeholder
 %type<input_placeholder list> input_placeholder_list
@@ -117,25 +116,25 @@ output_precision:
 
 output_typ:
   (* Char *)
-  | C                      { Int C_unsigned_char }
+  | C                      { Int UNSIGNED_CHAR }
 
   (* Signed integers *)
-  | HH D | HH I            { Int C_signed_char }
-  | H D  | H I             { Int C_signed_short }
-  | D    | I               { Int C_signed_int }
-  | L D  | L I             { Int C_signed_long }
-  | LL D | LL I            { Int C_signed_long_long }
+  | HH D | HH I            { Int SIGNED_CHAR }
+  | H D  | H I             { Int SIGNED_SHORT }
+  | D    | I               { Int SIGNED_INT }
+  | L D  | L I             { Int SIGNED_LONG }
+  | LL D | LL I            { Int SIGNED_LONG_LONG }
 
   (* Unsigned integers *)
-  | HH U | HH X | HH O     { Int C_unsigned_char }
-  | H U  | H X  | H O      { Int C_unsigned_short }
-  | U    | X    | O        { Int C_unsigned_int }
-  | L U  | L X  | L O      { Int C_unsigned_long }
-  | LL U | LL X | LL O     { Int C_unsigned_long_long }
+  | HH U | HH X | HH O     { Int UNSIGNED_CHAR }
+  | H U  | H X  | H O      { Int UNSIGNED_SHORT }
+  | U    | X    | O        { Int UNSIGNED_INT }
+  | L U  | L X  | L O      { Int UNSIGNED_LONG }
+  | LL U | LL X | LL O     { Int UNSIGNED_LONG_LONG }
 
   (* Floats *)
-  | E | F | G | A          { Float C_double }
-  | CAP_L E | CAP_L F | CAP_L G | CAP_L A  { Float C_long_double }
+  | E | F | G | A          { Float FLOAT }
+  | CAP_L E | CAP_L F | CAP_L G | CAP_L A  { Float LONG_DOUBLE }
 
   (* String and pointers *)
   | S                      { String }
@@ -165,26 +164,26 @@ input_width:
 
 input_typ:
   (* Char *)
-  | C                      { Int C_unsigned_char }
+  | C                      { Int UNSIGNED_CHAR }
 
   (* Signed integers *)
-  | HH D | HH I            { Int C_signed_char }
-  | H D  | H I             { Int C_signed_short }
-  | D    | I               { Int C_signed_int }
-  | L D  | L I             { Int C_signed_long }
-  | CAP_L D | CAP_L I      { Int C_signed_long_long }
+  | HH D | HH I            { Int SIGNED_CHAR }
+  | H D  | H I             { Int SIGNED_SHORT }
+  | D    | I               { Int SIGNED_INT }
+  | L D  | L I             { Int SIGNED_LONG }
+  | CAP_L D | CAP_L I      { Int SIGNED_LONG_LONG }
 
   (* Unsigned integers *)
-  | HH U | HH X | HH O           { Int C_unsigned_char }
-  | H U  | H X  | H O            { Int C_unsigned_short }
-  | U    | X    | O              { Int C_unsigned_int }
-  | L U  | L X  | L O            { Int C_unsigned_long }
-  | CAP_L U | CAP_L X | CAP_L O  { Int C_unsigned_long_long }
+  | HH U | HH X | HH O           { Int UNSIGNED_CHAR }
+  | H U  | H X  | H O            { Int UNSIGNED_SHORT }
+  | U    | X    | O              { Int UNSIGNED_INT }
+  | L U  | L X  | L O            { Int UNSIGNED_LONG }
+  | CAP_L U | CAP_L X | CAP_L O  { Int UNSIGNED_LONG_LONG }
 
   (* Floats *)
-  | E | F | G | A                          { Float C_float }
-  | L E | L F | L G | L A                  { Float C_double }
-  | CAP_L E | CAP_L F | CAP_L G | CAP_L A  { Float C_long_double }
+  | E | F | G | A                          { Float FLOAT }
+  | L E | L F | L G | L A                  { Float DOUBLE }
+  | CAP_L E | CAP_L F | CAP_L G | CAP_L A  { Float LONG_DOUBLE }
 
   (* String and pointers *)
   | S                      { String }

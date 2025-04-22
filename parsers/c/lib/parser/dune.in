@@ -1,3 +1,6 @@
+(ocamllex Formatted_io_lexer)
+(menhir (modules Formatted_io_parser))
+
 (library
  (name mopsa_c_parser)
  (public_name mopsa.mopsa_c_parser)

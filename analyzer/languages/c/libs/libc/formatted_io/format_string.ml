@@ -25,7 +25,7 @@
 open Mopsa
 open Universal.Lang.Ast
 open Lang.Ast
-open Placeholder
+open Mopsa_c_parser.Formatted_io_placeholder
 open Lang.Ast
 open Common
 open Common.Points_to
@@ -129,7 +129,7 @@ let parse_format wide parser (format:expr) range man flow =
   | Some fmt ->
     let lex = Lexing.from_string fmt in
     try
-      let placeholders = parser Lexer.read lex in
+      let placeholders = parser Mopsa_c_parser.Formatted_io_lexer.read lex in
       Cases.singleton (Some placeholders) flow
     with _ ->
       (* lexer / parser error *)
@@ -139,8 +139,8 @@ let parse_format wide parser (format:expr) range man flow =
 
 (** Parse an output format *)
 let parse_output_format ?(wide=false) (format:expr) range man flow =
-  parse_format wide Parser.parse_output_format format range man flow
+  parse_format wide Mopsa_c_parser.Formatted_io_parser.parse_output_format format range man flow
 
 (** Parse an input format *)
 let parse_input_format ?(wide=false) (format:expr) range man flow =
-  parse_format wide Parser.parse_input_format format range man flow
+  parse_format wide Mopsa_c_parser.Formatted_io_parser.parse_input_format format range man flow

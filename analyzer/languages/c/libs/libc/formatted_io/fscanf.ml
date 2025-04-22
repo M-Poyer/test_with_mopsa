@@ -27,7 +27,7 @@ open Universal.Lang.Ast
 open Lang.Ast
 open Common
 open Common.Points_to
-open Placeholder
+open Mopsa_c_parser.Formatted_io_placeholder
 open Format_string
 open Common.Alarms
 
@@ -62,7 +62,7 @@ struct
   let assign_arg arg placeholder range man flow =
     match placeholder.ip_typ with
     | Int t ->
-      let typ = T_c_integer t in
+      let typ = T_c_integer (Lang.Frontend.from_integer_type t) in
       let ptr = T_c_pointer typ in
       let flow =
         if not (is_c_pointer_type arg.etyp) || not (is_c_int_type @@ under_type arg.etyp) then
@@ -74,7 +74,7 @@ struct
       man.exec (mk_assign (mk_c_deref (mk_c_cast arg ptr range) range) (mk_top typ range) range)
 
     | Float t ->
-      let typ = T_c_float t in
+      let typ = T_c_float (Lang.Frontend.from_float_type t) in
       let ptr = T_c_pointer typ in
       let flow =
         if not (is_c_pointer_type arg.etyp) || not (is_c_float_type @@ under_type arg.etyp) then
