@@ -20,7 +20,6 @@
    (-> languages.universal.numeric.relational.ppliteinst.dummy.ml)
   )
  )
-  ; framework mopsa languages.universal languages.stubs languages.cfg languages.repl languages.c languages.python languages.cpython)
  (modules :standard \ main)
  (library_flags -linkall)
 )
@@ -30,7 +29,7 @@
  (public_name mopsa.exe)
  (package mopsa)
  (modules main)
- (libraries mopsa_analyzer mopsa_c_parser)
+ (libraries mopsa_analyzer)
  (link_flags -linkall))
 
 (include_subdirs qualified)
