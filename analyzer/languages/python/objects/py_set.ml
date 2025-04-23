@@ -22,7 +22,7 @@
 (* A general smashing abstraction for Python sets, (hopefully)
    irrelevant of the value/type domain *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Lang.Addr

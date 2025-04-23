@@ -21,7 +21,7 @@
 
 (** Definition of python functions and evaluation of their calls. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Lang.Addr

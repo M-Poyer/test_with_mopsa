@@ -21,7 +21,7 @@
 
 (** Common constructs for points-to evaluations. *)
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 open Base
 open Alarms

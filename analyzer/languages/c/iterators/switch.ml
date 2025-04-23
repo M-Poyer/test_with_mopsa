@@ -21,7 +21,7 @@
 
 (** Control flow abstraction for switch statements. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Universal.Iterators.Loops
 open Lang.Ast

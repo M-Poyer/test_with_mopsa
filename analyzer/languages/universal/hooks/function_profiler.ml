@@ -21,7 +21,7 @@
 
 (** Hook to profile time spent in analyzing function calls *)
 
-open Mopsa
+open MopsaLib
 open Hook
 open Lang.Ast
 

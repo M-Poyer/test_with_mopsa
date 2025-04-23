@@ -23,7 +23,7 @@
 (** Abstraction of the heap *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
 open Lang.Ast
 

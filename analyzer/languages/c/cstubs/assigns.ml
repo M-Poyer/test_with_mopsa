@@ -22,7 +22,7 @@
 (** Generic handler of assigns clauses and primed variables. *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Universal.Lang.Ast
 open Stubs.Ast

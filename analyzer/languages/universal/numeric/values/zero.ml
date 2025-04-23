@@ -21,7 +21,7 @@
 
 (** Abstraction of zero and non-zero integer values. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified_value
 open Lang.Ast
 

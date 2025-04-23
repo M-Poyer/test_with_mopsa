@@ -21,7 +21,7 @@
 
 (** Congruence abstraction of integer values. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified_value
 open Lang.Ast
 open Bot

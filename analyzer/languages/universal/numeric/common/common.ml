@@ -21,7 +21,7 @@
 
 (** Common constructs for numeric abstractions. *)
 
-open Mopsa
+open MopsaLib
 open Lang.Ast
 
 module I = ItvUtils.IntItv

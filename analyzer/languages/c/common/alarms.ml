@@ -21,7 +21,7 @@
 
 (** Alarms for C runtime errors *)
 
-open Mopsa
+open MopsaLib
 open Format
 open Universal.Numeric.Common
 open Universal.Lang.Ast

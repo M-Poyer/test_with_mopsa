@@ -21,7 +21,7 @@
 
 (* Slot for a specific file descriptor *)
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 
 type slot =

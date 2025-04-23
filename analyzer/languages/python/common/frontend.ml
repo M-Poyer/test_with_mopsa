@@ -22,7 +22,7 @@
 (**
    Python frontend translates the parser's AST into Framework's AST.
 *)
-open Mopsa
+open MopsaLib
 open Lexing
 open Lang.Ast
 open Lang.Utils

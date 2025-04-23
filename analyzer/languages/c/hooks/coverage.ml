@@ -21,7 +21,7 @@
 
 (** Coverage - compute coverage statistics *)
 
-open Mopsa
+open MopsaLib
 open Format
 open Lang.Ast
 open Stubs.Ast

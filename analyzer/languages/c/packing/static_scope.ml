@@ -28,7 +28,7 @@
     callee packs.
 *)
 
-open Mopsa
+open MopsaLib
 open Universal.Packing.Static
 open Universal.Lang.Ast
 open Lang.Ast

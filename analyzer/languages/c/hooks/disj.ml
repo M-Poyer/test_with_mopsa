@@ -21,7 +21,7 @@
 
 (** Profiler hook to track the amount of disjunctions *)
 
-open Mopsa
+open MopsaLib
 open Hook
 open Lang.Ast
 

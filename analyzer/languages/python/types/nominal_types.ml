@@ -18,7 +18,7 @@
 (* along with this program.  If not, see <http://www.gnu.org/licenses/>.    *)
 (*                                                                          *)
 (****************************************************************************)
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Lang.Addr

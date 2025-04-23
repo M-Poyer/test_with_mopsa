@@ -23,7 +23,7 @@
 
 (* Originally written by Abdelraouf Ouadjaout *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Addr
 open Lang.Ast

@@ -24,7 +24,7 @@
    variables __name__, __main__, __file__, and collects unit-testing
    functions if required *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Addr
 open Lang.Ast

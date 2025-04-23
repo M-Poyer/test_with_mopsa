@@ -21,7 +21,7 @@
 
 (** Desugaring loops into a usual case *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Addr
 open Lang.Ast

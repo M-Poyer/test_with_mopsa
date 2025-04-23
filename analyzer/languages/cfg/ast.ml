@@ -21,7 +21,7 @@
 
 (** Extends the simple Universal language with Control Flow Graphs. *)
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 
    

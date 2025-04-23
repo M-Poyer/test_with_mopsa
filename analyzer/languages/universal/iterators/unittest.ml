@@ -21,7 +21,7 @@
 
 (** Unit tests iterator. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 

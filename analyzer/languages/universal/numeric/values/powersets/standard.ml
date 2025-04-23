@@ -21,7 +21,7 @@
 
 (** Finite powerset of integer constants *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified_value
 open Lang.Ast
 open Top

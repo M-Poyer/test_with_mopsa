@@ -22,7 +22,7 @@
 (** Common transfer functions for handling function calls *)
 
 
-open Mopsa
+open MopsaLib
 open Lang.Ast
 
 let name = "universal.iterators.interproc.common"

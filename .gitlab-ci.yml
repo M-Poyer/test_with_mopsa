@@ -29,7 +29,7 @@ build_job:
     paths:
     - ./bin/
     - ./_build/default/parsers/c/bin/build_wrapper.exe
-    - ./_build/default/analyzer/main.exe
+    - ./_build/default/analyzer/mopsa.exe
     expire_in: 2h
 
 build_opam:

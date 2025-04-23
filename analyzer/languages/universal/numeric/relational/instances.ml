@@ -19,7 +19,7 @@
 (*                                                                          *)
 (****************************************************************************)
 
-open Mopsa
+open MopsaLib
 
 let opt_numeric = ref "polyhedra"
 

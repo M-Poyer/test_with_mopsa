@@ -21,7 +21,7 @@
 
 (** Stub alarms *)
 
-open Mopsa
+open MopsaLib
 open Ast
 
 

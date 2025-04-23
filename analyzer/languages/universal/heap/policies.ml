@@ -21,7 +21,7 @@
 
 (** Policies for grouping heap addresses *)
 
-open Mopsa
+open MopsaLib
 open ControlCtx
 open Lang.Ast
 

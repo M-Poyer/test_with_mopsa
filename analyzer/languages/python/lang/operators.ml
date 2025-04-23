@@ -21,7 +21,7 @@
 
 (** Mapping between operators and magic functions. *)
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 open Ast
 

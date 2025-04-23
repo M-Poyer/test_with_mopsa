@@ -62,7 +62,7 @@
 *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
 open Universal.Lang.Ast
 open Stubs.Ast

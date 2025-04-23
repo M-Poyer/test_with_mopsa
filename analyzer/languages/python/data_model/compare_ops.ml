@@ -22,7 +22,7 @@
 (** Python data model for comparison operators. *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Lang.Addr

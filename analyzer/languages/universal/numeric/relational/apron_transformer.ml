@@ -22,7 +22,7 @@
 
 (** ToolBox module for Apron interfacing *)
 
-open Mopsa
+open MopsaLib
 open Common
 open Lang.Ast
 open Apron_manager

@@ -23,7 +23,7 @@
 (** Non-relational abstraction of pointer values *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Value
 open Universal.Lang.Ast
 open Lang.Ast

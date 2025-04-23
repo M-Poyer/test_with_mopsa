@@ -21,7 +21,7 @@
 
 (** Inlining of anonymous functions defined through lambda *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Lang.Addr

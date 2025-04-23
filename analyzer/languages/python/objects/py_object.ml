@@ -21,7 +21,7 @@
 
 (** An environment is a total map from variables to addresses. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Lang.Addr

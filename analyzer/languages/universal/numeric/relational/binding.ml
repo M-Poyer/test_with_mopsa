@@ -21,7 +21,7 @@
 
 (** Bindings between Mopsa variables and Apron variables *)
 
-open Mopsa
+open MopsaLib
 
 module Equiv = Equiv.Make(
   struct

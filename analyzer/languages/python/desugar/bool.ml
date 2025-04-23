@@ -21,7 +21,7 @@
 
 (** Handling of and/or operators. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Lang.Addr

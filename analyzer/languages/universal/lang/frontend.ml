@@ -23,7 +23,7 @@
    Universal frontend translates the parser's AST into Framework's AST.
 *)
 
-open Mopsa
+open MopsaLib
 open Mopsa_universal_parser
 
 module NameG =
@@ -37,7 +37,7 @@ end
 
 open Lexing
 open Ast
-open Mopsa
+open MopsaLib
 
 module T = Ast
 module U = U_ast

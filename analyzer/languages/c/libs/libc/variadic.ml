@@ -23,7 +23,7 @@
 (** Support for variadic functions *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Universal.Lang.Ast
 open Lang.Ast

@@ -22,7 +22,7 @@
 (** Range objects. *)
 (* FIXME: range(1, 10, -1) ; range(10, 1, 1) ; range(1, 3, 0) *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Lang.Addr

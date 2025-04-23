@@ -20,7 +20,7 @@
 (****************************************************************************)
 
 open Universal.Lang.Ast
-open Mopsa
+open MopsaLib
 
 module Rangeset = Set.Make(struct type t = range
     let compare = compare_range end)

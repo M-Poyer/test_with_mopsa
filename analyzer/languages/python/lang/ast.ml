@@ -21,7 +21,7 @@
 
 (** Python AST *)
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 
 (*==========================================================================*)

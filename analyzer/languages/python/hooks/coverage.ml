@@ -22,7 +22,7 @@
 (* A prototype hook for displaying analysis coverage. Currently a POC *)
 (*  FIXME: better treatment of else/try... *)
 
-open Mopsa
+open MopsaLib
 open Format
 open Lang.Ast
 open Lang.Addr

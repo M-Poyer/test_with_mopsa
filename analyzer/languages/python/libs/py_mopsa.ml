@@ -21,7 +21,7 @@
 
 (** MOPSA Python library. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Addr
 open Lang.Ast

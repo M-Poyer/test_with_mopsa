@@ -21,7 +21,7 @@
 
 (** Finite sets of possibly included or definitely excluded integer constants *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified_value
 open Lang.Ast
 open Common

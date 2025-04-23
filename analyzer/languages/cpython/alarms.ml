@@ -21,7 +21,7 @@
 
 (** Alarms *)
 
-open Mopsa
+open MopsaLib
 
 type check += CHK_CPYTHON_CLASS_READY
 type alarm_kind += A_cpython_class_not_ready of expr

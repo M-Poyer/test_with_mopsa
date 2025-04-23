@@ -21,7 +21,7 @@
 
 (** Handling of class definition and instantiation. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Lang.Addr

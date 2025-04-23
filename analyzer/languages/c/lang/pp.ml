@@ -20,7 +20,7 @@
 (****************************************************************************)
 
 open Format
-open Mopsa
+open MopsaLib
 open Ast
 
 let print_implicit_cast = false

@@ -25,7 +25,7 @@
    it's a generic, rewriting-based approach that may be helpful *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Addr
 open Lang.Ast

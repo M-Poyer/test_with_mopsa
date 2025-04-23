@@ -32,7 +32,7 @@
     appropriate pack.
 *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified_functor
 open Sig.Abstraction.Simplified
 open Lang.Ast

@@ -19,7 +19,7 @@
 (*                                                                          *)
 (****************************************************************************)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified_value
 open Lang.Ast
 open MapExt

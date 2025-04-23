@@ -19,7 +19,7 @@
 (*                                                                          *)
 (****************************************************************************)
 
-open Mopsa
+open MopsaLib
 open Ast
 
 let debug fmt = Debug.debug ~channel:"python.utils" fmt
@@ -75,7 +75,7 @@ let mk_try_stopiteration body except range =
 
 
 let check_instances ?(arguments_after_check=0) funname man flow range exprs instances processing =
-  let open Mopsa in
+  let open MopsaLib in
   let rec aux pos iexprs lexprs linstances flow =
     match lexprs, linstances with
     | _, [] ->
@@ -105,7 +105,7 @@ let check_instances ?(arguments_after_check=0) funname man flow range exprs inst
 
 let check_instances_disj ?(arguments_after_check=0) funname man flow range exprs instances processing =
   (* FIXME: error messages *)
-  let open Mopsa in
+  let open MopsaLib in
   let rec aux pos iexprs lexprs linstances flow =
     match lexprs, linstances with
     | _, [] ->

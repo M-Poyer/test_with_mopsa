@@ -21,7 +21,7 @@
  *)
 
 open Instances
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified
 
 

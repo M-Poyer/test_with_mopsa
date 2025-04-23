@@ -21,7 +21,7 @@
 
 (** A general smashing abstraction for Python dicts *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Lang.Addr

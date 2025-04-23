@@ -21,7 +21,7 @@
 
 (** Inter-procedural iterator by inlining.  *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Common

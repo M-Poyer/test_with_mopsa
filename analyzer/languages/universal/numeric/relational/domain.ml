@@ -21,7 +21,7 @@
 
 (** Relational numeric abstract domain, based on APRON. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified
 open Common
 open Lang.Ast

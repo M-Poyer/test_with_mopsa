@@ -21,7 +21,7 @@
 
 (** A general expansion-based abstraction for Python tuples *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Lang.Addr

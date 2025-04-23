@@ -25,7 +25,7 @@
 *)
 
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 module Itv = Universal.Numeric.Values.Intervals.Integer.Value
 

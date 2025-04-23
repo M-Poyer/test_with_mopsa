@@ -25,7 +25,7 @@
    MOPSA counterparts are used.
 *)
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 open Format
 

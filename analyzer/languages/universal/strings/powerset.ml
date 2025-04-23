@@ -21,7 +21,7 @@
 
 (** Constant strings abstraction *)
 
-open Mopsa
+open MopsaLib
 open Lang.Ast
 open Bot
 open Sig.Abstraction.Simplified_value

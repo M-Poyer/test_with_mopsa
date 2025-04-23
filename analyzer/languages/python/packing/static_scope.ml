@@ -25,7 +25,7 @@
     Functions have their own packs containing parameters, local variables and return value
 *)
 
-open Mopsa
+open MopsaLib
 open Lang.Addr
 open Universal.Packing.Static
 open Lang.Ast

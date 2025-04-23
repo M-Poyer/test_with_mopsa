@@ -20,17 +20,18 @@
    (-> languages.universal.numeric.relational.ppliteinst.dummy.ml)
   )
  )
- (modules :standard \ main)
+ (modules :standard \ mopsa)
  (library_flags -linkall)
 )
 
 (executable
- (name main)
+ (name mopsa)
  (public_name mopsa.exe)
  (package mopsa)
- (modules main)
+ (modules mopsa)
  (libraries mopsa_analyzer)
- (link_flags -linkall))
+ (link_flags -linkall)
+)
 
 (include_subdirs qualified)
 (dirs :standard \ tests)

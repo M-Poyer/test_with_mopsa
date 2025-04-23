@@ -21,7 +21,7 @@
 
 (** Non-relational abstraction of C pointers *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
 open Universal.Lang.Ast
 open Lang.Ast

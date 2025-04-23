@@ -22,7 +22,7 @@
 
 (** Entry point for parsing format strings *)
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 open Lang.Ast
 open Mopsa_c_parser.Formatted_io_placeholder

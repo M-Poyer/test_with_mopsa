@@ -21,7 +21,7 @@
 
 (** Reduction rule for pointer evaluations *)
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 open Lang.Ast
 open Sig.Reduction.Eval

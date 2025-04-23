@@ -21,7 +21,7 @@
 
 (** Evaluation of stub builtins: bytes, size, base, offset and valid_ptr *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Universal.Lang.Ast
 open Stubs.Ast

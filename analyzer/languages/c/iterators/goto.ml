@@ -97,7 +97,7 @@
 
 *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Common.Scope_update

@@ -23,7 +23,7 @@
     scope strategy.
 *)
 
-open Mopsa
+open MopsaLib
 open Sig.Reduction.Simplified
 open Sig.Abstraction.Simplified
 open Static

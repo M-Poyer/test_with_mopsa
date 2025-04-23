@@ -19,7 +19,7 @@
 (*                                                                          *)
 (****************************************************************************)
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 open Stubs.Ast
 open Lang.Ast

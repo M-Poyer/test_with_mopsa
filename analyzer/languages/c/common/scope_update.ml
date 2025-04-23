@@ -22,7 +22,7 @@
 
 (** Utility functions for updating the scope due to jump statements *)
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 open Lang.Ast
 

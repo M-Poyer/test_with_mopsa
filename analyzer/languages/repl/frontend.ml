@@ -24,7 +24,7 @@
    Borrows the syntax and semantics from universal.
 *)
 
-open Mopsa
+open MopsaLib
 open Mopsa_universal_parser
 open Sig.Abstraction.Stateless
 open Lexing

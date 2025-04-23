@@ -22,7 +22,7 @@
 (** Converts a Universal program AST into a CFG. *)
 
 open Option
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 open Universal.Iterators.Interproc.Common
 open Ast

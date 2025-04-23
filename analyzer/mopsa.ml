@@ -19,30 +19,6 @@
 (*                                                                          *)
 (****************************************************************************)
 
-(** Essential modules. *)
+(** Standalone Mopsa analyzer *)
 
-include Mopsa_utils
-
-include Framework.Core.All
-
-module Core = Framework.Core
-
-module Sig = Framework.Sig
-
-module Params = Framework.Params
-
-module Paths = Framework.Params.Paths
-
-module Visitor = Framework.Core.Ast.Visitor
-
-include Location
-
-include Callstack
-
-include Framework.Params.Options
-
-include Exceptions
-
-type 'a info = 'a TypeExt.info
-
-include Framework.Toplevel
+let () = Mopsa_analyzer.Framework.Runner.run ()

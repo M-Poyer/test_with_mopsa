@@ -21,7 +21,7 @@
 
 (** Inliner of imported packages. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
 open Lang.Ast
 open Lang.Addr

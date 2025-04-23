@@ -21,7 +21,7 @@
 
 (** Soundness assumptions *)
 
-open Mopsa
+open MopsaLib
 open Framework.Core.Alarm
 open Lang.Ast
 

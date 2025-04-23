@@ -21,7 +21,7 @@
 
 (** Common transfer functions for handling C stubs *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Universal.Lang.Ast
 open Stubs.Ast

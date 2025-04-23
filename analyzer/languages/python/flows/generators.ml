@@ -23,7 +23,7 @@
 
 (* FIXME: safe check for StopIteration *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open Lang.Addr

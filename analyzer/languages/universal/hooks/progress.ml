@@ -21,7 +21,7 @@
 
 (** Hook for displaying progress of the analysis *)
 
-open Mopsa
+open MopsaLib
 open Format
 open Lang.Ast
 

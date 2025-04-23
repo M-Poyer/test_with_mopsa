@@ -21,7 +21,7 @@
 
 (** Visitor of Python AST. *)
 
-open Mopsa
+open MopsaLib
 open Ast
 
 (* Assumes: List.length (List.flatten old_struct) = List.length new_els *)

@@ -24,7 +24,7 @@
 
 open Mopsa_c_parser
 open C_AST
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 open Stubs.Ast
 open Ast

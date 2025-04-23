@@ -21,7 +21,7 @@
 
 (** Domain for supporting variable-length arrays *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Universal.Lang.Ast
 open Stubs.Ast

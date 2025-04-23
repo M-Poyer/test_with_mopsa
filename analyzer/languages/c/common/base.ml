@@ -21,7 +21,7 @@
 
 (** Base storage of scalar values. *)
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 open Lang.Ast
 

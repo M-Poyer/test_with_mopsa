@@ -32,7 +32,7 @@
     For better performances, only comparisons in loops are considered.
 *)
 
-open Mopsa
+open MopsaLib
 open Hook
 open Lang.Ast
 open Numeric.Common

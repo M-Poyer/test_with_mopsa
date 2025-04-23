@@ -22,7 +22,7 @@
 (** Inter-procedural iterator by inlining, caching the last analysis
    results for each flow *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Lang.Ast
 open ControlCtx

@@ -21,7 +21,7 @@
 
 (** Heap addresses of Python objects. *)
 
-open Mopsa
+open MopsaLib
 open Ast
 open Universal.Lang.Ast
 

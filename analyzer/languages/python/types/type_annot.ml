@@ -22,7 +22,7 @@
 (** Definition of python function annotations as well as polymorphism *)
 (** This module is still experimental *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
 open Lang.Ast
 open Lang.Addr

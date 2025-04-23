@@ -21,7 +21,7 @@
 
 (** Pretty-printing for CFG. *)
 
-open Mopsa
+open MopsaLib
 open Universal.Lang.Ast
 open Ast
 

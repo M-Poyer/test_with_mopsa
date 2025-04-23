@@ -35,7 +35,7 @@
 *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stacked
 open Universal.Lang.Ast
 open Stubs.Ast

@@ -27,7 +27,7 @@
     abstractions to handle the full C language.
 *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Universal.Lang.Ast
 open Lang.Ast
