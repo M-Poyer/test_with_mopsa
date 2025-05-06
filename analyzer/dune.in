@@ -6,10 +6,9 @@
  (libraries
    mopsa_utils
    mopsa_universal_parser
-   mopsa_c_parser
-   mopsa_c_stubs_parser
    mopsa_build_db
-   mopsa_py_parser
+   @dune_mopsa_c_parsers@
+   @dune_mopsa_python_parser@
    yojson
    apron apron.boxMPQ apron.octMPQ apron.polkaMPQ
   (select languages.universal.numeric.relational.elinainst.ml from
@@ -27,6 +26,7 @@
 (executable
  (name mopsa)
  (public_name mopsa.exe)
+ (modes exe @dune_bytecode@)
  (package mopsa)
  (modules mopsa)
  (libraries mopsa_analyzer)
@@ -35,3 +35,6 @@
 
 (include_subdirs qualified)
 (dirs :standard \ tests)
+
+(subdir languages
+        (dirs :standard \ @dune_c_exclusion@ @dune_python_exclusion@))

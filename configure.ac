@@ -24,6 +24,7 @@ AC_INIT([mopsa], [1.0])
 
 
 AC_CONFIG_FILES([
+ analyzer/dune
  parsers/c/lib/parser/dune
  utils/core/version.ml
  META
@@ -191,7 +192,7 @@ if test "x$CLANG" = "x"; then
   AC_MSG_WARN([clang not found. C analyzer will not be compiled.])
 else
   CLANGDIR=$($CLANG -print-resource-dir)
-fi 
+fi
 AC_SUBST(CLANGRESOURCEDIR, "(echo \"$CLANGDIR\")")
 
 # Deactivation of C analysis
@@ -205,9 +206,16 @@ if test "x$LLVMCONFIG" = "x"; then
  DISABLE_C=yes
 fi
 
+DUNE_C_EXCLUSION=""
+DUNE_MOPSA_C_PARSERS="mopsa_c_parser mopsa_c_stubs_parser"
 if test "x$DISABLE_C" != "x"; then
  AC_SUBST(disable_c,yes)
+ DUNE_C_EXCLUSION="c stubs cpython"
+ DUNE_MOPSA_C_PARSERS=""
 fi
+AC_SUBST(dune_mopsa_c_parsers, $DUNE_MOPSA_C_PARSERS)
+AC_SUBST(dune_c_exclusion, $DUNE_C_EXCLUSION)
+
 
 
 
@@ -217,16 +225,22 @@ AC_ARG_ENABLE(
   [AS_HELP_STRING([--disable-python], [Turn off Python analysis])],
   [DISABLE_PYTHON=yes], [])
 
+DUNE_PYTHON_EXCLUSION=""
+DUNE_MOPSA_PYTHON_PARSER="mopsa_py_parser"
 if test "x$DISABLE_PYTHON" != "x"; then
  AC_SUBST(disable_python,yes)
+ DUNE_PYTHON_EXCLUSION="python cpython"
+ DUNE_MOPSA_PYTHON_PARSER=""
 fi
+AC_SUBST(dune_python_exclusion, $DUNE_PYTHON_EXCLUSION)
+AC_SUBST(dune_mopsa_python_parser, $DUNE_MOPSA_PYTHON_PARSER)
 
 
 # Activation of byte compilation
 AC_ARG_ENABLE(
   [byte],
   [AS_HELP_STRING([--enable-byte], [Turn on compilation of byte binaries])],
-  [AC_SUBST(enable_byte,yes)], [])
+  [AC_SUBST(dune_bytecode,byte)], [])
 
 
 # OCamlfind's META
@@ -246,5 +260,6 @@ fi
 
 AC_SUBST(meta_analyzer_requires,$META_ANALYZER_REQUIRES)
 AC_SUBST(libs_to_install,$LIBS_TO_INSTALL)
+
 
 AC_OUTPUT
