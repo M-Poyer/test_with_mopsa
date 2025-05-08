@@ -54,7 +54,7 @@ struct
     | _ -> []
 
   (** Reduction operator *)
-  (* TODO: 
+  (* TODO:
      - factor with universal.numeric.packing.intervals_static_scope.ml
      - float reduction
   *)

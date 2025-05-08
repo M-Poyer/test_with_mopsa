@@ -32,24 +32,37 @@ open Ppliteinst
 
 let numeric_domain : (module RELATIONAL) ref = ref (module HetPolyhedra : RELATIONAL)
 
-let () =
-  register_shared_option "universal.numeric.relational" {
-    key = "-numeric";
+let enable_rel_domain rel_domain_type activate name =
+  let (module M : RELATIONAL) = List.find
+      (fun (module C : RELATIONAL) -> C.numeric_name = name && C.name = rel_domain_type)
+      !numeric_domains in
+  if activate then
+    let () = opt_numeric := M.numeric_name in
+    numeric_domain := (module M : RELATIONAL);
+  register_simplified_domain (module M)
+
+let register_rel_domain is_het =
+  let suffix = if is_het then "_heterogeneous" else "" in
+  let rel_domain_type = "universal.numeric.relational" ^ suffix in
+  let key = "-numeric" ^ suffix in
+  register_shared_option rel_domain_type {
+    key;
     category = "Numeric";
     doc = " select the relational numeric domain.";
     spec = ArgExt.Symbol (
         get_instances_names (),
-        (fun name ->
-           let (module M : RELATIONAL) = List.find
-               (fun (module C : RELATIONAL) -> C.numeric_name = name)
-               !numeric_domains in
-           opt_numeric := M.numeric_name;
-           numeric_domain := (module M : RELATIONAL);
-           register_simplified_domain (module M)
-        )
+        enable_rel_domain rel_domain_type true
       );
     default = "polyhedra"
   }
 
+
 let () =
-  register_simplified_domain (module HetPolyhedra)
+  let rel_domain_type = "universal.numeric.relational" in
+  register_rel_domain false;
+  enable_rel_domain rel_domain_type true "polyhedra"
+
+let () =
+  let rel_domain_type = "universal.numeric.relational_heterogeneous" in
+  register_rel_domain true;
+  enable_rel_domain rel_domain_type false "polyhedra"
