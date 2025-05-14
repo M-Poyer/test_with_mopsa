@@ -33,44 +33,44 @@ let rec partition_list_by_length n l =
       hd :: lhd, ltl
     | _ -> assert false
 
-let mk_builtin_raise exn range =
-  mk_stmt (S_py_raise (Some (mk_py_object (Addr.find_builtin exn) range))) range
+let mk_builtin_raise ?ssynthetic exn range =
+  mk_stmt ?ssynthetic (S_py_raise (Some (mk_py_object (Addr.find_builtin exn) range))) range
 
-let mk_builtin_raise_args exn args range =
-  mk_stmt (S_py_raise (Some (mk_py_call (mk_py_object (Addr.find_builtin exn) range) args range))) range
+let mk_builtin_raise_args ?ssynthetic exn args range =
+  mk_stmt ?ssynthetic (S_py_raise (Some (mk_py_call (mk_py_object (Addr.find_builtin exn) range) args range))) range
 
-let mk_builtin_raise_msg exn msg range =
+let mk_builtin_raise_msg ?ssynthetic exn msg range =
   let open Universal.Ast in
-  mk_builtin_raise_args exn [mk_constant ~etyp:(T_py (Some Str)) (C_string msg) range] range
+  mk_builtin_raise_args ?ssynthetic exn [mk_constant ~etyp:(T_py (Some Str)) (C_string msg) range] range
 
 (** Creates an AST block, tagged by `range`, representing the call of a builtin defined as `f` (a string), to which a list of parameters is passed *)
-let mk_builtin_call f params range =
-  mk_py_call (mk_py_object (Addr.find_builtin f) range) params range
+let mk_builtin_call ?esynthetic f params range =
+  mk_py_call ?esynthetic (mk_py_object (Addr.find_builtin f) range) params range
 
-let mk_hasattr obj attr range =
-  mk_builtin_call "hasattr" [obj; Universal.Ast.mk_string ~etyp:(T_py None) attr range] range
+let mk_hasattr ?esynthetic obj attr range =
+  mk_builtin_call ?esynthetic "hasattr" [obj; Universal.Ast.mk_string ~etyp:(T_py None) attr range] range
 
-let mk_object_hasattr obj attr range =
-  mk_hasattr (mk_py_object obj range) attr range
+let mk_object_hasattr ?esynthetic obj attr range =
+  mk_hasattr ?esynthetic (mk_py_object obj range) attr range
 
-let mk_addr_hasattr obj attr range =
-  mk_hasattr (mk_addr obj range) attr range
+let mk_addr_hasattr ?esynthetic obj attr range =
+  mk_hasattr ?esynthetic (mk_addr obj range) attr range
 
 (** Creates a block
     try: `body`
     except StopIteration: `except`
 
     This statement will be created with the provided `range` *)
-let mk_try_stopiteration body except range =
-  mk_try
+let mk_try_stopiteration ?ssynthetic body except range =
+  mk_try ?ssynthetic
     body
     [mk_except
        (Some (mk_py_object (Addr.find_builtin "StopIteration") range))
        None
        except
     ]
-    (Universal.Ast.mk_block [] range)
-    (Universal.Ast.mk_block [] range)
+    (Universal.Ast.mk_block ?ssynthetic [] range)
+    (Universal.Ast.mk_block ?ssynthetic [] range)
     range
 
 

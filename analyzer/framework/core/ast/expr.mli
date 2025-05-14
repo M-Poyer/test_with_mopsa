@@ -80,6 +80,8 @@ type expr = {
   (** translations of the expression into other semantics *)
   ehistory: expr list;
   (** History of preceding evaluations of the expression *)
+  esynthetic : bool;
+  (** whether the expression was generated dynamically during the analysis *)
 }
 (** Expressions *)
 
@@ -105,7 +107,10 @@ val etrans : expr -> expr SemanticMap.t
 val ehistory : expr -> expr list
 (** Get the evaluation history of an expression *)
 
-val mk_expr : ?etyp:typ -> ?etrans:expr SemanticMap.t -> ?ehistory:expr list -> expr_kind -> range -> expr
+val esynthetic : expr -> bool
+(** Check if an expression is synthetic *)
+
+val mk_expr : ?etyp:typ -> ?etrans:expr SemanticMap.t -> ?ehistory:expr list -> ?esynthetic:bool -> expr_kind -> range -> expr
 (** Construct an expression *)
 
 val add_expr_translation : semantic -> expr -> expr -> expr
@@ -153,7 +158,7 @@ type expr_kind += E_var of var         (** variable *) *
                            mode option (** optional access mode overloading
                                            the variable's access mode *)
 
-val mk_var : var -> ?mode:mode option -> range -> expr
+val mk_var : ?esynthetic:bool -> var -> ?mode:mode option -> range -> expr
 (** Create a variable expression *)
 
 val weaken_var_expr : expr -> expr
@@ -175,10 +180,10 @@ type expr_kind += E_addr of addr         (** address *) *
 
                | E_alloc_addr of addr_kind * mode
 
-val mk_addr : addr -> ?etyp:typ -> ?mode:mode option -> range -> expr
+val mk_addr : ?esynthetic:bool -> addr -> ?etyp:typ -> ?mode:mode option -> range -> expr
 (** Create an address expression *)
 
-val mk_alloc_addr : ?mode:mode -> addr_kind -> range -> expr
+val mk_alloc_addr : ?esynthetic:bool -> ?mode:mode -> addr_kind -> range -> expr
 (** Create an allocation expression *)
 
 val weaken_addr_expr : expr -> expr
@@ -193,10 +198,10 @@ val strongify_addr_expr : expr -> expr
 (** Constants *)
 type expr_kind += E_constant of constant
 
-val mk_constant : ?etyp:typ -> constant -> range -> expr
+val mk_constant : ?esynthetic:bool -> ?etyp:typ -> constant -> range -> expr
 (** Create a constant expression *)
 
-val mk_top : typ -> range -> expr
+val mk_top : ?esynthetic:bool -> typ -> range -> expr
 (** Create ⊤ expression of a given type *)
 
 
@@ -205,12 +210,12 @@ val mk_top : typ -> range -> expr
 (** Unary operator expressions *)
 type expr_kind += E_unop of operator (** operator *) *
                             expr     (** operand *)
-  
 
-val mk_unop :  ?etyp:typ -> operator -> expr -> range -> expr
+
+val mk_unop :  ?esynthetic:bool -> ?etyp:typ -> operator -> expr -> range -> expr
 (** Create a unary operator expression *)
 
-val mk_not : expr -> range -> expr
+val mk_not : ?esynthetic:bool -> expr -> range -> expr
 (** [mk_not e range] returns the negation of expression [e] using the operator
     {!Operator.O_log_not} *)
 
@@ -222,10 +227,10 @@ type expr_kind += E_binop of operator (** operator *) *
                              expr     (** first operand *) *
                              expr     (** second operand *)
 
-val mk_binop : ?etyp:typ -> expr -> operator -> expr -> range -> expr
+val mk_binop : ?esynthetic:bool -> ?etyp:typ -> expr -> operator -> expr -> range -> expr
 (** Create a binary operator expression *)
 
-val negate_expr : expr -> expr
+val negate_expr : ?esynthetic:bool -> expr -> expr
 (** Return the negation of an expression *)
 
 (****************************************************************************)
