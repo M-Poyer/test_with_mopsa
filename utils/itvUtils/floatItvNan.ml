@@ -752,7 +752,7 @@ let rec filter_neq (prec:prec) (x:t) (y:t) : t * t =
         | BOT -> BOT, BOT
         | Nb (xx,yy) -> Nb xx, Nb yy
       in
-      { x with itv = ix; }, { y with itv = iy; }
+      (if y.pinf || y.minf then x else { x with itv = ix; }), { y with itv = iy; }
   else if is_singleton y then
     let yy,xx = filter_neq prec y x in xx, yy (* symmetric case *)
   else x, y (* no singleton -> no refinement *)
