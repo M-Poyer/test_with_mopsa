@@ -115,7 +115,7 @@ struct
   let mk_py_unit_tests tests range =
     let tests =
       tests |> List.map (fun test ->
-          (get_orig_vname test.py_func_var, {skind = S_expression (mk_py_call (mk_var test.py_func_var range) [] range); srange = range})
+          (get_orig_vname test.py_func_var, {skind = S_expression (mk_py_call (mk_var test.py_func_var range) [] range); srange = range; ssynthetic=true})
         )
     in
     mk_stmt (Universal.Ast.S_unit_tests (tests)) range
