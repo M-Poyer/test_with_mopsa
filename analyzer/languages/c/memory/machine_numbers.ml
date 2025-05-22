@@ -137,14 +137,14 @@ struct
       default = "false";
     }
 
-  let opt_mnum_fast_query = ref true
+  let opt_mnum_rela_query = ref false
   let () =
     register_domain_option name {
       key = "-c-check-overflows-with-relational";
       category = "C";
       doc = " check for overflows using the relational abstract domains too (more expensive but can be more precise)";
-      spec = Clear opt_mnum_fast_query;
-      default = string_of_bool !opt_mnum_fast_query;
+      spec = Set opt_mnum_rela_query;
+      default = string_of_bool !opt_mnum_rela_query;
     }
 
 
@@ -252,10 +252,10 @@ struct
         Eval.add_translation "Universal" nexp
       else
         let itv =
-          if not !opt_mnum_fast_query then
+          if !opt_mnum_rela_query then
             ask_and_reduce man.ask (Universal.Numeric.Common.mk_int_interval_query ~fast:false nexp) flow
-          else itv in 
-        if not !opt_mnum_fast_query && IntItv.subset itv ritv then
+          else itv in
+        if !opt_mnum_rela_query && IntItv.subset itv ritv then
           safe_c_integer_overflow_check range man flow |>
           Eval.singleton cexp |>
           Eval.add_translation "Universal" nexp
