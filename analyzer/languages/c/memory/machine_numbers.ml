@@ -54,6 +54,15 @@ struct
 
   (** Command-line options *)
   (** ==================== *)
+  let opt_signed_arithmetic_overflow_wraparound = ref true
+  let () =
+    register_shared_option name {
+      key = "-c-signed-arithmetic-overflow-wraparound-semantics";
+      category = "C";
+      doc = " If true, signed overflows are represented through a wraparound semantics. If false, traces are cut after a signed overflow, as they are undefined behavior in the C standard.";
+      spec = Bool (fun b -> opt_signed_arithmetic_overflow_wraparound := b);
+      default = string_of_bool !opt_signed_arithmetic_overflow_wraparound;
+    }
 
   let opt_signed_arithmetic_overflow = ref true
   let () =
@@ -270,8 +279,13 @@ struct
                 raise_c_integer_overflow_alarm ~warning:true exp nexp typ range man flow flow
             else flow
           in
-          Eval.singleton cexp flow' |>
-          Eval.add_translation "Universal" nexp'
+          if is_c_signed_int_type typ && (not !opt_signed_arithmetic_overflow_wraparound) then
+            (* do not take into account the wraparound semantics *)
+            Eval.singleton cexp flow' |>
+            Eval.add_translation "Universal" nexp
+          else
+            Eval.singleton cexp flow' |>
+            Eval.add_translation "Universal" nexp'
     in
     match ekind cexp with
     (* Arithmetics on signed integers may overflow *)
