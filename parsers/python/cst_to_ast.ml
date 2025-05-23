@@ -123,12 +123,16 @@ and translate_stmt (stmt: Cst.stmt) : Ast.stmt =
       S_return (translate_expr_option (Location.tag_range range "return") value)
 
     | Assign (targets, value) ->
-      if List.length targets = 1 then
-        (fun t -> S_assign (translate_expr t, translate_expr value)) (List.hd targets)
+      let first_lval = translate_expr @@ List.hd targets in
+      let first_assign = S_assign (first_lval, translate_expr value) in
+      if List.length targets = 1 then first_assign
       else
-        S_block (
-          List.map (fun t -> {skind = S_assign (translate_expr t, translate_expr value); srange = range}) targets
-        )
+        (* FIXME: should be done by a desugaring pass in the analyzer? *)
+        let other_assigns = List.map
+                              (fun t -> {skind = S_assign(translate_expr t, first_lval);
+                                         srange = range})
+                              (List.tl targets) in
+        S_block ({skind = first_assign; srange = range}::other_assigns)
 
     | AugAssign (target, op, value) ->
       S_aug_assign (

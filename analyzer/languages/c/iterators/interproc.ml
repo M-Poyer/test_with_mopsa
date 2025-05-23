@@ -414,7 +414,7 @@ struct
        * all paritions, since we can't keep a relation between the partitions
        * before calling the function and the paritions after the return *)
       let caller_alloca_addrs = Cases.reduce_result
-          (fun addrs _ -> addrs) caller_alloca_addrs 
+          (fun addrs _ -> addrs) caller_alloca_addrs
           ~join:AddrSet.join
           ~meet:AddrSet.meet
           ~bottom:(fun () -> AddrSet.bottom)
@@ -445,7 +445,7 @@ struct
          let fundec = rename_variables_in_fundec cs fundec in
          let flow =
            (* after fundec renaming, we save the updated program in the context for the interactive engine *)
-             let old_c_program = get_c_program flow in 
+             let old_c_program = get_c_program flow in
              let new_c_program =
                {old_c_program with
                 c_functions = fundec :: old_c_program.c_functions } in
@@ -460,7 +460,7 @@ struct
                  (fun s -> match skind s with S_c_goto _ -> true | _ -> false)
                  body
              then
-               {skind = S_c_goto_stab (body); srange = tag_range (srange body) "goto-stabilization"}
+               {skind = S_c_goto_stab (body); srange = tag_range (srange body) "goto-stabilization"; ssynthetic=true }
              else body
            in
            let fundec' = {
@@ -547,7 +547,7 @@ struct
         man.eval (mk_top (under_type p.etyp) range) flow
 
     | P_null ->
-      Common.Alarms.raise_c_null_deref_alarm p man flow |> Eval.empty 
+      Common.Alarms.raise_c_null_deref_alarm p man flow |> Eval.empty
 
     | _ ->
       panic_at range

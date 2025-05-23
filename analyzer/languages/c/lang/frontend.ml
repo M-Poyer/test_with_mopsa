@@ -519,6 +519,33 @@ and from_project prj =
                   )
   in
 
+  (* sanity check: all statements and expressions must be non-syntetic *)
+  let stmts = StringMap.fold (fun _ f acc ->
+      match f.c_func_body with
+      | Some body -> body :: acc
+      | None -> acc
+    ) funcs []
+  in
+  let exprs = StringMap.fold (fun _ f acc ->
+      match f.c_func_stub with
+      | Some stub -> exprs_in_stub_func stub @ acc
+      | None -> acc
+    ) funcs []
+  in
+  let exprs = List.fold_left (fun acc d ->
+    exprs_in_stub_directive d @ acc
+    ) exprs directives
+  in
+  let range = mk_fresh_range () in
+  let all = (List.map (fun e -> mk_expr_stmt ~ssynthetic:false e range) exprs) @ stmts in
+  List.iter (Visitor.iter_stmt
+    (fun e ->
+      if e.esynthetic then panic_at e.erange "original expression %a (of kind: %s) marked as synthetic"
+        pp_expr e Obj.Extension_constructor.(of_val e.ekind |> name))
+    (fun s ->
+      if s.ssynthetic then panic_at s.srange "original statement %a (of kind: %s) marked as synthetic"
+        pp_stmt s Obj.Extension_constructor.(of_val s.skind |> name)))
+    all;
 
   Ast.C_program {
     c_globals = globals;
@@ -603,9 +630,9 @@ and from_stmt ctx ((skind, range): C_AST.statement) : stmt =
               if Z.equal acc first then None
               else
                 if (Z.(first <= acc)) then
-                  Some (mk_int_general_interval (ItvUtils.IntBound.Finite first) (ItvUtils.IntBound.Finite acc) efirst.erange)
+                  Some (mk_int_general_interval ~esynthetic:false (ItvUtils.IntBound.Finite first) (ItvUtils.IntBound.Finite acc) efirst.erange)
                 else 
-                  Some (mk_int_general_interval (ItvUtils.IntBound.Finite acc) (ItvUtils.IntBound.Finite first) efirst.erange)
+                  Some (mk_int_general_interval ~esynthetic:false (ItvUtils.IntBound.Finite acc) (ItvUtils.IntBound.Finite first) efirst.erange)
             | {ekind = E_constant (C_int h); etyp = th} ::tl when Z.(h = (op acc one)) && compare_typ th tfirst = 0 ->
               process op h tl
             | hd :: tl ->
@@ -630,7 +657,7 @@ and from_stmt ctx ((skind, range): C_AST.statement) : stmt =
     | C_AST.S_target(C_AST.S_label l) -> Ast.S_c_label l
     | C_AST.S_asm a -> Ast.S_c_asm (C_print.string_of_statement (skind,range))
   in
-  {skind; srange}
+  {skind; srange; ssynthetic=false }
 
 and from_block ctx empty_range (block: C_AST.block) : stmt =
   let block_range =
@@ -644,6 +671,7 @@ and from_block ctx empty_range (block: C_AST.block) : stmt =
   mk_block
     (List.map (from_stmt ctx) block.blk_stmts)
     ~vars:(List.map (from_var ctx) block.blk_local_vars)
+    ~ssynthetic:false
     block_range
 
 and from_body_option (ctx) empty_range (block: C_AST.block option) : stmt option =
@@ -717,7 +745,7 @@ and from_expr ctx ((ekind, tc , range) : C_AST.expr) : expr =
        (from_expr ctx a.(0)).ekind
 
   in
-  mk_expr ekind erange ~etyp
+  mk_expr ekind erange ~etyp ~esynthetic:false
 
 and from_expr_option ctx : C_AST.expr option -> expr option = function
   | None -> None
@@ -1089,7 +1117,7 @@ and from_stub_local_value ctx lval =
           c_ftype_variadic = f.content.func_variadic;
         })
     in
-    let fff = mk_expr (Ast.E_c_function ff) f.range ~etyp:t in
+    let fff = mk_expr (Ast.E_c_function ff) f.range ~etyp:t ~esynthetic:false in
     L_call (fff, List.map (from_stub_expr ctx) args)
 
 and from_stub_ensures ctx ens =
@@ -1103,7 +1131,7 @@ and from_stub_assumes ctx asm =
 and from_stub_formula ctx f =
   bind_range f @@ function
   | F_expr e -> F_expr (from_stub_expr ctx e)
-  | F_bool b -> F_expr (mk_bool b f.range)
+  | F_bool b -> F_expr (mk_bool ~esynthetic:false b f.range)
   | F_binop(op, f1, f2) -> F_binop(from_stub_log_binop op, from_stub_formula ctx f1, from_stub_formula ctx f2)
   | F_not f -> F_not (from_stub_formula ctx f)
   | F_forall (v, s, f) -> F_forall(from_var ctx v, from_stub_set ctx s, from_stub_formula ctx f)
@@ -1121,14 +1149,14 @@ and from_stub_interval ctx i =
   let lb = from_stub_expr ctx i.itv_lb in
   let ub = from_stub_expr ctx i.itv_ub in
   (* We can use operations on mathematical integers without worrying about overflows *)
-  let lb = if i.itv_open_lb then (add lb one ~typ:T_int lb.erange) else lb in
-  let ub = if i.itv_open_ub then (sub ub one ~typ:T_int ub.erange) else ub in
+  let lb = if i.itv_open_lb then (add lb {one with esynthetic=false} ~typ:T_int ~esynthetic:false lb.erange) else lb in
+  let ub = if i.itv_open_ub then (sub ub {one with esynthetic=false} ~typ:T_int ~esynthetic:false ub.erange) else ub in
   (lb,ub)
 
 and from_stub_expr ctx exp =
   let bind_range_expr (exp:Mopsa_c_stubs_parser.Ast.expr with_range) f =
     let ekind = f exp.content.kind
-    in mk_expr ekind exp.range  ~etyp:(from_typ ctx exp.content.typ)
+    in mk_expr ekind exp.range  ~etyp:(from_typ ctx exp.content.typ) ~esynthetic:false
   in
   bind_range_expr exp @@ function
   | E_top t -> E_constant (C_top (from_typ ctx t))
