@@ -121,10 +121,10 @@ struct
   (** ============================= *)
 
   (** Check if there is a recursive call to a function *)
-  let is_recursive_call f range flow =
+  let is_recursive_call f range cs =
     let f_orig = f.c_func_org_name in
     let f_uniq = f.c_func_unique_name in
-    let cs = push_callstack f_orig ~uniq:f_uniq range (Flow.get_callstack flow) in
+    let cs = push_callstack f_orig ~uniq:f_uniq range cs in
     Universal.Iterators.Interproc.Common.check_recursion f_orig f_uniq range cs
 
   let is_local_scope = function
@@ -423,11 +423,12 @@ struct
        * [>>%] here to avoid calling the body of the function in every
        * partition *)
       let flow = set_env_flow T_cur empty man flow in
-      let ret =
+      let ret, is_recursive =
         (* Process arguments by evaluating function calls *)
-        eval_calls_in_args args man flow >>$ fun args flow ->
-        if is_recursive_call fundec range flow then (
+        let args_eval = eval_calls_in_args args man flow in
+        if is_recursive_call fundec range (Cases.get_callstack args_eval) then (
           warn_at range "recursive call on %s, returning top" fundec.c_func_org_name;
+          args_eval >>$ fun _ flow ->
           let flow =
             Flow.add_local_assumption
               (Universal.Iterators.Interproc.Common.A_ignore_recursion_side_effect fundec.c_func_org_name)
@@ -437,20 +438,18 @@ struct
             Eval.singleton (mk_unit range) flow
           else
             man.eval (mk_top fundec.c_func_return range) flow
-        )
-        else
-         let cs = Flow.get_callstack flow |>
+        ), true
+        else (
+         let cs = Cases.get_callstack args_eval |>
           push_callstack fundec.c_func_org_name ~uniq:fundec.c_func_unique_name range
          in
          let fundec = rename_variables_in_fundec cs fundec in
-         let flow =
-           (* after fundec renaming, we save the updated program in the context for the interactive engine *)
-             let old_c_program = get_c_program flow in
-             let new_c_program =
-               {old_c_program with
-                c_functions = fundec :: old_c_program.c_functions } in
-             set_c_program new_c_program flow
-         in
+         (* after fundec renaming, we save the updated program in the context for the interactive engine *)
+         let old_c_program = find_ctx c_program_ctx (Cases.get_ctx args_eval) in
+         let new_c_program =
+           {old_c_program with
+            c_functions = fundec :: old_c_program.c_functions } in
+         Cases.set_ctx (Cases.get_ctx args_eval |> add_ctx c_program_ctx new_c_program) args_eval >>$ fun args flow ->
          match fundec with
          | {c_func_body = Some body; c_func_stub = None; c_func_variadic = false} ->
            let open Universal.Ast in
@@ -511,12 +510,15 @@ struct
             Eval.singleton (mk_unit range) flow
           else
             man.eval (mk_top c_func_return range) flow
-      in
+      ), false in
       let ret =
         (* we updated the program before analyzing the renamed function, we can now get rid of it *)
-        let c_program = find_ctx c_program_ctx (Cases.get_ctx ret) in
-        let c_program = {c_program with c_functions = List.tl c_program.c_functions} in
-        Cases.set_ctx (Cases.get_ctx ret |> add_ctx c_program_ctx c_program) ret
+        if not is_recursive then
+          let c_program = find_ctx c_program_ctx (Cases.get_ctx ret) in
+          assert ((List.hd c_program.c_functions).c_func_org_name = fundec.c_func_org_name);
+          let c_program = {c_program with c_functions = List.tl c_program.c_functions} in
+          Cases.set_ctx (Cases.get_ctx ret |> add_ctx c_program_ctx c_program) ret
+        else ret
       in
       (* free alloca addresses *)
       ret >>$ fun e flow ->
