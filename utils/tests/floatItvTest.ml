@@ -200,7 +200,7 @@ let main () =
       TestFactoryI.test_unop "abs" F.abs I.abs ;
 
       TestFactoryI.test_filter "filter =" (=) (I.filter_eq `DOUBLE);
-      TestFactoryI.test_filter "filter !=" (!=) (I.filter_neq `DOUBLE);
+      TestFactoryI.test_filter "filter !=" (<>) (I.filter_neq `DOUBLE);
       TestFactoryI.test_filter "filter <=" (<=) (I.filter_leq `DOUBLE);
       TestFactoryI.test_filter "filter >=" (>=) (I.filter_geq `DOUBLE);
       TestFactoryI.test_filter "filter <" (<) (I.filter_lt `DOUBLE);
@@ -231,7 +231,7 @@ let main () =
       TestFactoryIN.test_unop "abs" F.abs IN.abs ;
 
       TestFactoryIN.test_filter "filter =" (=) (lift_filter @@ IN.filter_eq `DOUBLE);
-      TestFactoryIN.test_filter "filter !=" (!=) (lift_filter @@ IN.filter_neq `DOUBLE);
+      TestFactoryIN.test_filter "filter !=" (<>) (lift_filter @@ IN.filter_neq `DOUBLE);
       TestFactoryIN.test_filter "filter <=" (<=) (lift_filter @@ IN.filter_leq `DOUBLE);
       TestFactoryIN.test_filter "filter >=" (>=) (lift_filter @@ IN.filter_geq `DOUBLE);
       TestFactoryIN.test_filter "filter <" (<) (lift_filter @@ IN.filter_lt `DOUBLE);

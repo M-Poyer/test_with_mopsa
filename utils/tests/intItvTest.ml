@@ -175,7 +175,7 @@ let main () =
     TestFactory.test_binop "log <=" (fun a b -> if a <= b then Z.one else Z.zero) log_leq;
     TestFactory.test_binop "log >=" (fun a b -> if a >= b then Z.one else Z.zero) log_geq;
     TestFactory.test_filter "filter =" (=) filter_eq;
-    TestFactory.test_filter "filter !=" (!=) filter_neq;
+    TestFactory.test_filter "filter !=" (<>) filter_neq;
     TestFactory.test_filter "filter <=" (<=) filter_leq;
     TestFactory.test_filter "filter >=" (>=) filter_geq;
     TestFactory.test_filter "filter <" (<) filter_lt;
