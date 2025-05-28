@@ -60,15 +60,23 @@ module type DOMAIN = sig
   type t (* abstract type *)
   type c (* concrete type *)
   val name_prefix : string
-  val arbitrary: (t * c) QCheck.arbitrary
-  val arbitrary2: ((t * c) * (t * c)) QCheck.arbitrary
-  val arbitrary3: ((t * c) * (t * c) * (t * c)) QCheck.arbitrary
+  val gen: (t * c) QCheck2.Gen.t
+  val print : (t * c) QCheck2.Print.t
   val filter_shift: t -> t -> bool
   val filter_shift2: t -> t -> t -> bool
   val contains: c -> t -> bool
 end
 
 module Make(D: DOMAIN) = struct
+  let gen = D.gen
+  let print = D.print
+
+  let gen2 = QCheck2.Gen.pair gen gen
+  let print2 = QCheck2.Print.pair print print
+
+  let gen3 = QCheck2.Gen.triple gen gen gen
+  let print3 = QCheck2.Print.triple print print print
+
   let test_unop (name:string) (cop: D.c -> D.c) (aop: D.t -> D.t) =
     let name = Format.sprintf "%sunop (%s)" D.name_prefix name in
     let property (a,c) =
@@ -76,19 +84,19 @@ module Make(D: DOMAIN) = struct
       let c' = cop c in
       D.contains c' a'
     in
-    QCheck.Test.make ~count:test_count ~name D.arbitrary property
+    QCheck2.Test.make ~count:test_count ~name ~print gen property
 
   let test_binop_gen ~(contains:D.c -> 'a -> bool) ~filter (name:string) (cop: D.c -> D.c -> D.c) (aop: D.t -> D.t -> 'a) =
     let name = Format.sprintf "%sbinop (%s)" D.name_prefix name in
     let property ((a, c),(a', c')) =
-      QCheck.assume (filter a a');
+      QCheck2.assume (filter a a');
       let a'' = aop a a' in
       try
         let c'' = cop c c' in
         contains c'' a''
       with Division_by_zero | Invalid_argument _ -> true
     in
-    QCheck.Test.make ~count:test_count ~name D.arbitrary2 property
+    QCheck2.Test.make ~count:test_count ~name ~print:print2 gen2 property
 
   let contains_bot c a = match a with
     | Nb a -> D.contains c a
@@ -106,18 +114,18 @@ module Make(D: DOMAIN) = struct
       let c' = cop c in
       if D.contains c' r then contains_bot c a' else true
     in
-    QCheck.Test.make ~count:test_count ~name:(D.name_prefix ^ name) D.arbitrary2 property
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print2 gen2 property
 
   let test_bwd_binop_gen ~filter (name:string) (cop: D.c -> D.c -> D.c) (aop: D.t -> D.t -> D.t -> (D.t * D.t) with_bot) =
     let property ((a,c),(a',c'),(r,_)) =
-      QCheck.assume (filter a a' r);
+      QCheck2.assume (filter a a' r);
       let a'',a''' = aop a a' r |> Bot.bot_split in (* refine `a` and `a'` *)
       try
         let c'' = cop c c' in
         if D.contains c'' r then contains_bot c a'' && contains_bot c' a''' else true
       with Division_by_zero | Invalid_argument _ -> true
     in
-    QCheck.Test.make ~count:test_count ~name:(D.name_prefix ^ name) D.arbitrary3 property
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print3 gen3 property
 
   let test_filter (name:string) (cop: D.c -> D.c -> bool) (aop: D.t -> D.t -> (D.t * D.t) with_bot) =
     let property ((a,c),(a',c')) =
@@ -128,7 +136,7 @@ module Make(D: DOMAIN) = struct
         if cop c c' then contains_bot c a'' && contains_bot c' a''' else true
       with Division_by_zero | Invalid_argument _ -> true
     in
-    QCheck.Test.make ~count:test_count ~name:(D.name_prefix ^ name) D.arbitrary2 property
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) gen2 property
 
   let test_bwd_binop = test_bwd_binop_gen ~filter:(fun _ _ _ -> true)
   let test_bwd_binop_shift = test_bwd_binop_gen ~filter:D.filter_shift2

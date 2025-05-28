@@ -70,16 +70,16 @@ let interesting_intervals =
 (* *************** *)
 
 let sample_z ((lo,hi):t) =
-  let open QCheck.Gen in
+  let open QCheck2.Gen in
   match lo, hi with
   | B.MINF, B.PINF -> map Z.of_int int
-  | B.Finite l, B.PINF -> map (Z.add l) (map Z.of_int pint)
-  | B.MINF, B.Finite h -> map (Z.sub h) (map Z.of_int pint)
-  | B.Finite l, B.Finite h -> map (Z.add l) (map (fun z -> Z.rem z (Z.succ (Z.sub h l))) (map Z.of_int pint))
+  | B.Finite l, B.PINF -> map (Z.add l) (map Z.of_int (pint ~origin:0))
+  | B.MINF, B.Finite h -> map (Z.sub h) (map Z.of_int (pint ~origin:0))
+  | B.Finite l, B.Finite h -> map (Z.add l) (map (fun z -> Z.rem z (Z.succ (Z.sub h l))) (map Z.of_int (pint ~origin:0)))
   | _ -> failwith "IntItvTest.sample: invalid interval"
 
 let generator_itv =
-  let open QCheck.Gen in
+  let open QCheck2.Gen in
   bool >>= fun b ->
   match b with
   | false -> oneofl interesting_intervals
@@ -89,30 +89,12 @@ let generator_itv =
     return (ItvUtils.IntItv.of_int l h)
 
 let generator_z =
-  let open QCheck.Gen in
+  let open QCheck2.Gen in
   generator_itv >>= fun itv ->
   sample_z itv >>= fun z ->
   return (itv,z)
 
 let print_z (itv,z) = Format.asprintf "%a ⇝ %a" ItvUtils.IntItv.fprint itv Z.pp_print z
-
-let arbitrary_z =
-  QCheck.make ~print:print_z generator_z
-
-let generator_z2 =
-  let open QCheck.Gen in
-  pair generator_z generator_z
-
-let arbitrary_z2 =
-  QCheck.make ~print:(QCheck.Print.pair print_z print_z) generator_z2
-
-let generator_z3 =
-  let open QCheck.Gen in
-  triple generator_z generator_z generator_z
-
-let arbitrary_z3 =
-  let open QCheck.Iter in
-  QCheck.make ~print:(QCheck.Print.triple print_z print_z print_z) generator_z3
 
 let filter_shift _ (_,h) =
   B.is_positive h && B.leq h (B.of_int 256)
@@ -124,9 +106,8 @@ module TestFactory = Common.Make(struct
   type t = ItvUtils.IntItv.t
   type c = Z.t
   let name_prefix = ""
-  let arbitrary = arbitrary_z
-  let arbitrary2 = arbitrary_z2
-  let arbitrary3 = arbitrary_z3
+  let gen = generator_z
+  let print = print_z
   let filter_shift = filter_shift
   let filter_shift2 = filter_shift2
   let contains = contains

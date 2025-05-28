@@ -35,15 +35,15 @@ let mk_big () =
                (Z.of_int (Random.bits ())))
 
 let mk_big_z =
-  let open QCheck.Gen in
-  triple pint pint pint >>= fun (x,y,z) ->
+  let open QCheck2.Gen in
+  triple (pint ~origin:0) (pint ~origin:0) (pint ~origin:0) >>= fun (x,y,z) ->
   return (
     Z.add (Z.shift_left (Z.of_int x) 60)
           (Z.add (Z.shift_left (Z.of_int y) 30)
                  (Z.of_int z)))
 
 let mk_cong =
-  let open QCheck.Gen in
+  let open QCheck2.Gen in
   pair mk_big_z mk_big_z >>= fun (a,b) ->
   (* check the invariant, i.e., a = 0 || a > b >= 0 *)
   if Z.zero = a then return (a,b) else
@@ -51,7 +51,7 @@ let mk_cong =
   return (a,Z.pred a) (* a-1 >= 0 as a > 0 *)
 
 let mk_cst =
-  let open QCheck.Gen in
+  let open QCheck2.Gen in
   pair bool mk_big_z >>= fun (b,x) ->
   match b with
   | true -> return (cst x)
@@ -71,7 +71,7 @@ let congs =
   ]
 
 let sample_cong ((a,b):t) =
-  let open QCheck.Gen in
+  let open QCheck2.Gen in
   if a = Z.zero then (assert (contains b (a,b)); return b)
   else
     bool >>= fun p ->
@@ -96,7 +96,7 @@ let sample_cong ((a,b):t) =
       return z
 
 let generator_cong =
-  let open QCheck.Gen in
+  let open QCheck2.Gen in
   int_bound 2 >>= fun n ->
   match n with
   | 0 -> oneofl congs
@@ -104,7 +104,7 @@ let generator_cong =
   | _ -> mk_cst
 
 let generator_z =
-  let open QCheck.Gen in
+  let open QCheck2.Gen in
   generator_cong >>= fun cong ->
   sample_cong cong >>= fun z ->
   return (cong,z)
@@ -112,33 +112,12 @@ let generator_z =
 let print_cong (cong,z) =
   Format.asprintf "%a ⇝ %a" CongUtils.IntCong.fprint cong Z.pp_print z
 
-let arbitrary_z =
-  let open QCheck.Iter in
-  QCheck.make ~print:print_cong generator_z
-
-let generator_z2 =
-  let open QCheck.Gen in
-  pair generator_z generator_z
-
-let arbitrary_z2 =
-  let open QCheck.Iter in
-  QCheck.make ~print:(QCheck.Print.pair print_cong print_cong) generator_z2
-
-let generator_z3 =
-  let open QCheck.Gen in
-  triple generator_z generator_z generator_z
-
-let arbitrary_z3 =
-  let open QCheck.Iter in
-  QCheck.make ~print:(QCheck.Print.triple print_cong print_cong print_cong) generator_z3
-
 module TestFactory = Common.Make(struct
   type t = CongUtils.IntCong.t
   type c = Z.t
   let name_prefix = ""
-  let arbitrary = arbitrary_z
-  let arbitrary2 = arbitrary_z2
-  let arbitrary3 = arbitrary_z3
+  let gen = generator_z
+  let print = print_cong
   let filter_shift = fun _ _ -> true
   let filter_shift2 = fun _ _ _ -> true
   let contains = CongUtils.IntCong.contains
@@ -160,15 +139,15 @@ let test () =
     TestFactory.test_unop "wrap [-128,127]" (Common.wrap_scalar (-128) 127) (wrap2 (-128) 127);
     TestFactory.test_binop "join left" (fun a b -> a) join;
     TestFactory.test_binop "join right" (fun a b -> b) join;
-    (*TestFactory.test_binop_bot "meet" (fun a b -> if a <> b then QCheck.assume_fail (); a) meet;*)
+    (*TestFactory.test_binop_bot "meet" (fun a b -> if a <> b then QCheck2.assume_fail (); a) meet;*)
     TestFactory.test_binop "+" Z.add add;
     TestFactory.test_binop "-" Z.sub sub;
     TestFactory.test_binop "*" Z.mul mul;
     TestFactory.test_binop_bot "/" Z.div div;
     TestFactory.test_binop_bot "%" Z.rem rem;
-    TestFactory.test_binop_bot "<<" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail ();  Z.shift_left a (Z.to_int b)) shift_left;
-    TestFactory.test_binop_bot ">>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.shift_right a (Z.to_int b)) shift_right;
-    TestFactory.test_binop_bot ">>>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.shift_right_trunc a (Z.to_int b)) shift_right_trunc;
+    TestFactory.test_binop_bot "<<" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck2.assume_fail ();  Z.shift_left a (Z.to_int b)) shift_left;
+    TestFactory.test_binop_bot ">>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck2.assume_fail (); Z.shift_right a (Z.to_int b)) shift_right;
+    TestFactory.test_binop_bot ">>>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck2.assume_fail (); Z.shift_right_trunc a (Z.to_int b)) shift_right_trunc;
     TestFactory.test_unop "~" Z.lognot bit_not;
     TestFactory.test_unop "bool" (fun a -> if a = Z.zero then Z.zero else Z.one) log_cast;
     TestFactory.test_unop "!" (fun a -> if a <> Z.zero then Z.zero else Z.one) log_not;
@@ -198,9 +177,9 @@ let test () =
     TestFactory.test_bwd_binop "bwd *" Z.mul bwd_mul;
     TestFactory.test_bwd_unop "bwd ~" Z.lognot bwd_bit_not;
     TestFactory.test_bwd_binop "bwd %" Z.rem bwd_rem;
-    TestFactory.test_bwd_binop_shift "bwd <<" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.shift_left a (Z.to_int b)) bwd_shift_left;
-    TestFactory.test_bwd_binop_shift "bwd >>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.shift_right a (Z.to_int b)) bwd_shift_right;
-    TestFactory.test_bwd_binop_shift "bwd >>>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck.assume_fail (); Z.div a (Z.shift_left Z.one (Z.to_int b))) bwd_shift_right_trunc;
+    TestFactory.test_bwd_binop_shift "bwd <<" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck2.assume_fail (); Z.shift_left a (Z.to_int b)) bwd_shift_left;
+    TestFactory.test_bwd_binop_shift "bwd >>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck2.assume_fail (); Z.shift_right a (Z.to_int b)) bwd_shift_right;
+    TestFactory.test_bwd_binop_shift "bwd >>>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck2.assume_fail (); Z.div a (Z.shift_left Z.one (Z.to_int b))) bwd_shift_right_trunc;
   ] in
   QCheck_base_runner.run_tests_main tests
 
