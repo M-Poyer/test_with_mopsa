@@ -45,30 +45,41 @@ let interesting_bounds_single =
   let some = [0.; 1.; infinity; nan; F.Single.min_denormal; F.Single.min_normal; F.Single.max_normal; F.Single.max_exact] in
   List.sort_uniq Stdlib.compare (some @ List.map (fun x -> -. x) some)
 
-let float_extended_range lo up : F.t QCheck2.Gen.t =
+let float_extended_range i : F.t QCheck2.Gen.t =
   fix (fun self () ->
       float >>= fun f ->
-      if lo <= f && f <= up then return f
+      if I.contains f i then return f
       else self ()
     ) ()
 
-let sample_f_i (i : I.t) : F.t QCheck2.Gen.t =
-  bool >>= fun b ->
-  let interesting = List.filter (fun f -> I.contains f i) interesting_bounds_double in
-  if b && interesting <> [] then oneofl interesting else
-    match i.lo = neg_infinity, i.up = infinity with
-    | true, true -> QCheck2.Gen.float
-    | false, true -> map (F.add `DOUBLE `NEAR i.lo) pfloat
-    | true, false -> map (F.sub `DOUBLE `NEAR i.up) pfloat
-    | false, false ->
-      if i.up -. i.lo > max_float then
-        float_extended_range i.lo i.up
-      else
-        QCheck2.Gen.float_range i.lo i.up
+let sample_f_i prec round (i : I.t) : F.t QCheck2.Gen.t =
+  fix (fun self () ->
 
-let sample_f_in (i : IN.t) : F.t QCheck2.Gen.t =
+      (bool >>= fun b ->
+      let interesting =
+        List.filter (fun f -> I.contains f i)
+          (match prec with
+           | `SINGLE -> interesting_bounds_single
+           | `DOUBLE -> interesting_bounds_double) in
+      if b && interesting <> [] then oneofl interesting else
+        match i.lo = neg_infinity, i.up = infinity with
+        | true, true -> QCheck2.Gen.float
+        | false, true -> map (F.add prec round i.lo) pfloat
+        (* FIXME: not sure about rounding here to ensure the value lies within the range. In the meantime, I added a `fix` above to ensure it dynamically... *)
+        | true, false -> map (F.sub prec round i.up) pfloat
+        | false, false ->
+          if i.up -. i.lo > max_float then
+            float_extended_range i
+          else
+            QCheck2.Gen.float_range i.lo i.up) >>= fun f ->
+      if I.contains f i then return f else self ()) ()
+
+let sample_f_in prec round (i : IN.t) : F.t QCheck2.Gen.t =
   bool >>= fun b ->
-  let interesting = List.filter (fun f -> IN.contains f i) interesting_bounds_double in
+  let interesting = List.filter (fun f -> IN.contains f i)
+      (match prec with
+      | `SINGLE -> interesting_bounds_single
+      | `DOUBLE -> interesting_bounds_double) in
   if b && interesting <> [] then oneofl interesting
   else
     let special_values =
@@ -81,18 +92,18 @@ let sample_f_in (i : IN.t) : F.t QCheck2.Gen.t =
     | Nb fi ->
       bool >>= fun b ->
       if b || special_values = [] then
-        sample_f_i fi
+        sample_f_i prec round fi
       else
         oneofl special_values
     | _ -> oneofl special_values
 
-let generator_i =
-  sample_f_i I.minf_inf >>= fun x ->
-  sample_f_i I.minf_inf >>= fun y ->
+let generator_i prec round =
+  sample_f_i prec round I.minf_inf >>= fun x ->
+  sample_f_i prec round I.minf_inf >>= fun y ->
   let lo, hi = min x y, max x y in
   return (I.of_float lo hi)
 
-let generator_fi =
+let generator_fi prec round =
   fix (fun self () ->
       bool >>= fun minf ->
       bool >>= fun pinf ->
@@ -102,120 +113,122 @@ let generator_fi =
         let r : IN.t = { itv=BOT; nan; pinf; minf } in
         if IN.is_valid r then return r else self ()
       else
-        generator_i >>= fun itv ->
+        generator_i prec round >>= fun itv ->
         let r : IN.t = { itv=Nb itv; nan; pinf; minf } in
         if I.is_bounded itv && IN.is_valid r then return r else self ()) ()
 
-let generator_f_i =
+let generator_f_i prec round =
   (* FIXME: do we want to sometimes generate some float outside itv? *)
-  generator_i >>= fun itv ->
-  sample_f_i itv >>= fun f ->
+  generator_i prec round >>= fun itv ->
+  sample_f_i prec round itv >>= fun f ->
   return (itv, f)
 
 let print_f_i (itv, z) =
   Format.asprintf "%a ~> %a" (I.fprint I.dfl_fmt) itv (F.fprint F.dfl_fmt) z
 
-let generator_f_in =
+let generator_f_in prec round =
   (* currently, we only want some f in itv, so if itv is bottom, we have to retry
      alternative would be to assume and not assert containment  in test factory *)
   fix (fun self () ->
-      generator_fi >>= fun itv ->
+      generator_fi prec round >>= fun itv ->
       if IN.is_bot itv then self ()
       else
-        sample_f_in itv >>= fun f ->
+        sample_f_in prec round itv >>= fun f ->
         return (itv, f)) ()
 
 let print_f_in (itv, z) =
   Format.asprintf "%a ~> %a" (IN.fprint I.dfl_fmt) itv (F.fprint F.dfl_fmt) z
 
-module TestFactoryI = Common.Make(struct
-    type t = I.t
-    type c = F.t
-    let name_prefix = "FloatItv "
-    let gen = generator_f_i
-    let print = print_f_i
-    let filter_shift a b  = assert false
-    let filter_shift2 a b r = assert false
-    let contains f i =
-      (* FloatInterval does not handle well NaNs, so we won't focus on those here *)
-      (Float.is_nan f) || (I.contains f i)
-end)
-
-module TestFactoryIN = Common.Make(struct
-    type t = IN.t
-    type c = F.t
-    let name_prefix = "FloatItvNan "
-    let gen = generator_f_in
-    let print = print_f_in
-    let filter_shift a b = assert false
-    let filter_shift2 a b r = assert false
-    let contains = IN.contains
-  end)
-
-let test_all_roundings test sop fop iop =
-  List.map (fun (rounds, roundf, roundi) -> test (sop ^ " prec=double rnd=" ^ rounds) (fop `DOUBLE roundf) (iop `DOUBLE roundi))
-    ["near", `NEAR, `NEAR; "up", `UP, `UP; "down", `DOWN, `DOWN; "zero", `ZERO, `ZERO]
-
 let main () =
-  (* FIXME: nan results for i_tests *)
-  let i_tests =
-    (List.map (fun (sop, fop, iop, bwd_iop) ->
-         test_all_roundings TestFactoryI.test_binop sop fop iop @
-         test_all_roundings TestFactoryI.test_bwd_binop ("bwd " ^ sop) fop bwd_iop
-       )
-        ["+", F.add, I.add, I.bwd_add;
-         "-", F.sub, I.sub, I.bwd_sub;
-         "*", F.mul, I.mul, I.bwd_mul; ]
-     |> List.flatten)
-    @ test_all_roundings TestFactoryI.test_binop_bot "/" F.div I.div
-    @ test_all_roundings TestFactoryI.test_bwd_binop "/" F.div I.bwd_div
-    @
-    [
-      TestFactoryI.test_unop "-" F.neg I.neg;
-      TestFactoryI.test_unop "abs" F.abs I.abs ;
+  let lift_filter op = fun a b -> Nb (op a b) in
+  let lift_bot2 op = fun prec round a b -> Nb (op prec round a b) in
+  let lift_bot3 op = fun prec round a b r -> Nb (op prec round a b r) in
+  (* FIXME:
+     - some test are precision or rounding independent, remove them
+     - add support for `REAL *)
+  let tests_i = List.map (fun (precs, precf, preci) ->
+      List.map (fun (rounds, roundf, roundi) ->
+          let module TestFactory = Common.Make(struct
+              type t = I.t
+              type c = F.t
+              let name_prefix = "FloatItv("^ precs ^ ", " ^ rounds ^ ") "
+              let gen = generator_f_i precf roundf
+              let print = print_f_i
+              let filter_shift a b = assert false
+              let filter_shift2 a b r = assert false
+              let contains f i =
+                (* FloatInterval does not handle well NaNs, so we won't focus on those here *)
+                (Float.is_nan f) || (I.contains f i)
+            end) in
+          (List.map (fun (sop, fop, iop, bwd_iop) ->
+               [TestFactory.test_binop sop fop iop;
+                TestFactory.test_bwd_binop ("bwd " ^ sop) fop bwd_iop]
+             )
+              ["+", F.add precf roundf, I.add preci roundi, I.bwd_add preci roundi;
+               "-", F.sub precf roundf, I.sub preci roundi, I.bwd_sub preci roundi;
+               "*", F.mul precf roundf, I.mul preci roundi, I.bwd_mul preci roundi; ]
+           |> List.flatten)
+          @
+          [
+            TestFactory.test_binop_bot "/" (F.div precf roundf) (I.div preci roundi);
+            TestFactory.test_bwd_binop "bwd /" (F.div precf roundf) (I.bwd_div preci roundi);
+            TestFactory.test_unop "-" F.neg I.neg;
+            TestFactory.test_unop "abs" F.abs I.abs ;
 
-      TestFactoryI.test_filter "filter =" (=) (I.filter_eq `DOUBLE);
-      TestFactoryI.test_filter "filter !=" (<>) (I.filter_neq `DOUBLE);
-      TestFactoryI.test_filter "filter <=" (<=) (I.filter_leq `DOUBLE);
-      TestFactoryI.test_filter "filter >=" (>=) (I.filter_geq `DOUBLE);
-      TestFactoryI.test_filter "filter <" (<) (I.filter_lt `DOUBLE);
-      TestFactoryI.test_filter "filter >" (>) (I.filter_gt `DOUBLE);
-      TestFactoryI.test_bwd_unop "bwd -" F.neg I.bwd_neg;
-      TestFactoryI.test_bwd_unop "bwd abs" F.abs I.bwd_abs;
-    ]
-  in
-  let in_tests =
-    let lift_filter op = fun a b -> Nb (op a b) in
-    let lift_bot2 op = fun prec round a b -> Nb (op prec round a b) in
-    let lift_bot3 op = fun prec round a b r -> Nb (op prec round a b r) in
-    (List.map (fun (sop, fop, iop, bwd_iop) ->
-         test_all_roundings TestFactoryIN.test_binop sop fop iop @
-         test_all_roundings TestFactoryIN.test_bwd_binop ("bwd " ^ sop) fop bwd_iop
-       )
-        [
-          "+", F.add, IN.add, lift_bot3 IN.bwd_add;
-          "-", F.sub, IN.sub, lift_bot3 IN.bwd_sub;
-          "*", F.mul, IN.mul, lift_bot3 IN.bwd_mul;
-        ]
-     |> List.flatten)
-    @ test_all_roundings TestFactoryIN.test_binop_bot "/" F.div (lift_bot2 IN.div)
-    @ test_all_roundings TestFactoryIN.test_bwd_binop "/" F.div (lift_bot3 IN.bwd_div)
-    @
-    [
-      TestFactoryIN.test_unop "-" F.neg IN.neg;
-      TestFactoryIN.test_unop "abs" F.abs IN.abs ;
+            TestFactory.test_filter "filter =" (=) (I.filter_eq preci);
+            TestFactory.test_filter "filter !=" (<>) (I.filter_neq preci);
+            TestFactory.test_filter "filter <=" (<=) (I.filter_leq preci);
+            TestFactory.test_filter "filter >=" (>=) (I.filter_geq preci);
+            TestFactory.test_filter "filter <" (<) (I.filter_lt preci);
+            TestFactory.test_filter "filter >" (>) (I.filter_gt preci);
+            TestFactory.test_bwd_unop "bwd -" F.neg I.bwd_neg;
+            TestFactory.test_bwd_unop "bwd abs" F.abs I.bwd_abs;
+          ]
+        )
+        ["near", `NEAR, `NEAR; "up", `UP, `UP; "down", `DOWN, `DOWN; "zero", `ZERO, `ZERO]
+    )
+      ["double", `DOUBLE, `DOUBLE; "single", `SINGLE, `DOUBLE;] in
+  let tests_in = List.map (fun (precs, precf, preci) ->
+      List.map (fun (rounds, roundf, roundi) ->
+           let module TestFactory = Common.Make(struct
+               type t = IN.t
+               type c = F.t
+               let name_prefix = "FloatItvNan("^ precs ^ ", " ^ rounds ^ ") "
+               let gen = generator_f_in precf roundf
+               let print = print_f_in
+               let filter_shift a b = assert false
+               let filter_shift2 a b r = assert false
+               let contains = IN.contains end) in
+           (List.map (fun (sop, fop, iop, bwd_iop) ->
+                [TestFactory.test_binop sop fop iop;
+                 TestFactory.test_bwd_binop ("bwd " ^ sop) fop bwd_iop]
+              )
+               ["+", F.add precf roundf, IN.add preci roundi, (lift_bot3 IN.bwd_add) preci roundi;
+                "-", F.sub precf roundf, IN.sub preci roundi, (lift_bot3 IN.bwd_sub) preci roundi;
+                "*", F.mul precf roundf, IN.mul preci roundi, (lift_bot3 IN.bwd_mul) preci roundi; ]
+            |> List.flatten)
+           @
+           [
+             TestFactory.test_binop_bot "/" (F.div precf roundf) ((lift_bot2 IN.div) preci roundi);
+             TestFactory.test_bwd_binop "bwd /" (F.div precf roundf) ((lift_bot3 IN.bwd_div) preci roundi);
+             TestFactory.test_unop "-" F.neg IN.neg;
+             TestFactory.test_unop "abs" F.abs IN.abs ;
 
-      TestFactoryIN.test_filter "filter =" (=) (lift_filter @@ IN.filter_eq `DOUBLE);
-      TestFactoryIN.test_filter "filter !=" (<>) (lift_filter @@ IN.filter_neq `DOUBLE);
-      TestFactoryIN.test_filter "filter <=" (<=) (lift_filter @@ IN.filter_leq `DOUBLE);
-      TestFactoryIN.test_filter "filter >=" (>=) (lift_filter @@ IN.filter_geq `DOUBLE);
-      TestFactoryIN.test_filter "filter <" (<) (lift_filter @@ IN.filter_lt `DOUBLE);
-      TestFactoryIN.test_filter "filter >" (>) (lift_filter @@ IN.filter_gt `DOUBLE);
-      TestFactoryIN.test_bwd_unop "bwd -" F.neg (fun a r -> Nb (IN.bwd_neg a r));
-      TestFactoryIN.test_bwd_unop "bwd abs" F.abs (fun a r -> Nb (IN.bwd_abs a r));
-    ]
+             TestFactory.test_filter "filter =" (=) (lift_filter @@ IN.filter_eq preci);
+             TestFactory.test_filter "filter !=" (<>) (lift_filter @@ IN.filter_neq preci);
+             TestFactory.test_filter "filter <=" (<=) (lift_filter @@ IN.filter_leq preci);
+             TestFactory.test_filter "filter >=" (>=) (lift_filter @@ IN.filter_geq preci);
+             TestFactory.test_filter "filter <" (<) (lift_filter @@ IN.filter_lt preci);
+             TestFactory.test_filter "filter >" (>) (lift_filter @@ IN.filter_gt preci);
+             TestFactory.test_bwd_unop "bwd -" F.neg (fun a r -> Nb (IN.bwd_neg a r));
+             TestFactory.test_bwd_unop "bwd abs" F.abs (fun a r -> Nb (IN.bwd_abs a r));
+           ]
+         )
+          ["near", `NEAR, `NEAR; "up", `UP, `UP; "down", `DOWN, `DOWN; "zero", `ZERO, `ZERO]
+      )
+        ["double", `DOUBLE, `DOUBLE; "single", `SINGLE, `DOUBLE;]
   in
-  QCheck_base_runner.run_tests_main (i_tests @ in_tests)
+  QCheck_base_runner.run_tests_main (tests_i @ tests_in |> List.flatten |> List.flatten)
 
 let () = main ()
 
@@ -906,4 +919,3 @@ let () = main ()
 (*   () *)
 
 (* let () = test () *)
-

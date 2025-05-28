@@ -136,7 +136,7 @@ module Make(D: DOMAIN) = struct
         if cop c c' then contains_bot c a'' && contains_bot c' a''' else true
       with Division_by_zero | Invalid_argument _ -> true
     in
-    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) gen2 property
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print2 gen2 property
 
   let test_bwd_binop = test_bwd_binop_gen ~filter:(fun _ _ _ -> true)
   let test_bwd_binop_shift = test_bwd_binop_gen ~filter:D.filter_shift2
