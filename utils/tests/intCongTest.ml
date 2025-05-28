@@ -109,46 +109,33 @@ let generator_z =
   sample_cong cong >>= fun z ->
   return (cong,z)
 
+let print_cong (cong,z) =
+  Format.asprintf "%a ⇝ %a" CongUtils.IntCong.fprint cong Z.pp_print z
+
 let arbitrary_z =
   let open QCheck.Iter in
-  let print (cong,z) =
-    Format.asprintf "%a ⇝ %a" CongUtils.IntCong.fprint cong Z.pp_print z
-  in
-  QCheck.make ~print generator_z
+  QCheck.make ~print:print_cong generator_z
 
 let generator_z2 =
   let open QCheck.Gen in
-  pair generator_cong generator_cong >>= fun (cong1,cong2) ->
-  sample_cong cong1 >>= fun z1 ->
-  sample_cong cong2 >>= fun z2 ->
-  assert (contains z1 cong1);
-  assert (contains z2 cong2);
-  return (cong1,cong2,z1,z2)
+  pair generator_z generator_z
 
 let arbitrary_z2 =
   let open QCheck.Iter in
-  let print (cong1,cong2,z1,z2) =
-    Format.asprintf "(%a,%a) ⇝ (%a,%a)" CongUtils.IntCong.fprint cong1 CongUtils.IntCong.fprint cong2 Z.pp_print z1 Z.pp_print z2
-  in
-  QCheck.make ~print generator_z2
+  QCheck.make ~print:(QCheck.Print.pair print_cong print_cong) generator_z2
 
 let generator_z3 =
   let open QCheck.Gen in
-  triple generator_cong generator_cong generator_cong >>= fun (cong1,cong2,cong3) ->
-  sample_cong cong1 >>= fun z1 ->
-  sample_cong cong2 >>= fun z2 ->
-  sample_cong cong3 >>= fun z3 ->
-  return (cong1,cong2,cong3,z1,z2,z3)
+  triple generator_z generator_z generator_z
 
 let arbitrary_z3 =
   let open QCheck.Iter in
-  let print (cong1,cong2,cong3,z1,z2,z3) =
-    Format.asprintf "(%a,%a,%a) ⇝ (%a,%a,%a)" CongUtils.IntCong.fprint cong1 CongUtils.IntCong.fprint cong2 CongUtils.IntCong.fprint cong3 Z.pp_print z1 Z.pp_print z2 Z.pp_print z3
-  in
-  QCheck.make ~print generator_z3
+  QCheck.make ~print:(QCheck.Print.triple print_cong print_cong print_cong) generator_z3
 
 module TestFactory = Common.Make(struct
   type t = CongUtils.IntCong.t
+  type c = Z.t
+  let name_prefix = ""
   let arbitrary = arbitrary_z
   let arbitrary2 = arbitrary_z2
   let arbitrary3 = arbitrary_z3

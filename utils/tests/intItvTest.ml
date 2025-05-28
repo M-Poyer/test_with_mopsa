@@ -94,41 +94,25 @@ let generator_z =
   sample_z itv >>= fun z ->
   return (itv,z)
 
+let print_z (itv,z) = Format.asprintf "%a ⇝ %a" ItvUtils.IntItv.fprint itv Z.pp_print z
+
 let arbitrary_z =
-  let open QCheck.Iter in
-  let print (itv,z) =
-    Format.asprintf "%a ⇝ %a" ItvUtils.IntItv.fprint itv Z.pp_print z
-  in
-  QCheck.make ~print generator_z
+  QCheck.make ~print:print_z generator_z
 
 let generator_z2 =
   let open QCheck.Gen in
-  pair generator_itv generator_itv >>= fun (itv1,itv2) ->
-  sample_z itv1 >>= fun z1 ->
-  sample_z itv2 >>= fun z2 ->
-  return (itv1,itv2,z1,z2)
+  pair generator_z generator_z
 
 let arbitrary_z2 =
-  let open QCheck.Iter in
-  let print (itv1,itv2,z1,z2) =
-    Format.asprintf "(%a,%a) ⇝ (%a,%a)" ItvUtils.IntItv.fprint itv1 ItvUtils.IntItv.fprint itv2 Z.pp_print z1 Z.pp_print z2
-  in
-  QCheck.make ~print generator_z2
+  QCheck.make ~print:(QCheck.Print.pair print_z print_z) generator_z2
 
 let generator_z3 =
   let open QCheck.Gen in
-  triple generator_itv generator_itv generator_itv >>= fun (itv1,itv2,itv3) ->
-  sample_z itv1 >>= fun z1 ->
-  sample_z itv2 >>= fun z2 ->
-  sample_z itv3 >>= fun z3 ->
-  return (itv1,itv2,itv3,z1,z2,z3)
+  triple generator_z generator_z generator_z
 
 let arbitrary_z3 =
   let open QCheck.Iter in
-  let print (itv1,itv2,itv3,z1,z2,z3) =
-    Format.asprintf "(%a,%a,%a) ⇝ (%a,%a,%a)" ItvUtils.IntItv.fprint itv1 ItvUtils.IntItv.fprint itv2 ItvUtils.IntItv.fprint itv3 Z.pp_print z1 Z.pp_print z2 Z.pp_print z3
-  in
-  QCheck.make ~print generator_z3
+  QCheck.make ~print:(QCheck.Print.triple print_z print_z print_z) generator_z3
 
 let filter_shift _ (_,h) =
   B.is_positive h && B.leq h (B.of_int 256)
@@ -138,6 +122,8 @@ let filter_shift2 _ (_,h) _ =
 
 module TestFactory = Common.Make(struct
   type t = ItvUtils.IntItv.t
+  type c = Z.t
+  let name_prefix = ""
   let arbitrary = arbitrary_z
   let arbitrary2 = arbitrary_z2
   let arbitrary3 = arbitrary_z3
