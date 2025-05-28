@@ -14,6 +14,9 @@ Test congruences:
   success (ran 48 tests)
 
 Test float intervals:
-### disabled for now as it seems to be broken
-#
-#  $ floatItvTest
+
+  $ floatItvTest > out && sed -E 's/seed: [0-9]+/$RANDOM_SEED/' out || cat out
+   $RANDOM_SEED
+  ================================================================================
+  success (ran 48 tests)
+
