@@ -215,8 +215,16 @@ struct
       ->
       add_call_bug exp (Flow.get_callstack flow)
 
+    | E_binop(op, e1, e2) when
+        is_c_num_type exp.etyp &&
+        not (is_cur_bottom_in_flow man flow) &&
+        is_comparison_op op &&
+        not (Cases.exists_result (fun _ _ -> true) evl)
+      ->
+      add_call_bug exp (Flow.get_callstack flow)
+
     | _ -> ()
-    
+
 
   let on_finish man flow =
     let () = remove_redundant_bugs () in
