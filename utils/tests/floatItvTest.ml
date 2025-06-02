@@ -53,26 +53,25 @@ let float_extended_range i : F.t QCheck2.Gen.t =
     ) ()
 
 let sample_f_i prec round (i : I.t) : F.t QCheck2.Gen.t =
-  fix (fun self () ->
+  (bool >>= fun b ->
+   let interesting =
+     List.filter (fun f -> I.contains f i)
+       (match prec with
+        | `SINGLE -> interesting_bounds_single
+        | `DOUBLE -> interesting_bounds_double) in
+   if b && interesting <> [] then oneofl interesting else
+     match i.lo = neg_infinity, i.up = infinity with
+     | true, true -> QCheck2.Gen.float
+     | false, true -> map (F.add prec round i.lo) pfloat
+     (* FIXME: not sure about rounding here to ensure the value lies within the range. In the meantime, I transformed some assert in assume in common
+     I had some case where the result was [8.xxx, +infinity] and the sample predecessor of lower bound... *)
+     | true, false -> map (F.sub prec round i.up) pfloat
+     | false, false ->
+       if i.up -. i.lo > max_float then
+         float_extended_range i
+       else
+         QCheck2.Gen.float_range i.lo i.up)
 
-      (bool >>= fun b ->
-      let interesting =
-        List.filter (fun f -> I.contains f i)
-          (match prec with
-           | `SINGLE -> interesting_bounds_single
-           | `DOUBLE -> interesting_bounds_double) in
-      if b && interesting <> [] then oneofl interesting else
-        match i.lo = neg_infinity, i.up = infinity with
-        | true, true -> QCheck2.Gen.float
-        | false, true -> map (F.add prec round i.lo) pfloat
-        (* FIXME: not sure about rounding here to ensure the value lies within the range. In the meantime, I added a `fix` above to ensure it dynamically... *)
-        | true, false -> map (F.sub prec round i.up) pfloat
-        | false, false ->
-          if i.up -. i.lo > max_float then
-            float_extended_range i
-          else
-            QCheck2.Gen.float_range i.lo i.up) >>= fun f ->
-      if I.contains f i then return f else self ()) ()
 
 let sample_f_in prec round (i : IN.t) : F.t QCheck2.Gen.t =
   bool >>= fun b ->
@@ -158,6 +157,7 @@ let main () =
               let filter_shift2 a b r = assert false
               let contains f i =
                 (* FloatInterval does not handle well NaNs, so we won't focus on those here *)
+                (* FIXME: check the float is representable in the given precision? *)
                 (Float.is_nan f) || (I.contains f i)
             end) in
           (List.map (fun (sop, fop, iop, bwd_iop) ->

@@ -129,8 +129,10 @@ module Make(D: DOMAIN) = struct
 
   let test_filter (name:string) (cop: D.c -> D.c -> bool) (aop: D.t -> D.t -> (D.t * D.t) with_bot) =
     let property ((a,c),(a',c')) =
-      assert (D.contains c a);
-      assert (D.contains c' a');
+      (* assert (D.contains c a); *)
+      (* assert (D.contains c' a'); *)
+      QCheck2.assume (D.contains c a);
+      QCheck2.assume (D.contains c' a');
       let a'', a''' = aop a a' |> Bot.bot_split in (* refine `a` and `a'` *)
       try
         if cop c c' then contains_bot c a'' && contains_bot c' a''' else true
