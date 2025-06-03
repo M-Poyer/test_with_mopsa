@@ -831,12 +831,11 @@ let bwd_mul (prec:prec) (round:round) (x:t) (y:t) (r:t) : t * t =
 
 let bwd_div (prec:prec) (round:round) (x:t) (y:t) (r:t) : t * t =
   let xx, yy = bwd_generic2 prec round FI.bwd_div x y r in
-  (* add back infinities to y if the result can be 0 *)
-  let yy =
-    if contains_zero r then { yy with pinf = y.pinf; minf = y.minf; }
-    else yy
-  in
-  xx, yy
+  (* add back infinities to y if the result can be 0. In that case we can't filter x *)
+  if contains_zero r && contains_infinity y then
+    x, {yy with pinf = y.pinf; minf = y.minf}
+  else
+    xx, yy
 (** Backward division. *)
 
 let bwd_fmod (prec:prec) (round:round) (x:t) (y:t) (r:t) : t * t =
