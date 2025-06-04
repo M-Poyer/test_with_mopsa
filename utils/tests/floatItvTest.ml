@@ -122,9 +122,6 @@ let generator_f_i prec round =
   sample_f_i prec round itv >>= fun f ->
   return (itv, f)
 
-let print_f_i (itv, z) =
-  Format.asprintf "%a ~> %a" (I.fprint I.dfl_fmt) itv (F.fprint F.dfl_fmt) z
-
 let generator_f_in prec round =
   (* currently, we only want some f in itv, so if itv is bottom, we have to retry
      alternative would be to assume and not assert containment  in test factory *)
@@ -135,8 +132,6 @@ let generator_f_in prec round =
         sample_f_in prec round itv >>= fun f ->
         return (itv, f)) ()
 
-let print_f_in (itv, z) =
-  Format.asprintf "%a ~> %a" (IN.fprint I.dfl_fmt) itv (F.fprint F.dfl_fmt) z
 
 let main () =
   let lift_filter op = fun a b -> Nb (op a b) in
@@ -150,9 +145,10 @@ let main () =
           let module TestFactory = Common.Make(struct
               type t = I.t
               type c = F.t
+              let pp_t = I.fprint I.dfl_fmt
+              let pp_c = F.fprint F.dfl_fmt
               let name_prefix = "FloatItv("^ precs ^ ", " ^ rounds ^ ") "
               let gen = generator_f_i precf roundf
-              let print = print_f_i
               let filter_shift a b = assert false
               let filter_shift2 a b r = assert false
               let contains f i =
@@ -193,9 +189,10 @@ let main () =
            let module TestFactory = Common.Make(struct
                type t = IN.t
                type c = F.t
+               let pp_t = IN.fprint IN.dfl_fmt
+               let pp_c = F.fprint F.dfl_fmt
                let name_prefix = "FloatItvNan("^ precs ^ ", " ^ rounds ^ ") "
                let gen = generator_f_in precf roundf
-               let print = print_f_in
                let filter_shift a b = assert false
                let filter_shift2 a b r = assert false
                let contains = IN.contains end) in

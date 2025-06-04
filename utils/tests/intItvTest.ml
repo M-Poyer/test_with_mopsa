@@ -94,8 +94,6 @@ let generator_z =
   sample_z itv >>= fun z ->
   return (itv,z)
 
-let print_z (itv,z) = Format.asprintf "%a ⇝ %a" ItvUtils.IntItv.fprint itv Z.pp_print z
-
 let filter_shift _ (_,h) =
   B.is_positive h && B.leq h (B.of_int 256)
 
@@ -105,9 +103,10 @@ let filter_shift2 _ (_,h) _ =
 module TestFactory = Common.Make(struct
   type t = ItvUtils.IntItv.t
   type c = Z.t
+  let pp_t = ItvUtils.IntItv.fprint
+  let pp_c = Z.pp_print
   let name_prefix = ""
   let gen = generator_z
-  let print = print_z
   let filter_shift = filter_shift
   let filter_shift2 = filter_shift2
   let contains = contains

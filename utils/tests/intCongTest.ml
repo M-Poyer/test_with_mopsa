@@ -109,15 +109,13 @@ let generator_z =
   sample_cong cong >>= fun z ->
   return (cong,z)
 
-let print_cong (cong,z) =
-  Format.asprintf "%a ⇝ %a" CongUtils.IntCong.fprint cong Z.pp_print z
-
 module TestFactory = Common.Make(struct
   type t = CongUtils.IntCong.t
   type c = Z.t
+  let pp_t = CongUtils.IntCong.fprint
+  let pp_c = Z.pp_print
   let name_prefix = ""
   let gen = generator_z
-  let print = print_cong
   let filter_shift = fun _ _ -> true
   let filter_shift2 = fun _ _ _ -> true
   let contains = CongUtils.IntCong.contains
