@@ -154,7 +154,7 @@ let main () =
               let contains f i =
                 (* FloatInterval does not handle well NaNs, so we won't focus on those here *)
                 (* FIXME: check the float is representable in the given precision? *)
-                (Float.is_nan f) || (I.contains f i)
+                Float.is_nan f || Float.is_infinite f || I.contains f i
             end) in
           (List.map (fun (sop, fop, iop, bwd_iop) ->
                [TestFactory.test_binop sop fop iop;
