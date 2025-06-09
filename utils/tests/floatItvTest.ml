@@ -22,7 +22,7 @@
 (**
   FloatItvTest - Unit tests for float intervals.
 
-  TODOs: included, join, meet, widen, round+bwd_round
+   TODOs: included, join, meet, widen, round+bwd_round, `ANY rounding for itvs (to combine with all potential roundings?)
   *)
 
 open Mopsa_utils

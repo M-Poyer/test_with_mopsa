@@ -841,7 +841,9 @@ let bwd_div (prec:prec) (round:round) (x:t) (y:t) (r:t) : t * t =
 (** Backward division. *)
 
 let bwd_fmod (prec:prec) (round:round) (x:t) (y:t) (r:t) : t * t =
-  bwd_generic2 prec round (fun _ _ -> FI.bwd_fmod) x y r
+  let xx, yy = bwd_generic2 prec round (fun _ _ -> FI.bwd_fmod) x y r in
+  if contains_infinity y then x, {yy with pinf = y.pinf; minf = y.minf}
+  else xx, yy
 (** Backward modulo. *)
 
 let bwd_generic1 (prec:prec) (round:round) f (x:t) (r:t) : t =
