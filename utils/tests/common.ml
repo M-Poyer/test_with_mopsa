@@ -81,17 +81,24 @@ module Make(D: DOMAIN) = struct
   let gen3 = QCheck2.Gen.triple gen gen gen
   let print3 = QCheck2.Print.triple print print print
 
-  let test_unop (name:string) (cop: D.c -> D.c) (aop: D.t -> D.t) =
+  let contains_bot c a = match a with
+    | Nb a -> D.contains c a
+    | BOT -> false
+
+  let test_unop_gen ~(contains: D.c -> 'a -> bool) ~(pp_a : Format.formatter -> 'a -> unit) (name:string) (cop: D.c -> D.c) (aop: D.t -> 'a) =
     let name = Format.sprintf "%sunop (%s)" D.name_prefix name in
     let property (a,c) =
       let a' = aop a in
       let c' = cop c in
-      D.contains c' a' ||
+      contains c' a' ||
       QCheck2.Test.fail_reportf "%a ∈ %a but %a ∉ %a"
         D.pp_c c  D.pp_t a
-        D.pp_c c'  D.pp_t a'
+        D.pp_c c' pp_a a'
     in
     QCheck2.Test.make ~count:test_count ~name ~print gen property
+
+  let test_unop = test_unop_gen ~contains:D.contains ~pp_a:D.pp_t
+  let test_unop_bot = test_unop_gen ~contains:contains_bot ~pp_a:(Bot.bot_fprint D.pp_t)
 
   let test_binop_gen ~(contains:D.c -> 'a -> bool) ~filter ~(pp_a:Format.formatter -> 'a -> unit)  (name:string) (cop: D.c -> D.c -> D.c) (aop: D.t -> D.t -> 'a) =
     let name = Format.sprintf "%sbinop (%s)" D.name_prefix name in
@@ -109,10 +116,6 @@ module Make(D: DOMAIN) = struct
       with Division_by_zero | Invalid_argument _ -> true
     in
     QCheck2.Test.make ~count:test_count ~name ~print:print2 gen2 property
-
-  let contains_bot c a = match a with
-    | Nb a -> D.contains c a
-    | BOT -> false
 
   let test_binop = test_binop_gen ~contains:D.contains ~filter:(fun _ _ -> true) ~pp_a:D.pp_t
   let test_binop_bot = test_binop_gen ~contains:contains_bot ~filter:(fun _ _ -> true) ~pp_a:(Bot.bot_fprint D.pp_t)
@@ -151,13 +154,13 @@ module Make(D: DOMAIN) = struct
     in
     QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print3 gen3 property
 
-  let test_filter (name:string) (cop: D.c -> D.c -> bool) (aop: D.t -> D.t -> (D.t * D.t) with_bot) =
+  let test_filter_factory (result:bool) (name:string) (cop: D.c -> D.c -> bool) (aop: D.t -> D.t -> (D.t * D.t) with_bot) =
     let property ((a,c),(a',c')) =
-      QCheck2.assume (D.contains c a);
-      QCheck2.assume (D.contains c' a');
+      D.assume_contains c a;
+      D.assume_contains c' a';
       let a'', a''' = aop a a' |> Bot.bot_split in (* refine `a` and `a'` *)
       try
-        if cop c c' then
+        if cop c c' = result then
           (contains_bot c a'' && contains_bot c' a''') ||
           QCheck2.Test.fail_reportf "@[%s%a ∈ %a, %s %a%s@.%s%a ∈ %a, %s %a%s@.  cop %a %a = true@]"
             (if contains_bot c a'' then "  " else "⚠ ") D.pp_c c D.pp_t a (if contains_bot c a'' then "refined into" else "but concrete value not in refined") (Bot.bot_fprint D.pp_t) a'' ""
@@ -167,6 +170,28 @@ module Make(D: DOMAIN) = struct
       with Division_by_zero | Invalid_argument _ -> true
     in
     QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print2 gen2 property
+
+  let test_filter = test_filter_factory true
+  let test_filter_false = test_filter_factory false
+
+  let test_filter_zero_factory (result:bool) (name:string) (cop: D.c -> bool) (aop: D.t -> D.t) =
+    let property (a,c) =
+      D.assume_contains c a;
+      let a' = aop a in
+      try
+        if cop c = result then
+          D.contains c a' ||
+          QCheck2.Test.fail_reportf "@[%s%a ∈ %a, %s %a%s@.  cop %a = true@]"
+            (if D.contains c a' then "  " else "⚠ ") D.pp_c c D.pp_t a (if D.contains c a' then "refined into" else "but concrete value not in refined") D.pp_t a' ""
+            D.pp_c c
+        else true
+      with Division_by_zero | Invalid_argument _ -> true
+    in
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print gen property
+      
+  let test_filter_zero = test_filter_zero_factory true
+  let test_filter_zero_false = test_filter_zero_factory false
+
 
   let test_bwd_binop = test_bwd_binop_gen ~filter:(fun _ _ _ -> true)
   let test_bwd_binop_shift = test_bwd_binop_gen ~filter:D.filter_shift2

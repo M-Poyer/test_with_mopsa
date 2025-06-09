@@ -21,7 +21,9 @@
 
 (**
   FloatItvTest - Unit tests for float intervals.
- *)
+
+  TODOs: included, join, meet, widen, round+bwd_round
+  *)
 
 open Mopsa_utils
 open Bot
@@ -171,7 +173,7 @@ let main () =
                   | _ -> () in
                 (* FloatInterval does not handle well NaNs, so we won't focus on those here *)
                 F.is_nan f || I.contains f i
-              let assume_contains f i = QCheck2.assume (I.contains f i)
+              let assume_contains f i = QCheck2.assume (not (F.is_nan f) && not (F.is_infinite f) && I.contains f i)
             end) in
           (List.map (fun (sop, fop, iop, bwd_iop) ->
                [TestFactory.test_binop sop fop iop;
@@ -185,8 +187,15 @@ let main () =
           [
             TestFactory.test_binop_bot "/" (F.div precf roundf) (I.div preci roundi);
             TestFactory.test_bwd_binop "bwd /" (F.div precf roundf) (I.bwd_div preci roundi);
+            TestFactory.test_binop_bot "%" F.fmod  I.fmod;
+            TestFactory.test_bwd_binop "bwd %" F.fmod I.bwd_fmod;
+
             TestFactory.test_unop "-" F.neg I.neg;
+            TestFactory.test_bwd_unop "bwd -" F.neg I.bwd_neg;
             TestFactory.test_unop "abs" F.abs I.abs ;
+            TestFactory.test_bwd_unop "bwd abs" F.abs I.bwd_abs;
+            TestFactory.test_unop_bot "sqrt" (F.sqrt precf roundf) (I.sqrt preci roundi);
+            TestFactory.test_bwd_unop "bwd sqrt" (F.sqrt precf roundf) (I.bwd_sqrt preci roundi);
 
             TestFactory.test_filter "filter =" (=) (I.filter_eq preci);
             TestFactory.test_filter "filter !=" (<>) (I.filter_neq preci);
@@ -194,8 +203,6 @@ let main () =
             TestFactory.test_filter "filter >=" (>=) (I.filter_geq preci);
             TestFactory.test_filter "filter <" (<) (I.filter_lt preci);
             TestFactory.test_filter "filter >" (>) (I.filter_gt preci);
-            TestFactory.test_bwd_unop "bwd -" F.neg I.bwd_neg;
-            TestFactory.test_bwd_unop "bwd abs" F.abs I.bwd_abs;
           ]
         )
         ["near", `NEAR, `NEAR; "up", `UP, `UP; "down", `DOWN, `DOWN; "zero", `ZERO, `ZERO]
@@ -235,8 +242,15 @@ let main () =
            [
              TestFactory.test_binop_bot "/" (F.div precf roundf) ((lift_bot2 IN.div) preci roundi);
              TestFactory.test_bwd_binop "bwd /" (F.div precf roundf) ((lift_bot3 IN.bwd_div) preci roundi);
+             TestFactory.test_binop "%" F.fmod  (IN.fmod preci roundi);
+             TestFactory.test_bwd_binop "bwd %" F.fmod (lift_bot3 IN.bwd_fmod preci roundi);
+
              TestFactory.test_unop "-" F.neg IN.neg;
-             TestFactory.test_unop "abs" F.abs IN.abs ;
+             TestFactory.test_bwd_unop "bwd -" F.neg (fun a r -> Nb (IN.bwd_neg a r));
+             TestFactory.test_unop "abs" F.abs IN.abs;
+             TestFactory.test_bwd_unop "bwd abs" F.abs (fun a r -> Nb (IN.bwd_abs a r));
+             TestFactory.test_unop "sqrt" (F.sqrt precf roundf) (IN.sqrt preci roundi);
+             TestFactory.test_bwd_unop "bwd sqrt" (F.sqrt precf roundf) ((lift_bot2 IN.bwd_sqrt) preci roundi);
 
              TestFactory.test_filter "filter =" (=) (lift_filter @@ IN.filter_eq preci);
              TestFactory.test_filter "filter !=" (<>) (lift_filter @@ IN.filter_neq preci);
@@ -244,15 +258,23 @@ let main () =
              TestFactory.test_filter "filter >=" (>=) (lift_filter @@ IN.filter_geq preci);
              TestFactory.test_filter "filter <" (<) (lift_filter @@ IN.filter_lt preci);
              TestFactory.test_filter "filter >" (>) (lift_filter @@ IN.filter_gt preci);
-             TestFactory.test_bwd_unop "bwd -" F.neg (fun a r -> Nb (IN.bwd_neg a r));
-             TestFactory.test_bwd_unop "bwd abs" F.abs (fun a r -> Nb (IN.bwd_abs a r));
+
+             TestFactory.test_filter_zero "filter != 0" (fun x -> x <> 0.) (IN.filter_nonzero preci);
+             TestFactory.test_filter_zero_false "filter != 0" (fun x ->  x <> 0.) (IN.filter_nonzero_false preci);
+
+
+             TestFactory.test_filter_false "filter(false) <=" (<=) (lift_filter @@ IN.filter_leq_false preci);
+             TestFactory.test_filter_false "filter(false) <" (<) (lift_filter @@ IN.filter_lt_false preci);
+             TestFactory.test_filter_false "filter(false) >=" (>=) (lift_filter @@ IN.filter_geq_false preci);
+             TestFactory.test_filter_false "filter(false) >" (>) (lift_filter @@ IN.filter_gt_false preci);
+
            ]
          )
           ["near", `NEAR, `NEAR; "up", `UP, `UP; "down", `DOWN, `DOWN; "zero", `ZERO, `ZERO]
       )
         ["double", `DOUBLE, `DOUBLE; "single", `SINGLE, `DOUBLE;]
   in
-  QCheck_base_runner.run_tests_main (tests_i (*@ tests_in*) |> List.flatten |> List.flatten)
+  QCheck_base_runner.run_tests_main (tests_i @ tests_in |> List.flatten |> List.flatten)
 
 let () = main ()
 
