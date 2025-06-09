@@ -133,9 +133,9 @@ let to_typ (t:typ) (e:expr) : expr =
   else
     match ekind e, orgt, t with
     | _, (T_int | T_float _), (T_int | T_float _) ->
-      mk_unop O_cast e ~etyp:t range
+      mk_unop ~esynthetic:false O_cast e ~etyp:t range
     | E_constant (C_top T_any), T_any, t ->
-      {e with ekind = E_constant (C_top t); etyp = t}
+      {e with ekind = E_constant (C_top t); etyp = t; esynthetic = false }
     | _ -> 
       Exceptions.panic "cannot convert expression %a of type %a to type %a" pp_expr e pp_typ orgt pp_typ t
 
@@ -182,7 +182,7 @@ let from_unop (t: typ) (b: U.unary_op) : operator =
 let rec from_expr (e: U.expr) (ext : U.extent) (var_ctx: var_context) (fun_ctx: fun_context option): expr =
   let range = from_extent ext in
   match e with
-  | AST_unit_const -> mk_expr ~etyp:T_unit (E_constant (C_unit)) range
+  | AST_unit_const -> mk_expr ~esynthetic:false ~etyp:T_unit (E_constant (C_unit)) range
   | AST_fun_call((f, f_ext), args) ->
     begin
       let look_in_builtins (fun_ctx) =
@@ -215,7 +215,7 @@ let rec from_expr (e: U.expr) (ext : U.extent) (var_ctx: var_context) (fun_ctx: 
             f
         with
         | Match(el, bi) ->
-          (mk_expr ~etyp:(bi.output) (E_call(mk_expr (E_function (Builtin bi)) range, el)) range)
+          (mk_expr ~esynthetic:false ~etyp:(bi.output) (E_call(mk_expr ~esynthetic:false (E_function (Builtin bi)) range, el)) range)
       in
       match fun_ctx with
       | None -> look_in_builtins (None)
@@ -239,7 +239,7 @@ let rec from_expr (e: U.expr) (ext : U.extent) (var_ctx: var_context) (fun_ctx: 
                 | None -> T_int
                 | Some t -> t
               in
-              (mk_expr ~etyp:rettyp (E_call(mk_expr (E_function (User_defined fundec)) range, el)) range)
+              (mk_expr ~esynthetic:false ~etyp:rettyp (E_call(mk_expr ~esynthetic:false (E_function (User_defined fundec)) range, el)) range)
             else
               Exceptions.panic_at ext
                 "%s number of arguments incompatible with call"
@@ -256,7 +256,7 @@ let rec from_expr (e: U.expr) (ext : U.extent) (var_ctx: var_context) (fun_ctx: 
       let e = from_expr e ext var_ctx fun_ctx in
       let typ = etyp e in
       let op = from_unop typ op in
-      mk_unop op e ~etyp:typ range
+      mk_unop ~esynthetic:false op e ~etyp:typ range
     end
   | AST_binary (op, (e1, ext1), (e2, ext2)) ->
     begin
@@ -267,39 +267,39 @@ let rec from_expr (e: U.expr) (ext : U.extent) (var_ctx: var_context) (fun_ctx: 
       let typ = unify_typ typ1 typ2 in
       let e1,e2 = to_typ typ e1, to_typ typ e2 in
       let op = from_binop typ op in
-      mk_binop e1 op e2 ~etyp:typ range
+      mk_binop ~esynthetic:false e1 op e2 ~etyp:typ range
     end
 
   | AST_identifier (v, ext) ->
-    mk_var (from_var v ext var_ctx) range
+    mk_var ~esynthetic:false (from_var v ext var_ctx) range
 
   | AST_int_const (s, _) ->
-    mk_z (Z.of_string s) range
+    mk_z ~esynthetic:false (Z.of_string s) range
 
   | AST_bool_const (b, _) ->
-    mk_int (if b then 1 else 0) range
+    mk_int ~esynthetic:false (if b then 1 else 0) range
 
   | AST_real_const (s, _) ->
      (* double interval enclosing the real value *)
      let lo = Float.of_string `DOUBLE `DOWN s
      and up = Float.of_string `DOUBLE `UP s
      in
-     mk_float_interval ~prec:F_DOUBLE lo up range
+     mk_float_interval ~esynthetic:false ~prec:F_DOUBLE lo up range
 
   | AST_string_const (s, _) ->
-    mk_string s range
+    mk_string ~esynthetic:false s range
 
   | AST_char_const(c, _) ->
     mk_int ~typ:T_int (int_of_char c) range
 
   | AST_array_const(a, _) ->
-     mk_expr (E_array (List.map (fun (e, ext) -> from_expr e ext var_ctx fun_ctx) (Array.to_list a))) range
+     mk_expr ~esynthetic:false (E_array (List.map (fun (e, ext) -> from_expr e ext var_ctx fun_ctx) (Array.to_list a))) range
 
   | AST_rand((l, _), (u, _)) ->
-    mk_z_interval (Z.of_string l) (Z.of_string u) range
+    mk_z_interval ~esynthetic:false (Z.of_string l) (Z.of_string u) range
 
   | AST_randf((l, _), (u, _)) ->
-    mk_float_interval (float_of_string l) (float_of_string u) range
+    mk_float_interval ~esynthetic:false (float_of_string l) (float_of_string u) range
 
   | AST_rand_string ->
     mk_top T_any range
@@ -311,8 +311,8 @@ let rec from_expr (e: U.expr) (ext : U.extent) (var_ctx: var_context) (fun_ctx: 
       let e2 = from_expr e2 ext2 var_ctx fun_ctx in
       let e2 = to_typ T_int e2 in
       match etyp e1 with
-      | T_string -> mk_expr (E_subscript(e1, e2)) ~etyp:T_int range
-      | T_array t -> mk_expr (E_subscript(e1, e2)) ~etyp:t range
+      | T_string -> mk_expr ~esynthetic:false (E_subscript(e1, e2)) ~etyp:T_int range
+      | T_array t -> mk_expr ~esynthetic:false (E_subscript(e1, e2)) ~etyp:t range
       | _ -> Exceptions.panic_at ext
                "%a is of type %a and can not be subscripted"
                U_ast_printer.print_expr e1o
@@ -324,7 +324,7 @@ let rec from_expr (e: U.expr) (ext : U.extent) (var_ctx: var_context) (fun_ctx: 
       let e1 = from_expr e ext var_ctx fun_ctx in
       match etyp e1 with
       | T_string
-      | T_array _ -> mk_expr (E_len e1) ~etyp:T_int range
+      | T_array _ -> mk_expr ~esynthetic:false (E_len e1) ~etyp:T_int range
       | _ -> Exceptions.panic_at ext "%a is of type %a and can not be lengthed"
                U_ast_printer.print_expr e
                (pp_typ) (etyp e1)
@@ -334,7 +334,7 @@ let rec from_stmt (s: U.stat) (ext: U.extent) (var_ctx: var_context) (fun_ctx: f
   let range = from_extent ext in
   match s with
   | AST_block l ->
-    mk_block (List.map (fun (x, ext) -> from_stmt x ext var_ctx fun_ctx) l) range
+    mk_block ~ssynthetic:false (List.map (fun (x, ext) -> from_stmt x ext var_ctx fun_ctx) l) range
 
   | AST_assign((e1, ext1), (e2, ext2)) ->
     begin
@@ -345,7 +345,7 @@ let rec from_stmt (s: U.stat) (ext: U.extent) (var_ctx: var_context) (fun_ctx: f
         let e1 = from_expr e1 ext1 var_ctx fun_ctx in
         let e2 = from_expr e2 ext2 var_ctx fun_ctx in
         let e2 = to_typ (etyp e1) e2 in
-        mk_assign e1 e2 range
+        mk_assign ~ssynthetic:false e1 e2 range
       | _ ->
         Exceptions.panic_at ext "%a not considered a left-value for now "
           U_ast_printer.print_expr e1o
@@ -355,46 +355,46 @@ let rec from_stmt (s: U.stat) (ext: U.extent) (var_ctx: var_context) (fun_ctx: f
     let e1 = from_expr e1 ext_e1 var_ctx fun_ctx in
     let s1 = from_stmt s1 ext_s1 var_ctx fun_ctx in
     let s2 = from_stmt s2 ext_s2 var_ctx fun_ctx in
-    mk_if e1 s1 s2 range
+    mk_if ~ssynthetic:false e1 s1 s2 range
 
   | AST_if((e1, ext_e1), (s1, ext_s1), None) ->
     let e1 = from_expr e1 ext_e1 var_ctx fun_ctx in
     let s1 = from_stmt s1 ext_s1 var_ctx fun_ctx in
-    mk_if e1 s1 (mk_nop range) range
+    mk_if ~ssynthetic:false e1 s1 (mk_nop ~ssynthetic:false range) range
 
   | AST_while((e1, ext_e1), (s1, ext_s1)) ->
     let e1 = from_expr e1 ext_e1 var_ctx fun_ctx in
     let s1 = from_stmt s1 ext_s1 var_ctx fun_ctx in
-    mk_while e1 s1 range
+    mk_while ~ssynthetic:false e1 s1 range
 
   | AST_for((v1, ext_v1), (e1, ext_e1), (e2, ext_e2), (s1, ext_s1)) ->
     let e1 = from_expr e1 ext_e1 var_ctx fun_ctx in
     let e2 = from_expr e2 ext_e2 var_ctx fun_ctx in
     let v  = from_var v1 ext_v1 var_ctx in
     let s1 = from_stmt s1 ext_s1 var_ctx fun_ctx in
-    mk_block
+    mk_block ~ssynthetic:false
       [
-        mk_assign
-          (mk_var v (tag_range range "var_init_for_variable"))
+        mk_assign ~ssynthetic:false
+          (mk_var ~esynthetic:false v (tag_range range "var_init_for_variable"))
           e1
           (tag_range range "expr_init_for_variable");
-        mk_while
-          (mk_binop
-             (mk_var v (tag_range range "var_comp_for"))
+        mk_while ~ssynthetic:false
+          (mk_binop ~esynthetic:false
+             (mk_var ~esynthetic:false v (tag_range range "var_comp_for"))
              O_le
              e2
              ~etyp:(T_int)
              (tag_range range "comp_for")
           )
-          (mk_block (
+          (mk_block ~ssynthetic:false (
               [
                 s1;
-                mk_assign
-                  (mk_var v (tag_range range "var_incr_for"))
-                  (mk_binop
-                     (mk_var v (tag_range range "var_incr_for"))
+                mk_assign ~ssynthetic:false
+                  (mk_var ~esynthetic:false v (tag_range range "var_incr_for"))
+                  (mk_binop ~esynthetic:false
+                     (mk_var ~esynthetic:false v (tag_range range "var_incr_for"))
                      O_plus
-                     (mk_z Z.one (tag_range range "one_for"))
+                     (mk_z ~esynthetic:false Z.one (tag_range range "one_for"))
                      ~etyp:(T_int)
                      (tag_range range "incr_for")
                   )
@@ -409,35 +409,38 @@ let rec from_stmt (s: U.stat) (ext: U.extent) (var_ctx: var_context) (fun_ctx: f
   | AST_return (Some (e, ext)) ->
     let e = from_expr e ext var_ctx fun_ctx in
     {skind = S_return (Some e);
-     srange = range
+     srange = range;
+     ssynthetic = false;
     }
 
   | AST_return None ->
     {skind = S_return None;
-     srange = range
+     srange = range;
+     ssynthetic = false;
     }
 
   | AST_break ->
-    {skind = S_break; srange = range}
+    {skind = S_break; srange = range; ssynthetic = false;}
 
   | AST_continue ->
-    {skind = S_continue; srange = range}
+    {skind = S_continue; srange = range; ssynthetic = false}
 
   | AST_assert (e, ext) ->
     let e = from_expr e ext var_ctx fun_ctx in
-    mk_assert e range
+    mk_assert ~ssynthetic:false e range
 
   | AST_assume (e, ext) ->
     let e = from_expr e ext var_ctx fun_ctx in
-    mk_assume e range
+    mk_assume ~ssynthetic:false e range
 
 
   | AST_print ->
-    mk_stmt S_print_state range
+    mk_stmt ~ssynthetic:false S_print_state range
 
   | AST_expr(e, ext) ->
     let e' = from_expr e ext var_ctx fun_ctx in
-    mk_expr_stmt e' range
+    mk_expr_stmt ~ssynthetic:false e' range
+
 
 let rec check_declaration_list (dl : U.declaration U.ext list) =
   match dl with
@@ -480,19 +483,19 @@ let var_ctx_init_of_declaration (dl : U_ast.declaration U.ext list) (var_ctx: va
   let var_ctx, init, gvars = List.fold_left (fun (var_ctx, init, gvars) ((((t, v), extv ), o), e) ->
       let new_var_ctx = add_var var_ctx v (from_typ t) in
       let vv = from_var v extv new_var_ctx in
-      let range = from_extent extv in 
-      let stmt_add = mk_add
-          (mk_var vv (tag_range range "initializer_var"))
+      let range = from_extent extv in
+      let stmt_add = mk_add ~ssynthetic:false
+          (mk_var ~esynthetic:false vv (tag_range range "initializer_var"))
           (tag_range range "initializer") in
-      let init = stmt_add :: init in 
+      let init = stmt_add :: init in
       match o with
       | Some (e, ext) ->
         let e = from_expr e ext var_ctx fun_ctx in
         let e = to_typ (from_typ t) e in
         let range = from_extent ext in
         let stmt_init =
-          mk_assign
-            (mk_var vv (tag_range range "initializer_var"))
+          mk_assign ~ssynthetic:false
+            (mk_var ~esynthetic:false vv (tag_range range "initializer_var"))
             e
             (tag_range range "initializer")
         in
@@ -544,7 +547,7 @@ let from_fundec (f: U.fundec) (var_ctx: var_context): T.fundec =
     fun_range = from_extent f.range;
     fun_parameters = List.map (fun ((_, v), ext) -> from_var v ext var_ctx) f.parameters;
     fun_locvars = List.map (fun ((((_, v), _), _), ext) -> from_var v ext var_ctx) f.locvars;
-    fun_body = mk_nop (from_extent (snd f.body));
+    fun_body = mk_nop ~ssynthetic:false (from_extent (snd f.body));
     fun_return_type = typ;
     fun_return_var = None;
   }
@@ -569,11 +572,23 @@ let from_prog (p: U_ast.prog) : prog_kind =
   List.iter (fun (fundec, ext) ->
       let var_ctx, init = var_init_of_function var_ctx var_ctx_map fun_ctx fundec in
       let body = from_stmt (fst fundec.body) (snd fundec.body) var_ctx (Some fun_ctx) in
-      let total = mk_block (init @ [body]) (from_extent ext) in
+      let total = mk_block ~ssynthetic:false (init @ [body]) (from_extent ext) in
       add_body fun_ctx fundec.funname total
     ) p.funs;
   let total = from_stmt (fst p.main) (snd p.main) var_ctx (Some fun_ctx) in
-  let with_init = mk_block (init @ [total]) (from_extent ext) in
+  let with_init = mk_block ~ssynthetic:false (init @ [total]) (from_extent ext) in
+
+  (* sanity check: all statements and expressions must be not syntetic *)
+  let all_stmts = MS.fold (fun _ fundec acc -> fundec.fun_body :: acc) fun_ctx [with_init] in
+  List.iter (Visitor.iter_stmt
+    (fun e ->
+      if e.esynthetic then panic_at e.erange "original expression %a (of kind: %s) marked as synthetic"
+        pp_expr e Obj.Extension_constructor.(of_val e.ekind |> name))
+    (fun s ->
+      if s.ssynthetic then panic_at s.srange "original statement %a (of kind: %s) marked as synthetic"
+        pp_stmt s Obj.Extension_constructor.(of_val s.skind |> name)))
+    all_stmts;
+
   P_universal
     {
       universal_gvars   = gvars;

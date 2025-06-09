@@ -337,7 +337,7 @@ struct
           pp_range (srange body) in
       let post1 =
         Cases.within_extended_control_ctx (Loop {loop_range = body.srange; loop_info = Unrolling count}) flow (fun flow ->
-            man.exec {skind = S_assume cond; srange = cond.erange} flow >>%
+            man.exec (mk_assume cond cond.erange) flow >>%
             man.exec body >>% fun f ->
             merge_cur_and_continue man f |>
             Post.return) in

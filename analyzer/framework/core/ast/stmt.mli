@@ -58,11 +58,12 @@ type stmt_kind = ..
 type stmt = {
   skind : stmt_kind;       (** kind of the statement *)
   srange : Location.range; (** location range of the statement *)
+  ssynthetic: bool;          (** whether the statement is generated during the analysis *)
 }
 (** Statements *)
 
 
-val mk_stmt : stmt_kind -> range -> stmt
+val mk_stmt : ?ssynthetic:bool -> stmt_kind -> range -> stmt
 (** Create a statement *)
 
 val skind : stmt -> stmt_kind
@@ -70,6 +71,9 @@ val skind : stmt -> stmt_kind
 
 val srange : stmt -> range
 (** Get the location range of a statement *)
+
+val ssynthetic : stmt -> bool
+(** Whether the statement is generated during the analysis *)
 
 val compare_stmt : stmt -> stmt -> int
 (** Total order between statements *)
@@ -118,14 +122,14 @@ type stmt_kind += S_program of program            (** program *) *
 type stmt_kind += S_assign of expr (** lhs *) * expr (** rhs *)
                
 
-val mk_assign : expr -> expr -> range -> stmt
+val mk_assign : ?ssynthetic:bool -> expr -> expr -> range -> stmt
 (** [mk_assign lhs rhs range] creates the assignment [lhs = rhs;] *)
 
 
 (** {2 Tests} *)
 type stmt_kind += S_assume of expr (** condition *)
 
-val mk_assume : expr -> range -> stmt
+val mk_assume : ?ssynthetic:bool -> expr -> range -> stmt
 (** Create a test statement *)
 
 
@@ -167,23 +171,23 @@ type stmt_kind +=
 
 
 (** Utility functions to create various statements for dimension management *)
-val mk_rename : expr -> expr -> range -> stmt
-val mk_rename_var : var -> var -> range -> stmt
-val mk_remove : expr -> range -> stmt
-val mk_remove_var : var -> range -> stmt
-val mk_invalidate : expr -> range -> stmt
-val mk_invalidate_var : var -> range -> stmt
-val mk_add : expr -> range -> stmt
-val mk_add_var : var -> range -> stmt
-val mk_project : expr list -> range -> stmt
-val mk_project_vars : var list -> range -> stmt
-val mk_forget : expr -> range -> stmt
-val mk_forget_var : var -> range -> stmt
-val mk_expand : expr -> expr list -> range -> stmt
-val mk_expand_var : var -> var list -> range -> stmt
-val mk_fold : expr -> expr list -> range -> stmt
-val mk_fold_var : var -> var list -> range -> stmt
-val mk_breakpoint : string -> range -> stmt
+val mk_rename : ?ssynthetic:bool -> expr -> expr -> range -> stmt
+val mk_rename_var : ?ssynthetic:bool -> var -> var -> range -> stmt
+val mk_remove : ?ssynthetic:bool -> expr -> range -> stmt
+val mk_remove_var : ?ssynthetic:bool -> var -> range -> stmt
+val mk_invalidate : ?ssynthetic:bool -> expr -> range -> stmt
+val mk_invalidate_var : ?ssynthetic:bool -> var -> range -> stmt
+val mk_add : ?ssynthetic:bool -> expr -> range -> stmt
+val mk_add_var : ?ssynthetic:bool -> var -> range -> stmt
+val mk_project : ?ssynthetic:bool -> expr list -> range -> stmt
+val mk_project_vars : ?ssynthetic:bool -> var list -> range -> stmt
+val mk_forget : ?ssynthetic:bool -> expr -> range -> stmt
+val mk_forget_var : ?ssynthetic:bool -> var -> range -> stmt
+val mk_expand : ?ssynthetic:bool -> expr -> expr list -> range -> stmt
+val mk_expand_var : ?ssynthetic:bool -> var -> var list -> range -> stmt
+val mk_fold : ?ssynthetic:bool -> expr -> expr list -> range -> stmt
+val mk_fold_var : ?ssynthetic:bool -> var -> var list -> range -> stmt
+val mk_breakpoint : ?ssynthetic:bool -> string -> range -> stmt
 
 
 (****************************************************************************)

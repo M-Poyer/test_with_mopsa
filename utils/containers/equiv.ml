@@ -32,8 +32,20 @@ module type OrderedType =
 module Make(L : OrderedType)(R : OrderedType) =
 struct
   exception Already_Paired
-  module LR = MapExt.Make(L)
-  module RL = MapExt.Make(R)
+  module LR =
+    struct
+      include MapExt.Make(L)
+
+      let fprint = fprint MapExt.printer_default L.print R.print
+    end
+
+  module RL =
+    struct
+      include MapExt.Make(R)
+
+      let fprint = fprint MapExt.printer_default R.print L.print
+    end
+
   type t =
     {
       lr : R.t LR.t ;
@@ -160,5 +172,9 @@ struct
     with
     | FoundNot -> false
 
+  let print fmt e =
+    Format.fprintf fmt "%a@.%a"
+      LR.fprint e.lr
+      RL.fprint e.rl
 
 end

@@ -120,7 +120,7 @@ module Domain =
          |> OptionExt.return
 
       | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("mopsa.assert_exists", _))}, _)}, [cond], [])  ->
-         let stmt = {skind = S_satisfy(cond); srange = exp.erange} in
+         let stmt = {skind = S_satisfy(cond); srange = exp.erange; ssynthetic=true } in
          man.exec stmt flow >>%
          Eval.singleton (mk_py_true exp.erange)
          |> OptionExt.return
@@ -139,8 +139,8 @@ module Domain =
              let cond =
                match Flow.get T_cur man.lattice flow |> man.lattice.is_bottom,
                      man.lattice.is_bottom error_env with
-               | false, true -> mk_true
-               | true, false -> mk_false
+               | false, true -> let f : range -> expr = mk_true in f
+               | true, false -> let f : range -> expr = mk_false in f
                | false, false -> mk_top T_bool
                | true, true -> raise BottomFound
              in
