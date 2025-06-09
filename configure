@@ -608,8 +608,6 @@ PACKAGE_URL=''
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
-libs_to_install
-meta_analyzer_requires
 dune_bytecode
 dune_mopsa_python_parser
 dune_python_exclusion
@@ -2399,7 +2397,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
-ac_config_files="$ac_config_files analyzer/dune parsers/c/lib/parser/dune utils/core/version.ml META"
+ac_config_files="$ac_config_files analyzer/dune parsers/c/lib/parser/dune utils/core/version.ml"
 
 
 # Version
@@ -5170,28 +5168,6 @@ then :
 fi
 
 
-
-# OCamlfind's META
-
-LIBS_TO_INSTALL="utils parsers/universal analyzer"
-META_ANALYZER_REQUIRES="mopsa.utils mopsa.universal_parser"
-
-if test "x$DISABLE_C" = "x"; then
-  LIBS_TO_INSTALL="$LIBS_TO_INSTALL parsers/c parsers/c_stubs"
-  META_ANALYZER_REQUIRES="$META_ANALYZER_REQUIRES mopsa.clang_parser mopsa.cstub_parser"
-fi
-
-if test "x$DISABLE_PYTHON" = "x"; then
-  LIBS_TO_INSTALL="$LIBS_TO_INSTALL parsers/python"
-  META_ANALYZER_REQUIRES="$META_ANALYZER_REQUIRES mopsa.python_parser"
-fi
-
-meta_analyzer_requires=$META_ANALYZER_REQUIRES
-
-libs_to_install=$LIBS_TO_INSTALL
-
-
-
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -5896,7 +5872,6 @@ do
     "analyzer/dune") CONFIG_FILES="$CONFIG_FILES analyzer/dune" ;;
     "parsers/c/lib/parser/dune") CONFIG_FILES="$CONFIG_FILES parsers/c/lib/parser/dune" ;;
     "utils/core/version.ml") CONFIG_FILES="$CONFIG_FILES utils/core/version.ml" ;;
-    "META") CONFIG_FILES="$CONFIG_FILES META" ;;
 
   *) as_fn_error $? "invalid argument: '$ac_config_target'" "$LINENO" 5;;
   esac

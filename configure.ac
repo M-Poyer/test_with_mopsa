@@ -27,7 +27,6 @@ AC_CONFIG_FILES([
  analyzer/dune
  parsers/c/lib/parser/dune
  utils/core/version.ml
- META
 ])
 
 # Version
@@ -241,25 +240,5 @@ AC_ARG_ENABLE(
   [byte],
   [AS_HELP_STRING([--enable-byte], [Turn on compilation of byte binaries])],
   [AC_SUBST(dune_bytecode,byte)], [])
-
-
-# OCamlfind's META
-
-LIBS_TO_INSTALL="utils parsers/universal analyzer"
-META_ANALYZER_REQUIRES="mopsa.utils mopsa.universal_parser"
-
-if test "x$DISABLE_C" = "x"; then
-  LIBS_TO_INSTALL="$LIBS_TO_INSTALL parsers/c parsers/c_stubs"
-  META_ANALYZER_REQUIRES="$META_ANALYZER_REQUIRES mopsa.clang_parser mopsa.cstub_parser"
-fi
-
-if test "x$DISABLE_PYTHON" = "x"; then
-  LIBS_TO_INSTALL="$LIBS_TO_INSTALL parsers/python"
-  META_ANALYZER_REQUIRES="$META_ANALYZER_REQUIRES mopsa.python_parser"
-fi
-
-AC_SUBST(meta_analyzer_requires,$META_ANALYZER_REQUIRES)
-AC_SUBST(libs_to_install,$LIBS_TO_INSTALL)
-
 
 AC_OUTPUT
