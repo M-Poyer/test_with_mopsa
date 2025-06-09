@@ -595,7 +595,9 @@ let div (prec:prec) (round:round) (x:t) (y:t) =
 let fmod (prec:prec) (round:round) (x:t) (y:t) : t =
   fix_itv
     prec
-    { itv = bot_absorb2 FI.fmod x.itv y.itv;
+    { itv = FI.join_bot
+          (bot_absorb2 FI.fmod x.itv y.itv)
+          (if contains_infinity y then x.itv else BOT);
       nan = (contains_special x) || y.nan || (contains_zero y);
       minf = false;
       pinf = false;
