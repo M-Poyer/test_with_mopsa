@@ -356,6 +356,18 @@ and for_all_stmt fe fs s =
     List.for_all (for_all_stmt fe fs) parts.stmts
   )
 
+let rec iter_expr fe fs e =
+  fe e;
+  let parts,_ = structure_of_expr e in
+  List.iter (iter_expr fe fs) parts.exprs;
+  List.iter (iter_stmt fe fs) parts.stmts
+
+and iter_stmt fe fs s =
+  fs s;
+  let parts,_ = structure_of_stmt s in
+  List.iter (iter_expr fe fs) parts.exprs;
+  List.iter (iter_stmt fe fs) parts.stmts
+
 let exists_child_expr fe fs e =
   let parts,_ = structure_of_expr e in
   List.exists fe parts.exprs ||
