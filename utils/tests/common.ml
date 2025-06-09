@@ -66,6 +66,8 @@ module type DOMAIN = sig
   val filter_shift: t -> t -> bool
   val filter_shift2: t -> t -> t -> bool
   val contains: c -> t -> bool
+  val assume_contains : c -> t -> unit
+  (* usually same as QCheck2.assume (contains _ _), but for float some special values need to be handled differently... *)
 end
 
 module Make(D: DOMAIN) = struct

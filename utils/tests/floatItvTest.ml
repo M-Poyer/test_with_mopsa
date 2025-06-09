@@ -171,6 +171,7 @@ let main () =
                   | _ -> () in
                 (* FloatInterval does not handle well NaNs, so we won't focus on those here *)
                 F.is_nan f || I.contains f i
+              let assume_contains f i = QCheck2.assume (I.contains f i)
             end) in
           (List.map (fun (sop, fop, iop, bwd_iop) ->
                [TestFactory.test_binop sop fop iop;
@@ -219,7 +220,9 @@ let main () =
                    | `SINGLE, `UP   -> assert(F.is_nan f || F.Single.of_double_up   f = f)
                    | `SINGLE, `DOWN -> assert(F.is_nan f || F.Single.of_double_down f = f)
                    | _ -> () in
-                 IN.contains f i end) in
+                 IN.contains f i
+               let assume_contains f i = QCheck2.assume (contains f i)
+             end) in
            (List.map (fun (sop, fop, iop, bwd_iop) ->
                 [TestFactory.test_binop sop fop iop;
                  TestFactory.test_bwd_binop ("bwd " ^ sop) fop bwd_iop]

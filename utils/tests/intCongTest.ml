@@ -119,6 +119,7 @@ module TestFactory = Common.Make(struct
   let filter_shift = fun _ _ -> true
   let filter_shift2 = fun _ _ _ -> true
   let contains = CongUtils.IntCong.contains
+  let assume_contains f i = QCheck2.assume (contains f i)
 end)
 
 let wrap2 lo up a =
