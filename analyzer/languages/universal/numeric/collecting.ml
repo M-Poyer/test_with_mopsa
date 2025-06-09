@@ -172,10 +172,13 @@ struct
 
     | S_assume e ->
       OptionExt.return @@
-      (Bot_top.bot_top_lift1 (StateCollection.filter (fun a ->
-          let vs = eval e a in
-          let () = debug "assume %a = %a" pp_expr e (ValueCollection.fprint SetExt.printer_default Z.pp_print) vs in
-          ValueCollection.exists (fun v -> Z.(v <> zero)) vs)) a)
+      (Bot_top.bot_top_absorb1 (fun a ->
+           let r = StateCollection.filter (fun a ->
+               let vs = eval e a in
+               let keep = ValueCollection.exists (fun v -> Z.(v <> zero)) vs in
+               keep) a in
+           if StateCollection.is_empty r then BOT else Nbt r (* FIXME: Bot = StateCollection.empty, to change... *)
+         ) a)
 
     | S_forget  { ekind = E_var (v, _) }
     | S_remove { ekind = E_var (v, _) } when accept_type v.vtyp ->
@@ -314,7 +317,8 @@ struct
               | E_var (v, _) -> Obj (Var v)
               | _ -> fkey "%a" pp_expr exp ]
       vals
-      
+
 end
 
-let () = register_simplified_domain (module Domain)
+let () =
+  register_simplified_domain (module Domain)
