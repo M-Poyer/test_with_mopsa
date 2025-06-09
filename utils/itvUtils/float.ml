@@ -157,9 +157,9 @@ let to_string (fmt:print_format) (x:t) : string =
   if is_nan x then "NaN"
   else if x = infinity then "+∞"
   else if x = neg_infinity then "-∞"
-  else string_of_float (x+.0.)
+  else Format.asprintf "%.17g" (x+.0.)
 (* Note: don't remove the "+.0."; it is here to ensure we never print "-0."
-   TODO: printing a guaranteed under/over-approximation.
+   Printing is complicated... https://github.com/ocaml/ocaml/issues/11360
  *)
 
 let print fmt ch (x:t) = output_string ch (to_string fmt x)
