@@ -88,6 +88,7 @@ module Make(D: DOMAIN) = struct
   let test_unop_gen ~(contains: D.c -> 'a -> bool) ~(pp_a : Format.formatter -> 'a -> unit) (name:string) (cop: D.c -> D.c) (aop: D.t -> 'a) =
     let name = Format.sprintf "%sunop (%s)" D.name_prefix name in
     let property (a,c) =
+      D.assume_contains c a;
       let a' = aop a in
       let c' = cop c in
       contains c' a' ||
@@ -103,6 +104,8 @@ module Make(D: DOMAIN) = struct
   let test_binop_gen ~(contains:D.c -> 'a -> bool) ~filter ~(pp_a:Format.formatter -> 'a -> unit)  (name:string) (cop: D.c -> D.c -> D.c) (aop: D.t -> D.t -> 'a) =
     let name = Format.sprintf "%sbinop (%s)" D.name_prefix name in
     let property ((a, c),(a', c')) =
+      D.assume_contains c a;
+      D.assume_contains c' a';
       QCheck2.assume (filter a a');
       let a'' = aop a a' in
       try
@@ -125,6 +128,7 @@ module Make(D: DOMAIN) = struct
   (* backward operators *)
   let test_bwd_unop (name:string) (cop: D.c -> D.c) (aop: D.t -> D.t -> D.t with_bot) =
     let property ((a,c),(r,_)) =
+      D.assume_contains c a;
       let a' = aop a r in (* refine `a` *)
       let c' = cop c in
       if D.contains c' r then
@@ -139,6 +143,8 @@ module Make(D: DOMAIN) = struct
 
   let test_bwd_binop_gen ~filter (name:string) (cop: D.c -> D.c -> D.c) (aop: D.t -> D.t -> D.t -> (D.t * D.t) with_bot) =
     let property ((a,c),(a',c'),(r,_)) =
+      D.assume_contains c a;
+      D.assume_contains c' a';
       QCheck2.assume (filter a a' r);
       let a'',a''' = aop a a' r |> Bot.bot_split in (* refine `a` and `a'` *)
       try
@@ -188,7 +194,7 @@ module Make(D: DOMAIN) = struct
       with Division_by_zero | Invalid_argument _ -> true
     in
     QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print gen property
-      
+
   let test_filter_zero = test_filter_zero_factory true
   let test_filter_zero_false = test_filter_zero_factory false
 
