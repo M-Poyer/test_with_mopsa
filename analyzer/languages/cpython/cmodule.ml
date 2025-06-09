@@ -175,6 +175,7 @@ module Domain =
     let checks = []
 
     let init _ man flow =
+      let flow = warn_prototype_domain name flow in
       List.iter (fun a -> Hashtbl.add C.Common.Builtins.builtin_functions a ()) builtin_functions;
       set_env T_cur EquivBaseAddrs.empty man flow >>%? fun flow ->
       set_c_target_info !C.Frontend.target_info flow |>

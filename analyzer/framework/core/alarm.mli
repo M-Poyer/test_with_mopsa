@@ -216,6 +216,7 @@ type assumption_kind = ..
     unsupported statements/expressions *)
 type assumption_kind += A_ignore_unsupported_stmt of Ast.Stmt.stmt
 type assumption_kind += A_ignore_unsupported_expr of Ast.Expr.expr
+type assumption_kind += A_prototype_domain of string
 
 type assumption = {
   assumption_scope : assumption_scope;
