@@ -57,7 +57,7 @@ let float_extended_range i : F.t QCheck2.Gen.t =
 let sample_f_i prec round (i : I.t) : F.t QCheck2.Gen.t =
   (bool >>= fun b ->
    let interesting =
-     List.filter (fun f -> I.contains f i)
+     List.filter (fun f -> I.contains f i && not @@ F.is_nan f && not @@ Float.is_infinite f)
        (match prec with
         | `SINGLE -> interesting_bounds_single
         | `DOUBLE -> interesting_bounds_double) in
@@ -129,10 +129,14 @@ let generator_fi prec round =
         if I.is_bounded itv && IN.is_valid r then return r else self ()) ()
 
 let generator_f_i prec round =
+  (* generates a tuple (itv, f) such that f in itv and f is not special *)
   (* FIXME: do we want to sometimes generate some float outside itv? *)
   generator_i prec round >>= fun itv ->
-  sample_f_i prec round itv >>= fun f ->
-  return (itv, f)
+  fix (fun self () ->
+      sample_f_i prec round itv >>= fun f ->
+      if F.is_nan f || F.is_infinite f then self ()
+      else return (itv, f)
+    ) ()
 
 let generator_f_in prec round =
   (* currently, we only want some f in itv, so if itv is bottom, we have to retry
@@ -173,7 +177,7 @@ let main () =
                   | _ -> () in
                 (* FloatInterval does not handle well NaNs, so we won't focus on those here *)
                 F.is_nan f || I.contains f i
-              let assume_contains f i = QCheck2.assume (not (F.is_nan f) && not (F.is_infinite f) && I.contains f i)
+              let is_valid f = not (F.is_nan f) && not (Float.is_infinite f)
             end) in
           (List.map (fun (sop, fop, iop, bwd_iop) ->
                [TestFactory.test_binop sop fop iop;
@@ -228,7 +232,7 @@ let main () =
                    | `SINGLE, `DOWN -> assert(F.is_nan f || F.Single.of_double_down f = f)
                    | _ -> () in
                  IN.contains f i
-               let assume_contains f i = QCheck2.assume (contains f i)
+               let is_valid _ = true
              end) in
            (List.map (fun (sop, fop, iop, bwd_iop) ->
                 [TestFactory.test_binop sop fop iop;

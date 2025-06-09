@@ -110,7 +110,7 @@ module TestFactory = Common.Make(struct
   let filter_shift = filter_shift
   let filter_shift2 = filter_shift2
   let contains = contains
-  let assume_contains f i = QCheck2.assume (contains f i)
+  let is_valid _ = true
 end)
 
 (* operator tests *)

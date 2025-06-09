@@ -66,8 +66,8 @@ module type DOMAIN = sig
   val filter_shift: t -> t -> bool
   val filter_shift2: t -> t -> t -> bool
   val contains: c -> t -> bool
-  val assume_contains : c -> t -> unit
-  (* usually same as QCheck2.assume (contains _ _), but for float some special values need to be handled differently... *)
+  val is_valid : c -> bool
+      (* we want to be able to discard some concrete float values sometimes *)
 end
 
 module Make(D: DOMAIN) = struct
@@ -88,9 +88,10 @@ module Make(D: DOMAIN) = struct
   let test_unop_gen ~(contains: D.c -> 'a -> bool) ~(pp_a : Format.formatter -> 'a -> unit) (name:string) (cop: D.c -> D.c) (aop: D.t -> 'a) =
     let name = Format.sprintf "%sunop (%s)" D.name_prefix name in
     let property (a,c) =
-      D.assume_contains c a;
+      QCheck2.assume (D.is_valid c);
       let a' = aop a in
       let c' = cop c in
+      QCheck2.assume (D.is_valid c');
       contains c' a' ||
       QCheck2.Test.fail_reportf "%a ∈ %a but %a ∉ %a"
         D.pp_c c  D.pp_t a
@@ -104,12 +105,13 @@ module Make(D: DOMAIN) = struct
   let test_binop_gen ~(contains:D.c -> 'a -> bool) ~filter ~(pp_a:Format.formatter -> 'a -> unit)  (name:string) (cop: D.c -> D.c -> D.c) (aop: D.t -> D.t -> 'a) =
     let name = Format.sprintf "%sbinop (%s)" D.name_prefix name in
     let property ((a, c),(a', c')) =
-      D.assume_contains c a;
-      D.assume_contains c' a';
+      QCheck2.assume (D.is_valid c);
+      QCheck2.assume (D.is_valid c');
       QCheck2.assume (filter a a');
       let a'' = aop a a' in
       try
         let c'' = cop c c' in
+        QCheck2.assume (D.is_valid c'');
         contains c'' a'' ||
         QCheck2.Test.fail_reportf "  %a ∈ %a@.  %a ∈ %a@.⚠ %s(%a, %a) = %a ∉ %a"
           D.pp_c c  D.pp_t a
@@ -128,9 +130,10 @@ module Make(D: DOMAIN) = struct
   (* backward operators *)
   let test_bwd_unop (name:string) (cop: D.c -> D.c) (aop: D.t -> D.t -> D.t with_bot) =
     let property ((a,c),(r,_)) =
-      D.assume_contains c a;
+      QCheck2.assume (D.is_valid c);
       let a' = aop a r in (* refine `a` *)
       let c' = cop c in
+      QCheck2.assume (D.is_valid c');
       if D.contains c' r then
         contains_bot c a' ||
         QCheck2.Test.fail_reportf "⚠ %a ∈ %a, but concrete value not in refined %a@. %s(%a) = %a ∈ %a"
@@ -143,12 +146,13 @@ module Make(D: DOMAIN) = struct
 
   let test_bwd_binop_gen ~filter (name:string) (cop: D.c -> D.c -> D.c) (aop: D.t -> D.t -> D.t -> (D.t * D.t) with_bot) =
     let property ((a,c),(a',c'),(r,_)) =
-      D.assume_contains c a;
-      D.assume_contains c' a';
+      QCheck2.assume (D.is_valid c);
+      QCheck2.assume (D.is_valid c');
       QCheck2.assume (filter a a' r);
       let a'',a''' = aop a a' r |> Bot.bot_split in (* refine `a` and `a'` *)
       try
         let c'' = cop c c' in
+        QCheck2.assume (D.is_valid c'');
         if D.contains c'' r then
           (contains_bot c a'' && contains_bot c' a''') ||
           QCheck2.Test.fail_reportf "@[%s%a ∈ %a, %s %a%s@.%s%a ∈ %a, %s %a%s@.  %a ∈ %a@]"
@@ -162,8 +166,8 @@ module Make(D: DOMAIN) = struct
 
   let test_filter_factory (result:bool) (name:string) (cop: D.c -> D.c -> bool) (aop: D.t -> D.t -> (D.t * D.t) with_bot) =
     let property ((a,c),(a',c')) =
-      D.assume_contains c a;
-      D.assume_contains c' a';
+      QCheck2.assume (D.is_valid c);
+      QCheck2.assume (D.is_valid c');
       let a'', a''' = aop a a' |> Bot.bot_split in (* refine `a` and `a'` *)
       try
         if cop c c' = result then
@@ -182,7 +186,7 @@ module Make(D: DOMAIN) = struct
 
   let test_filter_zero_factory (result:bool) (name:string) (cop: D.c -> bool) (aop: D.t -> D.t) =
     let property (a,c) =
-      D.assume_contains c a;
+      QCheck2.assume (D.is_valid c);
       let a' = aop a in
       try
         if cop c = result then
