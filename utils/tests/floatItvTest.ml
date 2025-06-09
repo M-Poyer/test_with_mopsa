@@ -152,9 +152,15 @@ let main () =
               let filter_shift a b = assert false
               let filter_shift2 a b r = assert false
               let contains f i =
+                let () = match precf, roundf with
+                  (* check that single-precision float is actually a single-precision float *)
+                  | `SINGLE, `NEAR -> assert(F.is_nan f || F.Single.of_double_near f = f)
+                  | `SINGLE, `ZERO -> assert(F.is_nan f || F.Single.of_double_zero f = f)
+                  | `SINGLE, `UP   -> assert(F.is_nan f || F.Single.of_double_up   f = f)
+                  | `SINGLE, `DOWN -> assert(F.is_nan f || F.Single.of_double_down f = f)
+                  | _ -> () in
                 (* FloatInterval does not handle well NaNs, so we won't focus on those here *)
-                (* FIXME: check the float is representable in the given precision? *)
-                Float.is_nan f || Float.is_infinite f || I.contains f i
+                F.is_nan f || I.contains f i
             end) in
           (List.map (fun (sop, fop, iop, bwd_iop) ->
                [TestFactory.test_binop sop fop iop;
@@ -195,7 +201,15 @@ let main () =
                let gen = generator_f_in precf roundf
                let filter_shift a b = assert false
                let filter_shift2 a b r = assert false
-               let contains = IN.contains end) in
+               let contains f i =
+                 let () = match precf, roundf with
+                   (* check that single-precision float is actually a single-precision float *)
+                   | `SINGLE, `NEAR -> assert(F.is_nan f || F.Single.of_double_near f = f)
+                   | `SINGLE, `ZERO -> assert(F.is_nan f || F.Single.of_double_zero f = f)
+                   | `SINGLE, `UP   -> assert(F.is_nan f || F.Single.of_double_up   f = f)
+                   | `SINGLE, `DOWN -> assert(F.is_nan f || F.Single.of_double_down f = f)
+                   | _ -> () in
+                 IN.contains f i end) in
            (List.map (fun (sop, fop, iop, bwd_iop) ->
                 [TestFactory.test_binop sop fop iop;
                  TestFactory.test_bwd_binop ("bwd " ^ sop) fop bwd_iop]
