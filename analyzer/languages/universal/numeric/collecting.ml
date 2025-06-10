@@ -25,9 +25,9 @@
    Could laziness help somewhere?
 *)
 
-open Core.All
 open Mopsa_utils
-open Ast
+open MopsaLib
+open Lang.Ast
 open Sig.Abstraction.Simplified
 
 module Domain : Sig.Abstraction.Simplified.SIMPLIFIED =
