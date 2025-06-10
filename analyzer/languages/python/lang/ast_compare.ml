@@ -21,9 +21,9 @@
 
 (** Pretty printer of the Python extension to the AST. *)
 
-open Mopsa
+open MopsaLib
 open Ast
-open Universal.Ast
+open Universal.Lang.Ast
 open Addr
 open Format
 

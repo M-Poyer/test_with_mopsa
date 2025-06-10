@@ -25,8 +25,8 @@
    MOPSA counterparts are used.
 *)
 
-open Mopsa
-open Universal.Ast
+open MopsaLib
+open Universal.Lang.Ast
 open Format
 
 
@@ -413,6 +413,57 @@ and visit_set visitor s =
 
 and visit_expr visitor e =
   Visitor.map_expr visitor (fun stmt -> Keep stmt) e
+
+let rec exprs_in_formula f =
+  match f.content with
+  | F_expr e -> [e]
+  | F_binop (op, f1, f2) -> exprs_in_formula f1 @ exprs_in_formula f2
+  | F_not ff -> exprs_in_formula ff
+  | F_forall (v, s, ff) -> exprs_in_set s @ exprs_in_formula ff
+  | F_exists (v, s, ff) -> exprs_in_set s @ exprs_in_formula ff
+  | F_in (e, s) -> e :: exprs_in_set s
+  | F_otherwise (f, e) -> e :: exprs_in_formula f
+  | F_if (c,f1,f2) -> exprs_in_formula c @ exprs_in_formula f1 @ exprs_in_formula f2
+
+and exprs_in_set = function
+  | S_interval (e1, e2) -> [e1;e2]
+  | S_resource _ -> []
+
+let exprs_in_local local = match local.lval with
+  | L_call (e1,e2s) -> e1 :: e2s
+  | _ -> []
+
+let exprs_in_assigns assigns =
+  assigns.assign_target ::
+  (List.map (fun (e1,e2) -> [e1; e2]) assigns.assign_offset |> List.flatten)
+
+let exprs_in_leaf = function
+  | S_local l -> exprs_in_local l.content
+  | S_assumes a -> exprs_in_formula a.content
+  | S_requires r -> exprs_in_formula r.content
+  | S_assigns a -> exprs_in_assigns a.content
+  | S_ensures e -> exprs_in_formula e.content
+  | S_free f -> [f.content]
+  | S_message _ -> []
+
+let exprs_in_case c =
+  List.fold_right (fun l acc -> exprs_in_leaf l @ acc) c.case_body [] |>
+  List.fold_right (fun l acc -> exprs_in_local l.content @ acc) c.case_locals |>
+  List.fold_right (fun a acc -> exprs_in_assigns a.content @ acc) c.case_assigns
+
+let exprs_in_section = function
+  | S_case c -> exprs_in_case c
+  | S_leaf l -> exprs_in_leaf l
+
+let exprs_in_stub_func f =
+  List.fold_right (fun s acc -> exprs_in_section s @ acc) f.stub_func_body [] |>
+  List.fold_right (fun l acc -> exprs_in_local l.content @ acc) f.stub_func_locals |>
+  List.fold_right (fun a acc -> exprs_in_assigns a.content @ acc) f.stub_func_assigns
+
+let exprs_in_stub_directive d =
+  List.fold_right (fun s acc -> exprs_in_section s @ acc) d.stub_directive_body [] |>
+  List.fold_right (fun l acc -> exprs_in_local l.content @ acc) d.stub_directive_locals |>
+  List.fold_right (fun a acc -> exprs_in_assigns a.content @ acc) d.stub_directive_assigns
 
 let mk_stub_alloc_resource ?(mode=STRONG) res range =
   mk_expr (E_stub_alloc (res,mode)) range

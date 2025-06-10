@@ -27,9 +27,9 @@
     transfer function.
 *)
 
-open Mopsa
+open MopsaLib
 open Format
-open Ast
+open Lang.Ast
 open Stubs.Ast
 
 

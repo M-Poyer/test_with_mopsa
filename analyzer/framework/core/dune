@@ -1,5 +1,0 @@
-(library
- (name core)
- (public_name mopsa.mopsa_analyzer.framework.core)
- (library_flags -linkall)
- (libraries ast mopsa_utils yojson))

@@ -21,8 +21,8 @@
 
 (** Python AST *)
 
-open Mopsa
-open Universal.Ast
+open MopsaLib
+open Universal.Lang.Ast
 
 (*==========================================================================*)
                            (** {2 Constants} *)
@@ -75,20 +75,20 @@ type operator +=
 
 
 let is_arith_op = function
-  | Universal.Ast.O_plus
-  | Universal.Ast.O_minus
-  | Universal.Ast.O_mult
+  | O_plus
+  | O_minus
+  | O_mult
   | O_py_mat_mult
-  | Universal.Ast.O_div
+  | O_div
   | O_py_floor_div
-  | Universal.Ast.O_bit_invert
-  | Universal.Ast.O_mod
-  | Universal.Ast.O_pow
-  | Universal.Ast.O_bit_lshift
-  | Universal.Ast.O_bit_rshift
-  | Universal.Ast.O_bit_and
-  | Universal.Ast.O_bit_xor
-  | Universal.Ast.O_bit_or ->
+  | O_bit_invert
+  | O_mod
+  | O_pow
+  | O_bit_lshift
+  | O_bit_rshift
+  | O_bit_and
+  | O_bit_xor
+  | O_bit_or ->
     true
 
   | _ -> false
@@ -439,39 +439,39 @@ let get_py_program flow =
                            (** {2 Utility functions} *)
 (*==========================================================================*)
 
-let mk_py_in ?(strict = false) ?(left_strict = false) ?(right_strict = false) v e1 e2 erange =
+let mk_py_in ?(strict = false) ?(left_strict = false) ?(right_strict = false) ?esynthetic v e1 e2 erange =
   match strict, left_strict, right_strict with
   | true, _, _
   | false, true, true ->
-    mk_binop ~etyp:(T_py None)
-      (mk_binop ~etyp:(T_py None) e1 O_lt v erange)
+    mk_binop ?esynthetic ~etyp:(T_py None)
+      (mk_binop ?esynthetic ~etyp:(T_py None) e1 O_lt v erange)
       O_py_and
-      (mk_binop ~etyp:(T_py None) v O_lt e2 erange)
+      (mk_binop ?esynthetic ~etyp:(T_py None) v O_lt e2 erange)
       erange
 
   | false, true, false ->
-    mk_binop ~etyp:(T_py None)
-      (mk_binop ~etyp:(T_py None) e1 O_lt v erange)
+    mk_binop ?esynthetic ~etyp:(T_py None)
+      (mk_binop ?esynthetic ~etyp:(T_py None) e1 O_lt v erange)
       O_py_and
-      (mk_binop ~etyp:(T_py None) v O_le e2 erange)
+      (mk_binop ?esynthetic ~etyp:(T_py None) v O_le e2 erange)
       erange
 
   | false, false, true ->
-    mk_binop ~etyp:(T_py None)
-      (mk_binop ~etyp:(T_py None) e1 O_le v erange)
+    mk_binop ?esynthetic ~etyp:(T_py None)
+      (mk_binop ?esynthetic ~etyp:(T_py None) e1 O_le v erange)
       O_py_and
-      (mk_binop ~etyp:(T_py None) v O_lt e2 erange)
+      (mk_binop ?esynthetic ~etyp:(T_py None) v O_lt e2 erange)
       erange
 
   | false, false, false ->
-    mk_binop ~etyp:(T_py None)
-      (mk_binop ~etyp:(T_py None) e1 O_le v erange)
+    mk_binop ?esynthetic ~etyp:(T_py None)
+      (mk_binop ?esynthetic ~etyp:(T_py None) e1 O_le v erange)
       O_py_and
-      (mk_binop ~etyp:(T_py None) v O_le e2 erange)
+      (mk_binop ?esynthetic ~etyp:(T_py None) v O_le e2 erange)
       erange
 
-let mk_py_not exp range =
-  mk_unop ~etyp:(T_py (Some Bool)) O_py_not exp range
+let mk_py_not ?esynthetic exp range =
+  mk_unop ?esynthetic ~etyp:(T_py (Some Bool)) O_py_not exp range
 
 let mk_except typ name body =
   {
@@ -481,8 +481,8 @@ let mk_except typ name body =
   }
 
 
-let mk_try body except orelse finally range =
-  mk_stmt
+let mk_try ?ssynthetic body except orelse finally range =
+  mk_stmt ?ssynthetic
     (S_py_try (
       body,
       except,
@@ -491,36 +491,36 @@ let mk_try body except orelse finally range =
     ))
     range
 
-let mk_raise exc range =
-  mk_stmt (S_py_raise (Some exc)) range
+let mk_raise ?ssynthetic exc range =
+  mk_stmt ?ssynthetic (S_py_raise (Some exc)) range
 
-let mk_py_call func args range =
-  mk_expr ~etyp:(T_py None) (E_py_call (func, args, [])) range
+let mk_py_call ?esynthetic func args range =
+  mk_expr ?esynthetic ~etyp:(T_py None) (E_py_call (func, args, [])) range
 
-let mk_py_kall func args kwargs range =
+let mk_py_kall ?esynthetic func args kwargs range =
   (* call with kwargs *)
-  mk_expr ~etyp:(T_py None) (E_py_call (func, args, kwargs)) range
+  mk_expr ?esynthetic ~etyp:(T_py None) (E_py_call (func, args, kwargs)) range
 
-let mk_py_attr obj attr ?(etyp=(T_py None)) range =
-  mk_expr (E_py_attribute (obj, attr)) ~etyp range
+let mk_py_attr ?esynthetic obj attr ?(etyp=(T_py None)) range =
+  mk_expr ?esynthetic (E_py_attribute (obj, attr)) ~etyp range
 
-let mk_py_index_subscript obj index ?(etyp=(T_py None)) range =
-  mk_expr (E_py_index_subscript (obj, index)) ~etyp range
+let mk_py_index_subscript ?esynthetic obj index ?(etyp=(T_py None)) range =
+  mk_expr ?esynthetic (E_py_index_subscript (obj, index)) ~etyp range
 
-let mk_py_object (addr, e) range =
-  mk_expr ~etyp:(T_py None) (E_py_object (addr, e)) range
+let mk_py_object ?esynthetic (addr, e) range =
+  mk_expr ?esynthetic ~etyp:(T_py None) (E_py_object (addr, e)) range
 
-let mk_py_object_attr obj attr ?(etyp=(T_py None)) range =
-  mk_py_attr (mk_py_object obj range) attr ~etyp range
+let mk_py_object_attr ?esynthetic obj attr ?(etyp=(T_py None)) range =
+  mk_py_attr ?esynthetic (mk_py_object obj range) attr ~etyp range
 
-let mk_py_bool b range =
-  mk_constant (C_bool b) ~etyp:(T_py (Some Bool)) range
+let mk_py_bool ?esynthetic b range =
+  mk_constant ?esynthetic (C_bool b) ~etyp:(T_py (Some Bool)) range
 
 let mk_py_true = mk_py_bool true
 
 let mk_py_false = mk_py_bool false
 
-let mk_py_top t range =
+let mk_py_top ?esynthetic t range =
   let t = match t with
     | T_py _ -> t
     | T_int -> T_py (Some Int)
@@ -528,15 +528,15 @@ let mk_py_top t range =
     | T_bool -> T_py (Some Bool)
     | T_string -> T_py (Some Str)
     | _ -> assert false in
-  mk_constant (C_top t) ~etyp:t range
+  mk_constant ?esynthetic (C_top t) ~etyp:t range
 
 let object_of_expr e =
   match ekind e with
   | E_py_object o -> o
   | _ -> assert false
 
-let mk_py_none range =
-  mk_constant ~etyp:(T_py (Some NoneType)) C_py_none range
+let mk_py_none ?esynthetic range =
+  mk_constant ?esynthetic ~etyp:(T_py (Some NoneType)) C_py_none range
 
 
 (*==========================================================================*)
@@ -603,18 +603,18 @@ let builtin_type_name default fundec =
   | _ -> assert false
 
 
-let py_or e1 e2 ?(etyp=T_py (Some Bool)) range = mk_binop e1 O_py_or e2 ~etyp range
-let py_and e1 e2 ?(etyp=T_py (Some Bool)) range = mk_binop e1 O_py_and e2 ~etyp range
+let py_or e1 e2 ?esynthetic ?(etyp=T_py (Some Bool)) range = mk_binop ?esynthetic e1 O_py_or e2 ~etyp range
+let py_and e1 e2 ?esynthetic ?(etyp=T_py (Some Bool)) range = mk_binop ?esynthetic e1 O_py_and e2 ~etyp range
 
 
-let mk_py_ll_hasattr instance attr range =
-  mk_expr ~etyp:(T_py None) (E_py_ll_hasattr(instance, attr)) range
+let mk_py_ll_hasattr ?esynthetic instance attr range =
+  mk_expr ?esynthetic ~etyp:(T_py None) (E_py_ll_hasattr(instance, attr)) range
 
-let mk_py_ll_getattr instance attr range =
-  mk_expr ~etyp:(T_py None) (E_py_ll_getattr(instance, attr)) range
+let mk_py_ll_getattr ?esynthetic instance attr range =
+  mk_expr ?esynthetic ~etyp:(T_py None) (E_py_ll_getattr(instance, attr)) range
 
-let mk_py_ll_setattr instance attr valu range =
-  mk_expr ~etyp:(T_py None) (E_py_ll_setattr(instance, attr, Some valu)) range
+let mk_py_ll_setattr ?esynthetic instance attr valu range =
+  mk_expr ?esynthetic ~etyp:(T_py None) (E_py_ll_setattr(instance, attr, Some valu)) range
 
-let mk_py_ll_delattr instance attr range =
-  mk_expr ~etyp:(T_py None) (E_py_ll_setattr(instance, attr, None)) range
+let mk_py_ll_delattr ?esynthetic instance attr range =
+  mk_expr ?esynthetic ~etyp:(T_py None) (E_py_ll_setattr(instance, attr, None)) range

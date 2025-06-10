@@ -171,6 +171,7 @@ test-u:
         do
           echo $U_FILE
           $MOPSA_U analyzer/tests/universal/$U_FILE
+          $MOPSA_U -config=universal/collecting.json analyzer/tests/universal/$U_FILE
         done
 
 ################

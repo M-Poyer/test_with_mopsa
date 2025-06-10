@@ -26,7 +26,7 @@
   (rounding direction and rounding precision).
  *)
 
-open Bot
+open Core.Bot
 module F = Float
 module B = IntBound
 module II = IntItv
@@ -147,7 +147,7 @@ let compare (a:t) (b:t) : int =
 *)
 
 let compare_bot (x:t with_bot) (y:t with_bot) : int =
-  Bot.bot_compare compare x y
+  bot_compare compare x y
 (** Total ordering on possibly empty intervals. *)
 
 

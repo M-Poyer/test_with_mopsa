@@ -23,11 +23,12 @@
 
 (* Originally written by Abdelraouf Ouadjaout *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Addr
-open Ast
-open Universal.Ast
+open Lang.Addr
+open Lang.Ast
+open Lang
+open Universal.Lang.Ast
 
 let () = Universal.Heap.Policies.register_mk_addr
            (fun default ak -> match ak with
@@ -140,7 +141,7 @@ module Domain =
                        | Some setup ->
                           man.exec (mk_stmt (S_expression (mk_py_call (mk_var setup.py_func_var range) [tmpvar] range)) range) flow
                      ) >>%
-                       man.exec (mk_stmt (Universal.Ast.S_unit_tests test_calls) cls_decl.py_cls_range) >>%
+                       man.exec (mk_stmt (Universal.Lang.Ast.S_unit_tests test_calls) cls_decl.py_cls_range) >>%
                        man.exec (mk_remove_var tmp range)
                  )
                )

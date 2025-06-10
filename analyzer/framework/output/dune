@@ -1,5 +1,0 @@
-(library
- (name output)
- (public_name mopsa.mopsa_analyzer.framework.output)
- (library_flags -linkall)
- (libraries core))

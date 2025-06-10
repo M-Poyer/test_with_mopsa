@@ -21,7 +21,7 @@
  *)
 
 open Instances
-open Mopsa
+open MopsaLib
 
 module PplitePolyhedra = Domain.Make(struct
     type t = Pplite.loose Pplite.t

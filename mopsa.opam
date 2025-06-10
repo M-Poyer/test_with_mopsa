@@ -79,7 +79,7 @@ depexts: [
     {os-distribution = "opensuse-tumbleweed"}
   ["clang" "clang-devel" "llvm" "llvm-devel" "mpfr-devel"]
     {os-distribution = "opensuse-leap"}
-  ["sys-devel/clang"] {os-distribution = "gentoo"}
+  ["llvm-core/clang"] {os-distribution = "gentoo"}
   ["llvm"] {os = "macos"}
   ["devel/llvm"] {os = "freebsd"}
 ]

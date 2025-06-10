@@ -35,6 +35,6 @@ val any_semantic : semantic
 
 val is_any_semantic : semantic -> bool
 
-module SemanticSet : Mopsa_utils.SetExtSig.S with type elt = semantic
+module SemanticSet : SetExtSig.S with type elt = semantic
 
-module SemanticMap : Mopsa_utils.MapExtSig.S with type key = semantic
+module SemanticMap : MapExtSig.S with type key = semantic

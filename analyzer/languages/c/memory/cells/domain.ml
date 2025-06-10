@@ -35,11 +35,11 @@
 *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stacked
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
-open Ast
+open Lang.Ast
 open Common
 open Common.Base
 open Common.Points_to
@@ -96,7 +96,7 @@ struct
   (** Pretty printer of cell types *)
   let pp_cell_typ fmt t =
     match t with
-    | Numeric tt -> Pp.pp_c_type_short fmt tt
+    | Numeric tt -> Lang.Pp.pp_c_type_short fmt tt
     | Pointer -> Format.fprintf fmt "ptr"
 
 

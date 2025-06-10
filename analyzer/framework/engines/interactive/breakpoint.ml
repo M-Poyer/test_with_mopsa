@@ -21,7 +21,6 @@
 
 (** Breakpoints for the interactive mode *)
 
-open Mopsa_utils
 open Core.All
 open Format
 open Location

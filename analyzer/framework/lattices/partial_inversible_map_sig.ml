@@ -27,7 +27,6 @@
 *)
 
 
-open Mopsa_utils
 open Top
 open Core.All
 

@@ -47,8 +47,9 @@
 *)
 
 open Mopsa_utils
-open Bot
-
+open Core
+open Core.Bot
+       
 let test_count = 100000
 (* number of tests to execute *)
 
@@ -201,7 +202,6 @@ module Make(D: DOMAIN) = struct
 
   let test_filter_zero = test_filter_zero_factory true
   let test_filter_zero_false = test_filter_zero_factory false
-
 
   let test_bwd_binop = test_bwd_binop_gen ~filter:(fun _ _ _ -> true)
   let test_bwd_binop_shift = test_bwd_binop_gen ~filter:D.filter_shift2

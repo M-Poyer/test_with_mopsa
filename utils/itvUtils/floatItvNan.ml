@@ -25,7 +25,7 @@
   Adds special IEEE number managenement (NaN, infinities) to FloatItv.
  *)
 
-open Bot
+open Core.Bot
 module F = Float
 module FI = FloatItv
 module B = IntBound
@@ -218,7 +218,7 @@ let contains (x:float) (a:t) =
 (** Whether the set contains a certain (finite, infinite or NaN) value. *)
 
 let compare (a:t) (b:t) : int =
-  Compare.compose
+  Core.Compare.compose
     [(fun () -> FI.compare_bot a.itv b.itv);
      (fun () -> Stdlib.compare a.nan  b.nan);
      (fun () -> Stdlib.compare a.minf b.minf);

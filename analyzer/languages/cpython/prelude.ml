@@ -19,8 +19,8 @@
 (*                                                                          *)
 (****************************************************************************)
 
-open Mopsa
-open Python.Addr
+open MopsaLib
+open Python.Lang.Addr
 
 let builtin_exceptions =
   [

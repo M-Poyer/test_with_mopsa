@@ -21,11 +21,11 @@
 
 (** Assignments from iterables. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Addr
-open Ast
-open Universal.Ast
+open Lang.Addr
+open Lang.Ast
+open Universal.Lang.Ast
 
 module Domain =
   struct
@@ -50,12 +50,12 @@ module Domain =
 
     and assign_iter man el exp range flow =
       let tmp = mk_range_attr_var range "assign_iter" (T_py None) in
-      let assign_iterable = mk_assign (mk_var tmp range) (Utils.mk_builtin_call "iter" [exp] range) range in
+      let assign_iterable = mk_assign (mk_var tmp range) (Lang.Utils.mk_builtin_call "iter" [exp] range) range in
       let stmtl =
         List.fold_left (fun acc e ->
             mk_assign
               e
-              (Utils.mk_builtin_call "next" [mk_var tmp range] range)
+              (Lang.Utils.mk_builtin_call "next" [mk_var tmp range] range)
               (tag_range range "next assign")
             :: acc
           ) [] el |>
@@ -68,7 +68,7 @@ module Domain =
           [mk_except
              (Some (mk_py_object (find_builtin "StopIteration") (tag_range range "stop iter")))
              None
-             (Utils.mk_builtin_raise_msg "ValueError" "not enough values to unpack" (tag_range range "error raise"))
+             (Lang.Utils.mk_builtin_raise_msg "ValueError" "not enough values to unpack" (tag_range range "error raise"))
           ]
           (mk_nop (tag_range range "empty try else"))
           (mk_nop (tag_range range "empty try finally"))

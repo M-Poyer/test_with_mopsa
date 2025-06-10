@@ -23,12 +23,13 @@
 (** Currently based on types. If this is moved to values at some
     point, it should be kept for the type analysis I think *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
+open Lang.Ast
+open Lang.Addr
 open MapExt
-open Universal.Ast
+open Universal.Lang.Ast
+open Lang
 
 module Domain =
   struct
@@ -40,7 +41,7 @@ module Domain =
     let checks = []
 
     type stub_signature = {in_args: string list;
-                           out_type: Mopsa.typ}
+                           out_type: typ}
     type stub_db = stub_signature StringMap.t
 
     let add_signature funname in_args out_type db =
