@@ -42,6 +42,7 @@ type expr = {
   erange: Location.range;
   etrans: expr SemanticMap.t;
   ehistory: expr list;
+  esynthetic: bool;
 }
 
 
@@ -50,6 +51,7 @@ let etyp (e: expr) = e.etyp
 let erange (e: expr) = e.erange
 let etrans (e:expr) = e.etrans
 let ehistory (e:expr) = e.ehistory
+let esynthetic (e:expr) = e.esynthetic
 
 type expr_kind +=
   | E_var of var * mode option
@@ -106,10 +108,7 @@ let register_expr_pp pp = TypeExt.register_print pp expr_pp_chain
 let compare_expr e1 e2 = TypeExt.compare expr_compare_chain e1 e2
 
 let pp_expr fmt e =
-  Var.print_uniq_with_uid := false;
-  TypeExt.print expr_pp_chain fmt e;
-  Var.print_uniq_with_uid := true
-
+  Var.force_print_uniq_with_uid false (fun () -> TypeExt.print expr_pp_chain fmt e)
 
 let add_expr_translation semantic t e =
   { e with etrans = SemanticMap.add semantic t e.etrans }
@@ -176,12 +175,13 @@ let mk_expr
     ?(etyp = T_any)
     ?(etrans = SemanticMap.empty)
     ?(ehistory = [])
+    ?(esynthetic = true)
     ekind erange
   =
-  {ekind; etyp; erange; etrans; ehistory}
+  {ekind; etyp; erange; etrans; ehistory; esynthetic}
 
-let mk_var v ?(mode = None) erange =
-  mk_expr ~etyp:v.vtyp (E_var(v, mode)) erange
+let mk_var ?esynthetic v ?(mode = None) erange =
+  mk_expr ?esynthetic ~etyp:v.vtyp (E_var(v, mode)) erange
 
 let weaken_var_expr v =
   match ekind v with
@@ -203,10 +203,10 @@ let var_mode (v:var) (omode: mode option) : mode =
   | None   -> v.vmode
   | Some m -> m
 
-let mk_addr addr ?(etyp=T_addr) ?(mode=None) range = mk_expr ~etyp (E_addr (addr, mode)) range
+let mk_addr ?esynthetic addr ?(etyp=T_addr) ?(mode=None) range = mk_expr ?esynthetic ~etyp (E_addr (addr, mode)) range
 
-let mk_alloc_addr ?(mode=STRONG) addr_kind range =
-  mk_expr (E_alloc_addr (addr_kind, mode)) ~etyp:T_addr range
+let mk_alloc_addr ?esynthetic ?(mode=STRONG) addr_kind range =
+  mk_expr ?esynthetic (E_alloc_addr (addr_kind, mode)) ~etyp:T_addr range
 
 let weaken_addr_expr e =
   match ekind e with
@@ -220,26 +220,26 @@ let strongify_addr_expr e =
   | E_addr (addr, om) -> {e with ekind = E_addr ({addr with addr_mode = STRONG}, om)}
   | _ -> assert false
 
-let mk_binop ?(etyp = T_any) left op right erange =
-  mk_expr (E_binop (op, left, right)) ~etyp erange
+let mk_binop ?esynthetic ?(etyp = T_any) left op right erange =
+  mk_expr ?esynthetic (E_binop (op, left, right)) ~etyp erange
 
-let mk_unop ?(etyp = T_any) op operand erange =
-  mk_expr (E_unop (op, operand)) ~etyp erange
+let mk_unop ?esynthetic ?(etyp = T_any) op operand erange =
+  mk_expr ?esynthetic (E_unop (op, operand)) ~etyp erange
 
-let mk_constant ?(etyp=T_any) c = mk_expr ~etyp (E_constant c)
+let mk_constant ?esynthetic ?(etyp=T_any) c = mk_expr ?esynthetic ~etyp (E_constant c)
 
-let mk_top typ range = mk_constant (C_top typ) ~etyp:typ range
+let mk_top ?esynthetic typ range = mk_constant ?esynthetic (C_top typ) ~etyp:typ range
 
-let mk_not e range = mk_unop O_log_not e ~etyp:e.etyp range
+let mk_not ?esynthetic e range = mk_unop ?esynthetic O_log_not e ~etyp:e.etyp range
 
-let rec negate_expr exp =
+let rec negate_expr ?esynthetic exp =
   match ekind exp with
   | E_unop(O_log_not,ee) -> ee
   | E_binop(op,e1,e2) when is_logic_op op ->
-    mk_binop (negate_expr e1) (negate_logic_op op) (negate_expr e2) ~etyp:exp.etyp exp.erange
+    mk_binop ?esynthetic (negate_expr e1) (negate_logic_op op) (negate_expr e2) ~etyp:exp.etyp exp.erange
   | E_binop(op,e1,e2) when is_comparison_op op ->
-    mk_binop e1 (negate_comparison_op op) e2 ~etyp:exp.etyp exp.erange
-  | _ -> mk_not exp exp.erange
+    mk_binop ?esynthetic e1 (negate_comparison_op op) e2 ~etyp:exp.etyp exp.erange
+  | _ -> mk_not ?esynthetic exp exp.erange
 
 
 module ExprSet = SetExt.Make(struct

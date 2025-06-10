@@ -51,13 +51,13 @@ module Domain =
                into one environment. Useful for exceptions the analysis is \
                unprecise on (for example, IndexError for the smashing \
                abstraction of lists).";
-        spec = ArgExt.Set_string_list opt_unprecise_exn;
+        spec = String (ArgExt.set_string_list_lifter opt_unprecise_exn, ArgExt.empty);
         default = "";
       }
 
     let checks = []
 
-    let init _ _ flow = flow
+    let init _ _ flow = None
     let eval _ _ _ = None
 
     let rec exec stmt man flow =

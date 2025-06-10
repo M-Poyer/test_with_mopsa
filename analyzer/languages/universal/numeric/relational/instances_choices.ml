@@ -49,7 +49,7 @@ let register_rel_domain is_het =
     key;
     category = "Numeric";
     doc = " select the relational numeric domain.";
-    spec = ArgExt.Symbol (
+    spec = Symbol (
         get_instances_names (),
         enable_rel_domain rel_domain_type true
       );

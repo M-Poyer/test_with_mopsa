@@ -116,7 +116,7 @@ let () =
     key = "-goto-down";
     category = "Goto";
     doc = " perform a down iteration after goto stabilization";
-    spec = ArgExt.Set opt_goto_down;
+    spec = Set opt_goto_down;
     default = "false";
   };
 
@@ -165,7 +165,7 @@ struct
   (** Initialization *)
   (** ============== *)
 
-  let init _ _ flow =  flow
+  let init _ _ flow = None
 
   let exec stmt man flow =
     match skind stmt with

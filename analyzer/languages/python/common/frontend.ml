@@ -35,14 +35,14 @@ let () =
       key = "-gc";
       category = "Python";
       doc = " perform abstract garbage collection after function calls";
-      spec = ArgExt.Set opt_gc_after_functioncall;
+      spec = Set opt_gc_after_functioncall;
       default = "";
     };
   register_domain_option "python.frontend" {
       key = "-gc-percent";
       category = "Python";
       doc = Format.asprintf " percent of abstract garbage collection calls (default: %d)" !opt_gc_percent_calls;
-      spec = ArgExt.Set_int opt_gc_percent_calls;
+      spec = Set_int (opt_gc_percent_calls, ArgExt.empty);
       default = "";
     }
 
@@ -70,10 +70,21 @@ let rec parse_program (files: string list) : program =
      *    let py_func_cellvars, py_func_body = detect_closures py_func_body in
      *    debug "cellvars of %a: %a; locals: %a, params: %a" pp_var f.py_func_var (Format.pp_print_list pp_var) f.py_func_cellvars (Format.pp_print_list pp_var) f.py_func_locals (Format.pp_print_list pp_var) f.py_func_parameters; *)
     let body = if Filename.extension filename <> ".pyi" && !opt_gc_after_functioncall then
-                 Universal.Ast.mk_block ([body;mk_stmt Universal.Heap.Recency.S_perform_gc (Location.mk_fresh_range ())]) body.srange
+                 Universal.Ast.mk_block ~ssynthetic:false ([body;mk_stmt ~ssynthetic:false Universal.Heap.Recency.S_perform_gc (Location.mk_fresh_range ())]) body.srange
                else body in
     Hooks.Coverage.Hook.add_file filename body;
     Core.Ast.Var.start_vcounter_at counter;
+
+    (* sanity check: all statements and expressions must be non-syntetic *)
+    Visitor.iter_stmt
+      (fun e ->
+        if e.esynthetic then panic_at e.erange "original expression %a (of kind: %s) marked as synthetic"
+          pp_expr e Obj.Extension_constructor.(of_val e.ekind |> name))
+      (fun s ->
+        if s.ssynthetic then panic_at s.srange "original statement %a (of kind: %s) marked as synthetic"
+          pp_stmt s Obj.Extension_constructor.(of_val s.skind |> name))
+      body;
+
     {
       prog_kind = Ast.Py_program (filename, globals, body);
       prog_range = mk_program_range [filename];
@@ -100,13 +111,13 @@ and from_stmt (stmt: Mopsa_py_parser.Ast.stmt) : stmt =
     | S_assign (x, ({ekind = E_call _} as e)) when !opt_gc_after_functioncall ->
        incr gc_call;
        if !gc_call mod (100 / !opt_gc_percent_calls) = 0 then
-         S_block ([mk_stmt (S_assign (from_exp x, from_exp e)) srange'; mk_stmt Universal.Heap.Recency.S_perform_gc srange'], [])
+         S_block ([mk_stmt ~ssynthetic:false (S_assign (from_exp x, from_exp e)) srange'; mk_stmt ~ssynthetic:false Universal.Heap.Recency.S_perform_gc srange'], [])
        else S_assign (from_exp x, from_exp e)
 
     | S_expression ({ekind = E_call _} as e) when !opt_gc_after_functioncall ->
        incr gc_call;
        if !gc_call mod (100 / !opt_gc_percent_calls) = 0 then
-         S_block ([mk_stmt (Universal.Ast.S_expression (from_exp e)) srange'; mk_stmt Universal.Heap.Recency.S_perform_gc srange'], [])
+         S_block ([mk_stmt ~ssynthetic:false (Universal.Ast.S_expression (from_exp e)) srange'; mk_stmt ~ssynthetic:false Universal.Heap.Recency.S_perform_gc srange'], [])
        else Universal.Ast.S_expression (from_exp e)
 
     | S_assign (x, e) ->
@@ -232,12 +243,12 @@ and from_stmt (stmt: Mopsa_py_parser.Ast.stmt) : stmt =
 
 
   in
-  {skind = skind'; srange = srange'}
+  {skind = skind'; srange = srange'; ssynthetic = false}
 
 (** Translate an optional statement into en eventual empty one *)
 and from_stmt_option : Location.range -> Mopsa_py_parser.Ast.stmt option -> stmt
   = fun none_case_range -> function
-    | None -> {skind = S_block ([],[]); srange = none_case_range}
+    | None -> {skind = S_block ([],[]); srange = none_case_range; ssynthetic=false }
     | Some s -> from_stmt s
 
 and from_exp_option : Mopsa_py_parser.Ast.expr option -> expr option
@@ -254,11 +265,11 @@ and from_exp exp =
       (T_py None)
 
     | E_true ->
-      E_constant (Universal.Ast.C_bool true),
+      E_constant (C_bool true),
       (T_py None)
 
     | E_false ->
-      E_constant (Universal.Ast.C_bool false),
+      E_constant (C_bool false),
       (T_py None)
 
     | E_none ->
@@ -421,7 +432,7 @@ and from_exp exp =
 
 
   in
-  mk_expr ekind ~etyp exp.erange
+  mk_expr ekind ~esynthetic:false ~etyp exp.erange
 
 
 and from_binop : Mopsa_py_parser.Ast.binop -> operator = function
@@ -525,4 +536,5 @@ let () =
   register_frontend {
     lang = "python";
     parse = parse_program;
+    on_panic = fun _ _ _ -> ();
   }

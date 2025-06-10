@@ -58,6 +58,7 @@ let constraints_of_itv var (itv : int_itv) range : expr =
   | Nb _ -> mk_true range
   | BOT -> assert false
 
+
 (** {2 Integer intervals with congruence} *)
 (** ************************************* *)
 
@@ -83,7 +84,7 @@ let () =
   register_shared_option rounding_option_name {
     key = "-float-rounding-mode";
     category = "Numeric";
-    spec = ArgExt.Symbol (
+    spec = Symbol (
         ["near"; "zero"; "up"; "down"; "rnd"],
         (function
           | "near" -> opt_float_rounding := Apron.Texpr1.Near

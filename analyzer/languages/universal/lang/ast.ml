@@ -36,7 +36,6 @@ type float_prec =
   | F_REAL        (** no rounding, abstracted as double *)
 
 type typ +=
-  | T_bool (** Boolean *)
   | T_int (** Mathematical integers with arbitrary precision. *)
   | T_float of float_prec (** Floating-point real numbers. *)
   | T_string (** Strings. *)
@@ -69,7 +68,6 @@ let () =
     print = (fun default fmt typ ->
         match typ with
         | T_unit -> pp_print_string fmt "unit"
-        | T_bool -> pp_print_string fmt "bool"
         | T_int -> pp_print_string fmt "int"
         | T_float p -> pp_float_prec fmt p
         | T_string -> pp_print_string fmt "string"
@@ -86,7 +84,6 @@ let () =
 
 type constant +=
   | C_unit
-  | C_bool of bool
   | C_int of Z.t (** Integer numbers, with arbitrary precision. *)
   | C_float of float (** Floating-point numbers. *)
   | C_string of string (** String constants. *)
@@ -116,7 +113,6 @@ let () =
 
     print = (fun default fmt -> function
         | C_unit -> fprintf fmt "()"
-        | C_bool(b) -> fprintf fmt "%a" Format.pp_print_bool b
         | C_string(s) -> fprintf fmt "\"%s\"" s
         | C_int(n) -> Z.pp_print fmt n
         | C_float(f) -> pp_print_float fmt f
@@ -224,7 +220,7 @@ type fundec = {
   fun_locvars : var list; (** list of local variables *)
   mutable fun_body: stmt; (** body of the function *)
   fun_return_type: typ option; (** return type *)
-  fun_return_var: var; (** variable storing the return value *)
+  fun_return_var: var option; (** variable storing the return value *)
 }
 
 type fun_builtin =
@@ -551,68 +547,68 @@ let rec is_universal_type t =
 
   | _ -> false
 
-let mk_int i ?(typ=T_int) erange =
-  mk_constant ~etyp:typ (C_int (Z.of_int i)) erange
+let mk_int ?esynthetic i ?(typ=T_int) erange =
+  mk_constant ?esynthetic ~etyp:typ (C_int (Z.of_int i)) erange
 
-let mk_z i ?(typ=T_int) erange =
-  mk_constant ~etyp:typ (C_int i) erange
+let mk_z ?esynthetic i ?(typ=T_int) erange =
+  mk_constant ?esynthetic ~etyp:typ (C_int i) erange
 
-let mk_float ?(prec=F_DOUBLE) f erange =
-  mk_constant ~etyp:(T_float prec) (C_float f) erange
+let mk_float ?esynthetic ?(prec=F_DOUBLE) f erange =
+  mk_constant ?esynthetic ~etyp:(T_float prec) (C_float f) erange
 
-let mk_int_interval a b ?(typ=T_int) range =
-  mk_constant ~etyp:typ (C_int_interval (ItvUtils.IntBound.of_int a, ItvUtils.IntBound.of_int b)) range
+let mk_int_interval ?esynthetic a b ?(typ=T_int) range =
+  mk_constant ?esynthetic ~etyp:typ (C_int_interval (ItvUtils.IntBound.of_int a, ItvUtils.IntBound.of_int b)) range
 
-let mk_int_general_interval a b ?(typ=T_int) range =
-  mk_constant ~etyp:typ (C_int_interval (a, b)) range
+let mk_int_general_interval ?esynthetic a b ?(typ=T_int) range =
+  mk_constant ?esynthetic ~etyp:typ (C_int_interval (a, b)) range
 
-let mk_z_interval a b ?(typ=T_int) range =
-  mk_constant ~etyp:typ (C_int_interval (ItvUtils.IntBound.Finite a, ItvUtils.IntBound.Finite b)) range
+let mk_z_interval ?esynthetic a b ?(typ=T_int) range =
+  mk_constant ?esynthetic ~etyp:typ (C_int_interval (ItvUtils.IntBound.Finite a, ItvUtils.IntBound.Finite b)) range
 
-let mk_float_interval ?(prec=F_DOUBLE) a b range =
-  mk_constant ~etyp:(T_float prec) (C_float_interval (a, b)) range
+let mk_float_interval ?esynthetic ?(prec=F_DOUBLE) a b range =
+  mk_constant ?esynthetic ~etyp:(T_float prec) (C_float_interval (a, b)) range
 
-let mk_string ?(etyp=T_string) s =
-  mk_constant ~etyp:etyp (C_string s)
+let mk_string ?esynthetic ?(etyp=T_string) s =
+  mk_constant ?esynthetic ~etyp:etyp (C_string s)
 
-let mk_in ?(strict = false) ?(left_strict = false) ?(right_strict = false) ?(etyp=T_bool) v e1 e2 erange =
+let mk_in ?esynthetic ?(strict = false) ?(left_strict = false) ?(right_strict = false) ?(etyp=T_bool) v e1 e2 erange =
   match strict, left_strict, right_strict with
   | true, _, _
   | false, true, true ->
-    mk_binop
-      (mk_binop e1 O_lt v ~etyp erange)
+    mk_binop ?esynthetic
+      (mk_binop ?esynthetic e1 O_lt v ~etyp erange)
       O_log_and
-      (mk_binop v O_lt e2 ~etyp erange)
+      (mk_binop ?esynthetic v O_lt e2 ~etyp erange)
       ~etyp
       erange
 
   | false, true, false ->
-    mk_binop
-      (mk_binop e1 O_lt v ~etyp erange)
+    mk_binop ?esynthetic
+      (mk_binop ?esynthetic e1 O_lt v ~etyp erange)
       O_log_and
-      (mk_binop v O_le e2 ~etyp erange)
+      (mk_binop ?esynthetic v O_le e2 ~etyp erange)
       ~etyp
       erange
 
   | false, false, true ->
-    mk_binop
-      (mk_binop e1 O_le v ~etyp erange)
+    mk_binop ?esynthetic
+      (mk_binop ?esynthetic e1 O_le v ~etyp erange)
       O_log_and
-      (mk_binop v O_lt e2 ~etyp erange)
+      (mk_binop ?esynthetic v O_lt e2 ~etyp erange)
       ~etyp
       erange
 
   | false, false, false ->
-    mk_binop
-      (mk_binop e1 O_le v ~etyp erange)
+    mk_binop ?esynthetic
+      (mk_binop ?esynthetic e1 O_le v ~etyp erange)
       O_log_and
-      (mk_binop v O_le e2 ~etyp erange)
+      (mk_binop ?esynthetic v O_le e2 ~etyp erange)
       ~etyp
       erange
 
-let mk_zero = mk_int 0
-let mk_one = mk_int 1
-let mk_minus_one = mk_int (-1)
+let mk_zero ?esynthetic = mk_int ?esynthetic 0
+let mk_one ?esynthetic = mk_int ?esynthetic 1
+let mk_minus_one ?esynthetic = mk_int ?esynthetic (-1)
 
 let universal_constants_range = tag_range (mk_fresh_range ()) "universal-constants"
 
@@ -623,25 +619,25 @@ let minus_one = mk_minus_one universal_constants_range
 let of_z = mk_z
 let of_int = mk_int
 
-let add e1 e2 ?(typ=e1.etyp) range = mk_binop e1 O_plus e2 range ~etyp:typ
-let sub e1 e2 ?(typ=e1.etyp) range = mk_binop e1 O_minus e2 range ~etyp:typ
-let mul e1 e2 ?(typ=e1.etyp) range = mk_binop e1 O_mult e2 range ~etyp:typ
-let div e1 e2 ?(typ=e1.etyp) range = mk_binop e1 O_div e2 range ~etyp:typ
-let ediv e1 e2 ?(typ=e1.etyp) range = mk_binop e1 O_ediv e2 range ~etyp:typ
-let _mod_ e1 e2 ?(typ=e1.etyp) range = mk_binop e1 O_mod e2 range ~etyp:typ
-let erem e1 e2 ?(typ=e1.etyp) range = mk_binop e1 O_erem e2 range ~etyp:typ
+let add ?esynthetic e1 e2 ?(typ=e1.etyp) range = mk_binop ?esynthetic e1 O_plus e2 range ~etyp:typ
+let sub ?esynthetic e1 e2 ?(typ=e1.etyp) range = mk_binop ?esynthetic e1 O_minus e2 range ~etyp:typ
+let mul ?esynthetic e1 e2 ?(typ=e1.etyp) range = mk_binop ?esynthetic e1 O_mult e2 range ~etyp:typ
+let div ?esynthetic e1 e2 ?(typ=e1.etyp) range = mk_binop ?esynthetic e1 O_div e2 range ~etyp:typ
+let ediv ?esynthetic e1 e2 ?(typ=e1.etyp) range = mk_binop ?esynthetic e1 O_ediv e2 range ~etyp:typ
+let _mod_ ?esynthetic e1 e2 ?(typ=e1.etyp) range = mk_binop ?esynthetic e1 O_mod e2 range ~etyp:typ
+let erem ?esynthetic e1 e2 ?(typ=e1.etyp) range = mk_binop ?esynthetic e1 O_erem e2 range ~etyp:typ
 
-let succ e range = add e one range
-let pred e range = sub e one range
+let succ ?esynthetic e range = add ?esynthetic e one range
+let pred ?esynthetic e range = sub ?esynthetic e one range
 let mk_succ = succ
 let mk_pred = pred
 
-let eq e1 e2 ?(etyp=T_bool) range = mk_binop e1 O_eq e2 ~etyp range
-let ne e1 e2 ?(etyp=T_bool) range = mk_binop e1 O_ne e2 ~etyp range
-let lt e1 e2 ?(etyp=T_bool) range = mk_binop e1 O_lt e2 ~etyp range
-let le e1 e2 ?(etyp=T_bool) range = mk_binop e1 O_le e2 ~etyp range
-let gt e1 e2 ?(etyp=T_bool) range = mk_binop e1 O_gt e2 ~etyp range
-let ge e1 e2 ?(etyp=T_bool) range = mk_binop e1 O_ge e2 ~etyp range
+let eq ?esynthetic e1 e2 ?(etyp=T_bool) range = mk_binop ?esynthetic e1 O_eq e2 ~etyp range
+let ne ?esynthetic e1 e2 ?(etyp=T_bool) range = mk_binop ?esynthetic e1 O_ne e2 ~etyp range
+let lt ?esynthetic e1 e2 ?(etyp=T_bool) range = mk_binop ?esynthetic e1 O_lt e2 ~etyp range
+let le ?esynthetic e1 e2 ?(etyp=T_bool) range = mk_binop ?esynthetic e1 O_le e2 ~etyp range
+let gt ?esynthetic e1 e2 ?(etyp=T_bool) range = mk_binop ?esynthetic e1 O_gt e2 ~etyp range
+let ge ?esynthetic e1 e2 ?(etyp=T_bool) range = mk_binop ?esynthetic e1 O_ge e2 ~etyp range
 let mk_eq = eq
 let mk_ne = ne
 let mk_lt = lt
@@ -649,9 +645,9 @@ let mk_le = le
 let mk_gt = gt
 let mk_ge = ge
 
-let log_or e1 e2 ?(etyp=T_bool) range = mk_binop e1 O_log_or e2 ~etyp range
-let log_and e1 e2 ?(etyp=T_bool) range = mk_binop e1 O_log_and e2 ~etyp range
-let log_xor e1 e2 ?(etyp=T_bool) range = mk_binop e1 O_log_xor e2 ~etyp range
+let log_or ?esynthetic e1 e2 ?(etyp=T_bool) range = mk_binop ?esynthetic e1 O_log_or e2 ~etyp range
+let log_and ?esynthetic e1 e2 ?(etyp=T_bool) range = mk_binop ?esynthetic e1 O_log_and e2 ~etyp range
+let log_xor ?esynthetic e1 e2 ?(etyp=T_bool) range = mk_binop ?esynthetic e1 O_log_xor e2 ~etyp range
 let mk_log_or = log_or
 let mk_log_and = log_and
 let mk_log_xor = log_xor
@@ -668,17 +664,17 @@ let float_valid   = float_class ~valid:true ()
 let float_inf     = float_class ~inf:true ()
 let float_nan     = float_class ~nan:true ()
 
-let mk_float_class (c:float_class) e range =
-  mk_unop (O_float_class c) e ~etyp:T_bool range
+let mk_float_class ?esynthetic (c:float_class) e range =
+  mk_unop ?esynthetic (O_float_class c) e ~etyp:T_bool range
 
-let mk_filter_float_class (c:float_class) e range =
-  mk_unop (O_filter_float_class c) e ~etyp:(etyp e) range
+let mk_filter_float_class ?esynthetic (c:float_class) e range =
+  mk_unop ?esynthetic (O_filter_float_class c) e ~etyp:(etyp e) range
 
-let mk_unit range = mk_constant C_unit ~etyp:T_unit range
+let mk_unit ?esynthetic range = mk_constant ?esynthetic C_unit ~etyp:T_unit range
 
-let mk_bool b range = mk_constant ~etyp:T_bool (C_bool b) range
-let mk_true = mk_bool true
-let mk_false = mk_bool false
+let mk_bool ?esynthetic b range = mk_constant ?esynthetic ~etyp:T_bool (C_bool b) range
+let mk_true ?esynthetic = mk_bool ?esynthetic true
+let mk_false ?esynthetic = mk_bool ?esynthetic false
 
 let is_int_type = function
   | T_int | T_bool -> true
@@ -700,45 +696,45 @@ let is_predicate_op = function
   | O_float_class _ -> true
   | _ -> false
 
-let mk_assert e range =
-  mk_stmt (S_assert e) range
+let mk_assert ?ssynthetic e range =
+  mk_stmt ?ssynthetic (S_assert e) range
 
-let mk_satisfy e range =
-  mk_stmt (S_satisfy e) range
+let mk_satisfy ?ssynthetic e range =
+  mk_stmt ?ssynthetic (S_satisfy e) range
 
-let mk_block block ?(vars=[]) range = mk_stmt (S_block (block,vars)) range
+let mk_block ?ssynthetic block ?(vars=[]) range = mk_stmt ?ssynthetic (S_block (block,vars)) range
 
-let mk_nop range = mk_block [] range
+let mk_nop ?ssynthetic range = mk_block ?ssynthetic [] range
 
-let mk_if cond body orelse range =
-  mk_stmt (S_if (cond, body, orelse)) range
+let mk_if ?ssynthetic cond body orelse range =
+  mk_stmt ?ssynthetic (S_if (cond, body, orelse)) range
 
-let mk_while cond body range =
-  mk_stmt (S_while (cond, body)) range
+let mk_while ?ssynthetic cond body range =
+  mk_stmt ?ssynthetic (S_while (cond, body)) range
 
-let mk_call fundec args range =
-  mk_expr
+let mk_call ?esynthetic fundec args range =
+  mk_expr ?esynthetic
     (E_call (
-        mk_expr (E_function (User_defined fundec)) range,
+        mk_expr ?esynthetic (E_function (User_defined fundec)) range,
         args
       ))
     ~etyp:(match fundec.fun_return_type with None -> T_any | Some t -> t)
     range
 
-let mk_expr_stmt e =
-  mk_stmt (S_expression e)
+let mk_expr_stmt ?ssynthetic e =
+  mk_stmt ?ssynthetic (S_expression e)
 
-let mk_free addr range =
-  mk_stmt (S_free addr) range
+let mk_free ?ssynthetic addr range =
+  mk_stmt ?ssynthetic (S_free addr) range
 
-let mk_remove_addr a range =
-  mk_remove (mk_addr a range) range
+let mk_remove_addr ?ssynthetic a range =
+  mk_remove ?ssynthetic (mk_addr a range) range
 
-let mk_invalidate_addr a range =
-  mk_invalidate (mk_addr a range) range
+let mk_invalidate_addr ?ssynthetic a range =
+  mk_invalidate ?ssynthetic (mk_addr a range) range
 
-let mk_rename_addr a1 a2 range =
-  mk_rename (mk_addr a1 range) (mk_addr a2 range) range
+let mk_rename_addr ?ssynthetic a1 a2 range =
+  mk_rename ?ssynthetic (mk_addr a1 range) (mk_addr a2 range) range
 
 let mk_expand_addr a al range =
   mk_expand (mk_addr a range) (List.map (fun aa -> mk_addr aa range) al) range

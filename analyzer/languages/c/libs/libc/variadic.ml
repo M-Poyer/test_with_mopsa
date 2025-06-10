@@ -112,7 +112,7 @@ struct
   (** {2 Transfer functions} *)
   (** ====================== *)
 
-  let init _ _ flow =  flow
+  let init _ _ flow = None
 
   let exec stmt man flow = None
 
@@ -238,7 +238,7 @@ struct
             raise_c_out_bound_alarm (mk_var_base ap) (mk_z base_size range) offset (under_type ap.vtyp) range man flow eflow |>
             Cases.empty
           )
-        ~route:universal
+        
         man flow
 
     | _ -> panic_at range "resolve_va_list: pointed object %a not supported" pp_points_to pt
@@ -321,7 +321,7 @@ struct
           let flow' = raise_c_insufficient_variadic_args va_list counter typs range man flow eflow in
           Eval.empty flow'
         )
-      ~route:universal
+      
       man flow
 
 

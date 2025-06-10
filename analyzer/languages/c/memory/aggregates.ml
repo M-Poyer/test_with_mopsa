@@ -61,7 +61,7 @@ struct
   let () = register_domain_option name {
       key  = "-c-init-memset-threshold";
       doc  = " Size threshold (in bytes) for using memset to initialize memory blocks instead of a sequence of assignments";
-      spec = ArgExt.Set_int opt_init_memset_threshold;
+      spec = Set_int (opt_init_memset_threshold, ArgExt.empty);
       category = "C";
       default = string_of_int !opt_init_memset_threshold;
     }
@@ -70,7 +70,7 @@ struct
   (** {2 Initialization procedure} *)
   (** ============================ *)
 
-  let init _ _ flow = flow
+  let init _ _ flow = None
 
 
   (** {2 Syntactic simplifications} *)

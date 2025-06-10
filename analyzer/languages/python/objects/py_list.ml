@@ -34,7 +34,7 @@ open Sig.Abstraction.Stateless
 open Ast
 open Addr
 open Universal.Ast
-open Callstack
+open ControlCtx
 open Data_container_utils
 
 let name = "python.objects.list"
@@ -100,7 +100,7 @@ struct
 
   let checks = []
 
-  let init (prog:program) man flow = flow
+  let init (prog:program) man flow = None
 
   let itindex_var_of_addr a =
     let v = match akind a with

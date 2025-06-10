@@ -37,6 +37,8 @@ module Visitor = Framework.Core.Ast.Visitor
 
 include Location
 
+include ControlCtx
+
 include Callstack
 
 include Framework.Params.Options

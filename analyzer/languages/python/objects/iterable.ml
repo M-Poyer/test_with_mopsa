@@ -24,7 +24,7 @@ open Sig.Abstraction.Stateless
 open Ast
 open Addr
 open Universal.Ast
-open Callstack
+open ControlCtx
 open Data_container_utils
 open Py_list
 
@@ -38,7 +38,7 @@ struct
   let checks = []
 
   let init (prog:program) man flow =
-    flow
+    None
 
   let eval exp man flow =
     let range = erange exp in

@@ -47,7 +47,7 @@ struct
       key = "-flamegraph";
       category = "Profiling";
       doc = " path where flame graphs samples are saved";
-      spec = ArgExt.Set_string opt_flame_graph_path;
+      spec = Set_string (opt_flame_graph_path,ArgExt.empty);
       default = "";
     }
 
@@ -59,7 +59,7 @@ struct
       key = "-flamegraph-resolution";
       category = "Profiling";
       doc = " resolution of the flame graph samples";
-      spec = ArgExt.Symbol (["s"; "ms"; "us"; "ns"], (fun r -> opt_flame_graph_resolution := r));
+      spec = Symbol (["s"; "ms"; "us"; "ns"], (fun r -> opt_flame_graph_resolution := r));
       default = "ms";
     }
 
@@ -208,7 +208,7 @@ struct
   let on_before_eval route semantic exp man flow = ()
 
   let on_after_eval route semantic exp man flow eval =
-    observe_callstack (Cases.get_ctx eval |> find_ctx Context.callstack_ctx_key) exp.erange
+    observe_callstack (Cases.get_callstack eval) exp.erange
 
   let on_finish man flow =
     let t = Sys.time () in

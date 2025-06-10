@@ -23,12 +23,12 @@ authors: [
   "Jérôme Boillot"
 ]
 license: "LGPL-3.0-or-later"
-homepage: "https://gitlab.com/mopsa/mopsa-analyzer"
+homepage: "https://mopsa.lip6.fr"
 doc: "https://mopsa.gitlab.io/mopsa-analyzer/user-manual/"
 bug-reports: "https://gitlab.com/mopsa/mopsa-analyzer/issues"
-dev-repo: "https://gitlab.com/mopsa/mopsa-analyzer"
+dev-repo: "git+https://gitlab.com/mopsa/mopsa-analyzer.git"
 depends: [
-  "ocaml" {>= "4.12.0"}
+  "ocaml" {>= "4.13.0"}
   "dune" {>= "3.7"}
   "ocamlfind"
   "apron" {>= "0.9.15"}
@@ -37,6 +37,8 @@ depends: [
   "yojson" {>= "1.6.0"}
   "zarith" {>= "1.10"}
   "odoc" {with-doc}
+  "arg-complete" {>= "0.2.1"}
+  "qcheck-core"
 ]
 depopts: ["elina"]
 available: [!(arch = "x86_32") & !(os-family = "windows") & opam-version >= "2.1.0"]
@@ -77,7 +79,15 @@ depexts: [
     {os-distribution = "opensuse-tumbleweed"}
   ["clang" "clang-devel" "llvm" "llvm-devel" "mpfr-devel"]
     {os-distribution = "opensuse-leap"}
-  ["sys-devel/clang"] {os-distribution = "gentoo"}
+  ["llvm-core/clang"] {os-distribution = "gentoo"}
   ["llvm"] {os = "macos"}
   ["devel/llvm"] {os = "freebsd"}
 ]
+x-maintenance-intent: ["(latest)"]
+post-messages: [
+  "Mopsa installed.
+
+If you want to enable **bash completion features**, please:
+1. Install bash-completion, if you do not have it already
+2. echo \"source $OPAM_SWITCH_PREFIX/share/bash_completion/completions/mopsa-completion\" >> ~/.bash_completion
+"]

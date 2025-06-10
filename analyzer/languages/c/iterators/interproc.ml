@@ -41,7 +41,7 @@ let () =
     key="-error-is-builtin";
     category = "C";
     doc = "assume error function corresponds to the builtin";
-    spec = ArgExt.Bool (fun b -> opt_error_builtin := b);
+    spec = Bool (fun b -> opt_error_builtin := b);
     default = "true"
   }
 
@@ -91,7 +91,8 @@ struct
         let () = Hashtbl.add Common.Builtins.builtin_functions "error" () in
         Hashtbl.add Common.Builtins.builtin_functions "error_at" ()
     in
-    set_env T_cur empty man flow
+    set_env T_cur empty man flow |>
+    Option.some
 
 
   (** {2 Computation of post-conditions} *)
@@ -123,7 +124,7 @@ struct
   let is_recursive_call f range flow =
     let f_orig = f.c_func_org_name in
     let f_uniq = f.c_func_unique_name in
-    let cs = Callstack.push_callstack f_orig ~uniq:f_uniq range (Flow.get_callstack flow) in
+    let cs = push_callstack f_orig ~uniq:f_uniq range (Flow.get_callstack flow) in
     Universal.Iterators.Interproc.Common.check_recursion f_orig f_uniq range cs
 
   let is_local_scope = function
@@ -310,7 +311,7 @@ struct
     match ekind e with
     | E_addr (addr, _) ->
       (* add the resource to local state *)
-      let flow = map_env T_cur (add addr) man flow in
+      map_env T_cur (add addr) man flow >>% fun flow ->
       (* add the address to memory state *)
       man.exec (mk_add e range) flow >>% fun flow ->
       (* set the size of the resource *)
@@ -366,7 +367,7 @@ struct
 
   (** Eval a function call *)
   let eval_call fundec args range man flow =
-    let fundec_has_been_modified = ref false in 
+    let fundec_has_been_modified = ref false in
     if List.length args > 0 && List.length fundec.c_func_parameters > 0 then
       debug "%s %a %a" fundec.c_func_org_name pp_typ (List.hd fundec.c_func_parameters).vtyp pp_typ (List.hd args).etyp;
     if fundec.c_func_org_name = "__builtin_alloca" then
@@ -395,7 +396,19 @@ struct
     else
       (* save the alloca resources of the caller before resetting it *)
       let caller_alloca_addrs = get_env T_cur man flow in
-      let flow = set_env T_cur empty man flow in
+      (* if the environment is paritiotione, we need to collapse addresses from
+       * all paritions, since we can't keep a relation between the partitions
+       * before calling the function and the paritions after the return *)
+      let caller_alloca_addrs = Cases.reduce_result
+          (fun addrs _ -> addrs) caller_alloca_addrs
+          ~join:AddrSet.join
+          ~meet:AddrSet.meet
+          ~bottom:(fun () -> AddrSet.bottom)
+      in
+      (* Empty alloca before the call. Note that we can't use the bind operator
+       * [>>%] here to avoid calling the body of the function in every
+       * partition *)
+      let flow = set_env_flow T_cur empty man flow in
       let ret =
         (* Process arguments by evaluating function calls *)
         eval_calls_in_args args man flow >>$ fun args flow ->
@@ -413,11 +426,11 @@ struct
         )
         else
          let is_modified, fundec = rename_variables_in_fundec (Flow.get_callstack flow) fundec in
-         let () = fundec_has_been_modified := is_modified in 
+         let () = fundec_has_been_modified := is_modified in
          let flow =
-           if !fundec_has_been_modified then 
+           if !fundec_has_been_modified then
            (* after fundec renaming, we save the updated program in the context for the interactive engine *)
-             let old_c_program = get_c_program flow in 
+             let old_c_program = get_c_program flow in
              let new_c_program =
                {old_c_program with
                 c_functions = fundec :: old_c_program.c_functions } in
@@ -426,14 +439,13 @@ struct
          match fundec with
          | {c_func_body = Some body; c_func_stub = None; c_func_variadic = false} ->
            let open Universal.Ast in
-           let ret_var = mktmp ~typ:fundec.c_func_return () in
            let body' =
              if exists_stmt
                  (fun e -> false)
                  (fun s -> match skind s with S_c_goto _ -> true | _ -> false)
                  body
              then
-               {skind = S_c_goto_stab (body); srange = tag_range (srange body) "goto-stabilization"}
+               {skind = S_c_goto_stab (body); srange = tag_range (srange body) "goto-stabilization"; ssynthetic=true }
              else body
            in
            let fundec' = {
@@ -449,7 +461,7 @@ struct
                 removed twice. *)
              fun_body = body';
              fun_return_type = if is_c_void_type fundec.c_func_return then None else Some fundec.c_func_return;
-             fun_return_var = ret_var;
+             fun_return_var = None;
              fun_range = fundec.c_func_range;
            }
            in
@@ -492,12 +504,12 @@ struct
           (* we updated the program before analyzing the renamed function, we can now get rid of it *)
           let c_program = get_c_program flow in
           set_c_program {c_program with c_functions = List.tl c_program.c_functions} flow
-        else flow in 
-      let callee_alloca_addrs = get_env T_cur man flow in
-      let flow = set_env T_cur caller_alloca_addrs man flow in
+        else flow in
+      get_env T_cur man flow >>$ fun callee_addrs flow ->
+      let flow = set_env_flow T_cur caller_alloca_addrs man flow in
       AddrSet.fold
         (fun addr acc -> acc >>% man.exec (mk_stub_free (mk_addr addr range) range))
-        callee_alloca_addrs (Post.return flow)
+        callee_addrs (Post.return flow)
       >>% fun flow ->
       Eval.singleton e flow
 
@@ -520,7 +532,7 @@ struct
         man.eval (mk_top (under_type p.etyp) range) flow
 
     | P_null ->
-      Common.Alarms.raise_c_null_deref_alarm p man flow |> Eval.empty 
+      Common.Alarms.raise_c_null_deref_alarm p man flow |> Eval.empty
 
     | _ ->
       panic_at range

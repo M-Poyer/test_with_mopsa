@@ -44,8 +44,10 @@ struct
     match prog.prog_kind with
     | Py_program (name, globals, body) ->
        debug "globals = %a" (Format.pp_print_list pp_var) globals;
-       set_py_program (name, globals, body) flow
-    | _ -> flow
+       set_py_program (name, globals, body) flow |>
+       Post.return |>
+       Option.some
+    | _ -> None
 
   let eval _ _ _ = None
 
@@ -113,7 +115,7 @@ struct
   let mk_py_unit_tests tests range =
     let tests =
       tests |> List.map (fun test ->
-          (get_orig_vname test.py_func_var, {skind = S_expression (mk_py_call (mk_var test.py_func_var range) [] range); srange = range})
+          (get_orig_vname test.py_func_var, {skind = S_expression (mk_py_call (mk_var test.py_func_var range) [] range); srange = range; ssynthetic=true})
         )
     in
     mk_stmt (Universal.Ast.S_unit_tests (tests)) range
@@ -214,7 +216,7 @@ struct
        (try
          let allvars =
            List.fold_left (fun acc call ->
-               (get_locals body call.Callstack.call_fun_orig_name) @ acc
+               (get_locals body call.call_fun_orig_name) @ acc
              ) globals cs
          in
          Some (Cases.singleton allvars flow)

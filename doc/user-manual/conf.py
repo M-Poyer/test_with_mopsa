@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = 'Mopsa User Manual'
-copyright = '2020, Matthieu Journault, Antoine Miné, Raphël Monat, Abdelraouf Ouadjaout'
+copyright = '2020-..., Matthieu Journault, Antoine Miné, Raphël Monat, Abdelraouf Ouadjaout'
 author = 'M. Journault, A. Miné, R. Monat, A. Ouadjaout'
 
 
@@ -55,6 +55,9 @@ html_theme = 'sphinx_rtd_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
+html_css_files = [
+    'custom.css',
+]
 
 # Enable TODOs
 todo_include_todos = False

@@ -32,6 +32,7 @@ type stmt_kind = ..
 type stmt = {
   skind : stmt_kind;
   srange : Location.range;
+  ssynthetic : bool;
 }
 
 type stmt_kind +=
@@ -53,6 +54,7 @@ type block = stmt list
 
 let skind (stmt: stmt) = stmt.skind
 let srange (stmt: stmt) = stmt.srange
+let ssynthetic (stmt: stmt) = stmt.ssynthetic
 
 let stmt_compare_chain = TypeExt.mk_compare_chain (fun s1 s2 ->
     match skind s1, skind s2 with
@@ -142,14 +144,10 @@ let stmt_pp_chain = TypeExt.mk_print_chain (fun fmt stmt ->
 
 
 let pp_stmt fmt stmt =
-  Var.print_uniq_with_uid := false;
-  TypeExt.print stmt_pp_chain fmt stmt;
-  Var.print_uniq_with_uid := true
+  Var.force_print_uniq_with_uid false (fun () -> TypeExt.print stmt_pp_chain fmt stmt)
 
 let pp_stmt_with_range fmt stmt =
-  Var.print_uniq_with_uid := false;
-  Format.fprintf fmt "%a@%a" (TypeExt.print stmt_pp_chain) stmt Location.pp_range stmt.srange;
-  Var.print_uniq_with_uid := true
+  Var.force_print_uniq_with_uid false (fun () -> Format.fprintf fmt "%a@%a" (TypeExt.print stmt_pp_chain) stmt Location.pp_range stmt.srange)
 
 let pp_block fmt (block:block) =
   fprintf fmt "@[<v>";
@@ -185,67 +183,67 @@ let () = register_stmt {
       )
   }
 
-let mk_stmt skind srange = {skind; srange}
+let mk_stmt ?(ssynthetic=true) skind srange = {skind; srange; ssynthetic}
 
-let mk_rename v v' =
-  mk_stmt (S_rename (v, v'))
+let mk_rename ?ssynthetic v v' =
+  mk_stmt ?ssynthetic (S_rename (v, v'))
 
-let mk_assign v e =
-  mk_stmt (S_assign (v, e))
+let mk_assign ?ssynthetic v e =
+  mk_stmt ?ssynthetic (S_assign (v, e))
 
-let mk_assume e =
-  mk_stmt (S_assume e)
+let mk_assume ?ssynthetic e =
+  mk_stmt ?ssynthetic (S_assume e)
 
-let mk_remove v = mk_stmt (S_remove v)
+let mk_remove ?ssynthetic v = mk_stmt ?ssynthetic (S_remove v)
 
-let mk_remove_var v range =
-  mk_remove (mk_var v range) range
+let mk_remove_var ?ssynthetic v range =
+  mk_remove ?ssynthetic (mk_var v range) range
 
-let mk_invalidate v = mk_stmt (S_invalidate v)
+let mk_invalidate ?ssynthetic v = mk_stmt ?ssynthetic (S_invalidate v)
 
-let mk_invalidate_var v range =
-  mk_invalidate (mk_var v range) range
+let mk_invalidate_var ?ssynthetic v range =
+  mk_invalidate ?ssynthetic (mk_var v range) range
 
-let mk_add v = mk_stmt (S_add v)
+let mk_add ?ssynthetic v = mk_stmt ?ssynthetic (S_add v)
 
-let mk_add_var v range =
-  mk_add (mk_var v range) range
+let mk_add_var ?ssynthetic v range =
+  mk_add ?ssynthetic (mk_var v range) range
 
-let mk_rename e e' range =
-  mk_stmt (S_rename (e, e')) range
+let mk_rename ?ssynthetic e e' range =
+  mk_stmt ?ssynthetic (S_rename (e, e')) range
 
-let mk_rename_var v v' range =
-  mk_rename (mk_var v range) (mk_var v' range) range
+let mk_rename_var ?ssynthetic v v' range =
+  mk_rename ?ssynthetic (mk_var v range) (mk_var v' range) range
 
-let mk_project vars = mk_stmt (S_project vars)
+let mk_project ?ssynthetic vars = mk_stmt ?ssynthetic (S_project vars)
 
-let mk_project_vars vars range =
-  mk_project (List.map (fun v -> mk_var v range) vars) range
+let mk_project_vars ?ssynthetic vars range =
+  mk_project ?ssynthetic (List.map (fun v -> mk_var v range) vars) range
 
-let mk_forget e = mk_stmt (S_forget e)
+let mk_forget ?ssynthetic e = mk_stmt ?ssynthetic (S_forget e)
 
-let mk_forget_var v range = mk_forget (mk_var v range) range
+let mk_forget_var ?ssynthetic v range = mk_forget ?ssynthetic (mk_var v range) range
 
-let mk_expand v vl range =
-  mk_stmt (S_expand(v, vl)) range
+let mk_expand ?ssynthetic v vl range =
+  mk_stmt ?ssynthetic (S_expand(v, vl)) range
 
-let mk_expand_var v vl range =
-  mk_expand
+let mk_expand_var ?ssynthetic v vl range =
+  mk_expand ?ssynthetic
     (mk_var v range)
     (List.map (fun v' -> mk_var v' range) vl)
     range
 
-let mk_fold v vl range =
-  mk_stmt (S_fold(v, vl)) range
+let mk_fold ?ssynthetic v vl range =
+  mk_stmt ?ssynthetic (S_fold(v, vl)) range
 
-let mk_fold_var v vl range =
-  mk_fold
+let mk_fold_var ?ssynthetic v vl range =
+  mk_fold ?ssynthetic
     (mk_var v range)
     (List.map (fun v' -> mk_var v' range) vl)
     range
 
-let mk_breakpoint b range =
-  mk_stmt (S_breakpoint b) range
+let mk_breakpoint ?ssynthetic b range =
+  mk_stmt ?ssynthetic (S_breakpoint b) range
 
 module StmtSet = SetExt.Make(struct
     type t = stmt

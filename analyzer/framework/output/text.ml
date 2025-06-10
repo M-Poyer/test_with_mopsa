@@ -27,6 +27,7 @@ open Core.All
 open Location
 open Format
 open Callstack
+open ControlCtx
 open Common
 
 (** Command-line option to enable display of alarms call stacks *)
@@ -177,9 +178,10 @@ let pp_diagnostic out n diag callstacks kinds =
   let fun_name = match CallstackSet.choose callstacks with
     | c::_ -> Some c.call_fun_orig_name
     | _ -> None in
-  print out "@.%a Check #%d:%a@,@[<v 2>%a: %a: %a%a%a%a@]@.@."
+  let len = CallstackSet.cardinal callstacks in 
+  print out "@.%a Check%s:%a@,@[<v 2>%a: %a: %a%a%a%a@]@.@."
     (Debug.color_str (color_of_diag diag.diag_kind)) (icon_of_diag diag.diag_kind)
-    (n+1)
+    (if len <= 1 then Format.asprintf " #%d" (n+1) else Format.asprintf "s #%d-#%d" (n+1) (n+len))
     (fun fmt -> function
        | None -> ()
        | Some f ->
@@ -345,7 +347,7 @@ let report man flow ~time ~files ~out =
       ) (AssumptionSet.elements rep.report_assumptions)
 
 
-let panic exn ~btrace ~time ~files ~out =
+let panic exn ~btrace ~time ~files ~out continuation =
   print out "%a@." (Debug.color_str Debug.red) "Analysis aborted";
   let () =
     match exn with
@@ -355,8 +357,10 @@ let panic exn ~btrace ~time ~files ~out =
     | Exceptions.PanicAtLocation (range, msg, "") -> print out "panic in %a: %s@." Location.pp_range range msg
     | Exceptions.PanicAtLocation (range, msg, loc) -> print out "%a: panic raised in %s: %s@." Location.pp_range range loc msg
 
-    | Exceptions.PanicAtFrame (range, cs, msg, "") -> print out "panic in %a: %s@\nTrace:@\n%a@." Location.pp_range range msg pp_callstack cs
-    | Exceptions.PanicAtFrame (range, cs, msg, loc) -> print out "%a: panic raised in %s: %s@\nTrace:@\n%a@." Location.pp_range range loc msg pp_callstack cs
+    | Exceptions.PanicAtFrame (range, cs, msg, "") ->
+      print out "panic in %a: %s@\nTrace:@\n%a@." Location.pp_range range msg pp_control_ctx cs;
+
+    | Exceptions.PanicAtFrame (range, cs, msg, loc) -> print out "%a: panic raised in %s: %s@\nTrace:@\n%a@." Location.pp_range range loc msg pp_control_ctx cs
 
     | Exceptions.SyntaxError (range, msg) -> print out "%a: syntax error: %s@." Location.pp_range range msg
     | Exceptions.UnnamedSyntaxError range -> print out "%a: syntax error@." Location.pp_range range
@@ -379,7 +383,7 @@ let panic exn ~btrace ~time ~files ~out =
     if btrace = "" then ()
     else print out "Backtrace:@\n%s" btrace
   in
-  ()
+  continuation ()
 
 let group_args_by_category args =
   let sorted = List.sort (fun arg1 arg2 ->
@@ -408,7 +412,7 @@ let help (args:ArgExt.arg list) ~out =
       print out "  %s@." (String.uppercase_ascii cat);
       List.iter (fun arg ->
           match arg.spec with
-          | ArgExt.Symbol(l,_) ->
+          | Symbol(l,_) ->
             print out "    %s={%a} %s%a@."
               arg.key
               (pp_print_list
@@ -425,6 +429,10 @@ let help (args:ArgExt.arg list) ~out =
 let list_domains (domains:string list) ~out =
   print out "Domains:@.";
   List.iter (fun d -> print out "  %s@." d) domains
+
+let list_reductions (reductions:string list) ~out =
+  print out "Reductions:@.";
+  List.iter (fun d -> print out "  %s@." d) reductions
 
 let list_checks checks ~out =
   print out "Checks:@.";

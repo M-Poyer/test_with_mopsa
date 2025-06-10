@@ -22,7 +22,7 @@
 open Core.All
 open Mopsa_utils
 open Location
-open Callstack
+open ControlCtx
 open Interface
 open Format
 open Breakpoint
@@ -34,7 +34,7 @@ open Trace
 module Make(Toplevel : TOPLEVEL) =
 struct
 
-  let opt_show_var_scope = ref true 
+  let opt_show_var_scope = ref true
 
   (** Commands *)
   type terminal_command_kind =
@@ -347,6 +347,9 @@ struct
     | ["set"  |"s";  "script"| "s"; d] | ["sc"; d] -> Set (Script, d)
     | ["unset"|"u";  "script"| "s"] | ["uc"] -> Unset Script
 
+    | ["set"; "showvarscope" ] -> Set (ShowVarScope, "")
+    | ["unset"; "showvarscope"] -> Unset ShowVarScope
+
     | ["load"; "script"; s] | ["ls"; s] -> LoadScript s
 
     | ("print"    | "p") :: vars ->
@@ -452,7 +455,7 @@ struct
     if man.lattice.is_bottom (Flow.get T_cur man.lattice flow) then
       fprintf fmt "⊥@."
     else
-      let () = Ast.Var.print_uniq_with_uid := false in 
+      Ast.Var.force_print_uniq_with_uid false (fun () ->
       let names =
         match names with
         | [] ->
@@ -519,17 +522,12 @@ struct
           )
           names_by_func (vfound, afound, not_found) in
       let protect_print print_thunk =
-        if not @@ !opt_show_var_scope then 
-          let oldv = !Core.Ast.Var.print_uniq_with_uid in
-          (
-            Core.Ast.Var.print_uniq_with_uid := false;
-            print_thunk ();
-            Core.Ast.Var.print_uniq_with_uid := oldv;
-          )
+        if not @@ !opt_show_var_scope then
+          Core.Ast.Var.force_print_uniq_with_uid false (fun () -> print_thunk ())
         else
           print_thunk ()
       in
-      let () = Ast.Var.print_uniq_with_uid := true in 
+      (* let () = Ast.Var.print_uniq_with_uid := true in *)
       let not_found' =
         let printer = empty_printer () in
         let found,not_found =
@@ -570,7 +568,8 @@ struct
                ~pp_sep:(fun fmt () -> pp_print_string fmt ", ")
                (fun fmt vname -> fprintf fmt "'%s'" vname)
             ) l
-      )
+      ))
+        
 
   let init () =
     printf "@.%a@.Type '%a' to get the list of commands.@.@."
@@ -609,8 +608,8 @@ struct
 
   let pp_output_command action envdb man flow fmt = function
     | BackTrace ->
-      let cs = Flow.get_callstack flow in
-      fprintf fmt "%a@." pp_callstack cs
+      let cs = Flow.get_control_ctx flow in
+      fprintf fmt "%a@." pp_control_ctx cs
 
     | MopsaBackTrace ->
       let (in_file_descr, out_file_descr) = Unix.pipe () in
@@ -870,8 +869,8 @@ struct
          | Exceptions.PanicAtLocation (range, msg, "") -> fprintf fmt "panic in %a: %s@." Location.pp_range range msg
          | Exceptions.PanicAtLocation (range, msg, loc) -> fprintf fmt "%a: panic raised in %s: %s@." Location.pp_range range loc msg
 
-         | Exceptions.PanicAtFrame (range, cs, msg, "") -> fprintf fmt "panic in %a: %s@\nTrace:@\n%a@." Location.pp_range range msg pp_callstack cs
-         | Exceptions.PanicAtFrame (range, cs, msg, loc) -> fprintf fmt "%a: panic raised in %s: %s@\nTrace:@\n%a@." Location.pp_range range loc msg pp_callstack cs
+         | Exceptions.PanicAtFrame (range, cs, msg, "") -> fprintf fmt "panic in %a: %s@\nTrace:@\n%a@." Location.pp_range range msg pp_control_ctx cs
+         | Exceptions.PanicAtFrame (range, cs, msg, loc) -> fprintf fmt "%a: panic raised in %s: %s@\nTrace:@\n%a@." Location.pp_range range loc msg pp_control_ctx cs
 
          | Exceptions.SyntaxError (range, msg) -> fprintf fmt "%a: syntax error: %s@." Location.pp_range range msg
          | Exceptions.UnnamedSyntaxError range -> fprintf fmt "%a: syntax error@." Location.pp_range range

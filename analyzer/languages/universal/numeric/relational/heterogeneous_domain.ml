@@ -288,7 +288,7 @@ struct
     let u1 = upper_dom bnd1 in
     let u2 = upper_dom bnd2 in
     if not @@ VarSet.subset (VarSet.union l1 l2) (VarSet.inter u1 u2) then
-      let () = debug "bad case (%a \\cup %a \\not\\subseteq %a \cap %a), bottom"
+      let () = debug "bad case (%a \\cup %a \\not\\subseteq %a \\cap %a), bottom"
           (VarSet.fprint SetExt.printer_default pp_var) l1
           (VarSet.fprint SetExt.printer_default pp_var) l2
           (VarSet.fprint SetExt.printer_default pp_var) u1
@@ -400,8 +400,8 @@ struct
 
   let merge (pre,bnd,pre_l) ((a1,bnd1,l1),e1) ((a2,bnd2,l2),e2) =
     let () = Debug.debug ~channel:(name ^ ".merge") "effects1 = %a@\neffects2 = %a@\na1 = %a@\na2 = %a"
-        pp_effect e1
-        pp_effect e2
+        Change.pp_change e1
+        Change.pp_change e2
         (format print_state) (a1, bnd1,l1)
         (format print_state) (a2, bnd2,l2)
     in

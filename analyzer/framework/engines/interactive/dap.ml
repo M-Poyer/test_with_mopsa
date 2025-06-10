@@ -25,6 +25,7 @@ open Mopsa_utils
 open Core.All
 open Toplevel
 open Location
+open ControlCtx
 open Callstack
 open Format
 open Yojson.Basic
