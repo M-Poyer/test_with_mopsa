@@ -2,7 +2,7 @@
 (*                                                                          *)
 (* This file is part of MOPSA, a Modular Open Platform for Static Analysis. *)
 (*                                                                          *)
-(* Copyright (C) 2017-2019 The MOPSA Project.                               *)
+(* Copyright (C) 2025 - ... The MOPSA Project.                              *)
 (*                                                                          *)
 (* This program is free software: you can redistribute it and/or modify     *)
 (* it under the terms of the GNU Lesser General Public License as published *)
@@ -23,7 +23,7 @@
 (** CLIP abstraction with the all-real semantics, as described in the
     PhD thesis of Matthieu Journault **)
 
-(* FIXME: reduction with itvs? *)
+(* TODO: reduction with itvs? *)
 
 open Mopsa
 open Sig.Abstraction.Simplified
@@ -31,30 +31,7 @@ open Common
 open Ast
 open Apron_manager
 open Apron_transformer
-open Domain 
-(* FIXME: these are shared options, to fix *)
-
-let opt_show_relational_domain = ref false
-let () =
-  register_domain_option "universal.numeric.relational" {
-    key = "-show-relational-def-domain";
-    category = "Numeric";
-    doc = " display the domain on which the relational abstract state is defined";
-    spec = ArgExt.Set opt_show_relational_domain;
-    default = "false";
-  }
-
-let opt_enforce_sign_constraints = ref false
-let () =
-  register_shared_option "universal.numeric.relational" {
-    key = "-enforce-sign-constraints";
-    category = "Numeric";
-    doc = " enforce sign constraints of variables in the relational domain";
-    spec = ArgExt.Set opt_enforce_sign_constraints;
-    default = "false";
-  }
-
-(* FIXME: redeclaring the query extension with already existing types does not create any issue... until the runtime that is *)
+open Domain
 
 module Make(ApronManager : APRONMANAGER) =
 struct
@@ -320,6 +297,8 @@ struct
   (** ********************** *)
 
   let init prog =
+    (* FIXME: change the simplified abstraction to handle this... *)
+    Debug.warn "domain '%s' is a prototype, it may contain bugs!" name;
     Apron_transformer.apron_int_to_rationals := true;
     top
 
