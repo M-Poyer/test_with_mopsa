@@ -21,7 +21,6 @@
 
 (** Display the results of the analysis in a textual form. *)
 
-open Mopsa_utils
 open ArgExt
 open Core.All
 open Location

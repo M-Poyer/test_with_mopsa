@@ -25,7 +25,7 @@ open Query
 open Ast.Constant
 open Ast.Expr
 open Ast.Typ
-open Mopsa_utils.Location
+open Location
 
 
 type _ avalue_kind = ..
@@ -45,7 +45,7 @@ type avalue_info = {
   bottom : 'v. avalue_pool -> 'v avalue_kind -> 'v;
   top : 'v. avalue_pool -> 'v avalue_kind -> 'v;
   join : 'v. avalue_pool -> 'v avalue_kind -> 'v -> 'v -> 'v;
-  meet : 'v. avalue_pool -> 'v avalue_kind -> 'v -> 'v -> 'v;  
+  meet : 'v. avalue_pool -> 'v avalue_kind -> 'v -> 'v -> 'v;
   compare : 'v 'w. avalue_pool -> 'v avalue_kind -> 'v -> 'w avalue_kind -> 'w -> int;
   print : 'v. avalue_pool -> 'v avalue_kind -> Format.formatter -> 'v -> unit;
 }

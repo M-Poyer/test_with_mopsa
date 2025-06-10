@@ -20,38 +20,38 @@
 (****************************************************************************)
 
 (**
-  FloatItv - Floating-point interval arithmetics with rounding.  
+  FloatItv - Floating-point interval arithmetics with rounding.
 
   We rely on C code to provide functions with correct rounding
   (rounding direction and rounding precision).
  *)
 
-open Bot
+open Core.Bot
 module F = Float
 module B = IntBound
 module II = IntItv
-       
+
 
 (** {2 Types} *)
 
-             
+
 type t =
   { mutable lo: float;  (** lower bound *)
     mutable up: float;  (** upper bound *)
   }
 (**
-  The type of non-empty intervals: a lower bound and an upper bound. 
+  The type of non-empty intervals: a lower bound and an upper bound.
   The bounds can be -∞ and +∞.
   In particular, we can have [-∞,-∞] and [+∞,+∞] (useful to model sets
   of floating-point numbers).
   We must have lo ≤ up.
   The bounds shall not be NaN.
- *)    
+ *)
 
 type t_with_bot = t with_bot
 (** The type of possibly empty intervals. *)
 
-                    
+
 let is_valid (a:t) : bool =
   a.lo <= a.up && not (F.is_nan a.lo || F.is_nan a.up)
 
@@ -59,7 +59,7 @@ let is_valid (a:t) : bool =
 
 (** {2 Constructors} *)
 
-                    
+
 let mk (lo:float) (up:float) : t = { lo; up; }
 
 
@@ -82,59 +82,59 @@ let of_float (lo:float) (up:float) : t =
   and up = if F.is_nan up then infinity else up in
   if lo > up then invalid_arg (Printf.sprintf "FloatItv.of_float: invalid bound [%g,%g]" lo up)
   else { lo; up; }
-(** Constructs a non-empty interval. We must have lo ≤ up, or an exception is raised. 
+(** Constructs a non-empty interval. We must have lo ≤ up, or an exception is raised.
     NaN bounds are transformed into infinities.
  *)
-  
+
 let of_float_bot (lo:float) (up:float) : t_with_bot =
   let lo = if F.is_nan lo then neg_infinity else lo
   and up = if F.is_nan up then infinity else up in
   if lo <= up then Nb { lo; up; }
   else BOT
 (** Constructs a possibly empty interval (no rounding).
-    NaN bounds are transformed into infinities.    
+    NaN bounds are transformed into infinities.
  *)
 
-  
+
 let hull (a:float) (b:float) : t =
   if F.is_nan a || F.is_nan b then minf_inf
   else mk (min a b) (max a b)
 (** Constructs the smallest interval containing a and b. *)
-                                                           
+
 let cst (c:float) : t =
   if F.is_nan c then minf_inf else mk c c
 (** Singleton interval. *)
 
 
-                  
+
 (** {2 Predicates} *)
 
-                  
+
 let equal (a:t) (b:t) : bool =
   a = b
 
 let equal_bot : t_with_bot -> t_with_bot -> bool =
-  bot_equal equal  
+  bot_equal equal
 
 let included (a:t) (b:t) : bool =
   a.lo >= b.lo && a.up <= b.up
 (** Set ordering. = also works to compare for equality. *)
 
 let included_bot : t_with_bot -> t_with_bot -> bool =
-  bot_included included  
+  bot_included included
 
 let intersect (a:t) (b:t) : bool =
   a.lo <= b.up && b.lo <= a.up
-(** Whether the intervals have an non-empty intersection. *)  
+(** Whether the intervals have an non-empty intersection. *)
 
 let intersect_bot : t_with_bot -> t_with_bot -> bool =
   bot_dfl2 false intersect
-  
+
 
 let contains (x:float) (a:t) =
   a.lo <= x && a.up >= x
 (** Whether the interval contains a certain value. *)
-                                              
+
 let compare (a:t) (b:t) : int =
   if a.lo = b.lo then
     compare a.up b.up
@@ -142,15 +142,15 @@ let compare (a:t) (b:t) : int =
     compare a.lo b.lo
 (**
   A total ordering of intervals (lexical ordering) returning -1, 0, or 1.
-  Can be used as compare for sets, maps, etc. 
+  Can be used as compare for sets, maps, etc.
   (The hypothesis that bounds cannot be NaN is important to make the order total.
 *)
-                                             
+
 let compare_bot (x:t with_bot) (y:t with_bot) : int =
-  Bot.bot_compare compare x y
+  bot_compare compare x y
 (** Total ordering on possibly empty intervals. *)
 
-                               
+
 let is_zero (a:t) : bool = equal a zero
 let is_positive (a:t) : bool = a.lo >= 0.
 let is_negative (a:t) : bool = a.up <= 0.
@@ -166,7 +166,7 @@ let contains_negative_strict (a:t) : bool = a.lo < 0.
 let contains_zero (a:t) : bool = a.lo <= 0. && a.up >= 0.
 let contains_nonzero (a:t) : bool = a.lo <> 0. || a.up <> 0.
 (** Whether the interval contains an element of the specified sign. *)
-                            
+
 let is_singleton (a:t) : bool =
   a.lo = a.up
 (** Whether the interval contains a single element. *)
@@ -178,7 +178,7 @@ let is_bounded (a:t) : bool =
 let is_in_range (a:t) (lo:float) (up:float) =
   included a { lo; up; }
 (** Whether the interval is included in the range [lo,up]. *)
-  
+
 let is_log_eq (ab:t) (ab':t) : bool = intersect ab ab'
 let is_log_leq ({lo=a;up=b}:t) ({lo=a';up=b'}:t) : bool = F.leq a b'
 let is_log_geq ({lo=a;up=b}:t) ({lo=a';up=b'}:t) : bool = F.geq b a'
@@ -186,18 +186,18 @@ let is_log_lt ({lo=a;up=b}:t) ({lo=a';up=b'}:t) : bool = F.lt a b'
 let is_log_gt ({lo=a;up=b}:t) ({lo=a';up=b'}:t) : bool = F.gt b a'
 let is_log_neq (ab:t) (ab':t) : bool = not (equal ab ab' && is_singleton ab)
 (** C comparison tests. Returns true if the test may succeed, false if it cannot. *)
-                            
-                                                   
-                                                  
+
+
+
 (** {2 Printing} *)
 
-                                     
+
 type print_format = F.print_format
 let dfl_fmt = F.dfl_fmt
-  
+
 let to_string (fmt:print_format) (x:t) : string =
   "["^(F.to_string fmt x.lo)^","^(F.to_string fmt x.up)^"]"
-                       
+
 let print fmt ch (x:t) = output_string ch (to_string fmt x)
 let fprint fmt ch (x:t) = Format.pp_print_string ch (to_string fmt x)
 let bprint fmt ch (x:t) = Buffer.add_string ch (to_string fmt x)
@@ -210,11 +210,11 @@ let bprint_bot fmt = bot_bprint (bprint fmt)
 
 (** {2 Operations without rounding} *)
 
-                                        
+
 let neg (t:t) : t =
   of_float (-.t.up) (-.t.lo)
 (** Negation. *)
-              
+
 let abs (t:t) : t =
   if t.lo <= 0. then
     if t.up <= 0. then neg t
@@ -249,7 +249,7 @@ let to_z (r:t) : Z.t * Z.t =
   if not (F.is_finite r.lo && F.is_finite r.up)
   then invalid_arg "Inifnites or NaN in FloatItv.to_z";
   Z.of_float r.lo, Z.of_float r.up
-(** Conversion to integer (using truncation). *)  
+(** Conversion to integer (using truncation). *)
 
 let to_int_itv (r:t) : II.t with_bot =
   if F.is_nan r.lo || F.is_nan r.up then Nb II.minf_inf
@@ -258,11 +258,11 @@ let to_int_itv (r:t) : II.t with_bot =
     let x = if r.lo = neg_infinity then B.MINF else B.Finite (Z.of_float r.lo)
     and y = if r.up = infinity then B.PINF else B.Finite (Z.of_float r.up) in
     Nb (x,y)
-  
+
 let join (a:t) (b:t) : t =
   of_float (min a.lo b.lo) (max a.up b.up)
 (** Join of non-empty intervals. *)
-    
+
 let join_bot (a:t_with_bot) (b:t_with_bot) : t_with_bot =
   bot_neutral2 join a b
 (** Join of possibly empty intervals. *)
@@ -278,18 +278,18 @@ let meet (a:t) (b:t) : t_with_bot =
 let meet_bot (a:t_with_bot) (b:t_with_bot) : t_with_bot =
   bot_absorb2 meet a b
 (** Intersection of possibly empty intervals. *)
-          
+
 let meet_list (l:t list) : t_with_bot =
   List.fold_left (fun a b -> meet_bot a (Nb b)) (Nb minf_inf) l
 (** Meet of a list of (non-empty) intervals. *)
 
 let positive (a:t) : t_with_bot =
   meet a zero_inf
-       
+
 let negative (a:t) : t_with_bot =
   meet a minf_zero
 (** Positive and negative part. *)
-  
+
 let meet_zero (a:t) : t_with_bot =
   meet a zero
 (** Intersects with {0}. *)
@@ -304,11 +304,11 @@ let widen_bot (a:t_with_bot) (b:t_with_bot) : t_with_bot =
   bot_neutral2 widen a b
 
 
-  
+
 let bwd_default_unary (a:t) (r:t) : t_with_bot =
   Nb a
 (** Fallback for backward unary operators *)
-  
+
 let bwd_default_binary (a:t) (b:t) (r:t) : (t*t) with_bot =
   Nb (a,b)
 (** Fallback for backward binary operators *)
@@ -318,9 +318,9 @@ let bwd_neg (a:t) (r:t) : t_with_bot =
 (** Backward negation. *)
 
 let bwd_abs (a:t) (r:t) : t_with_bot =
-  join_bot (meet a r) (meet a (neg r))  
-(** Backward absolute value. *)  
-  
+  join_bot (meet a r) (meet a (neg r))
+(** Backward absolute value. *)
+
 let bwd_fmod (x:t) (y:t) (r:t) : (t*t) with_bot =
   let yy = abs y in
   if x.lo > -. yy.lo && x.up < yy.lo then
@@ -330,17 +330,17 @@ let bwd_fmod (x:t) (y:t) (r:t) : (t*t) with_bot =
     (* default: no refinement *)
     Nb (x,y)
 (** Backward remainder (fmod). *)
-  
+
 
 
 (** {2 Rounding-dependent functions} *)
 
-                      
+
 (**
   Interval operations support six rounding modes.
   The first four correspond to rounding both bounds in the same direction:
   to nearest, upwards, downards, or to zero.
-  To this, we add outer rounding (lower bound downwards and upper bound 
+  To this, we add outer rounding (lower bound downwards and upper bound
   upwards) and inner rounding (lower bound upwards and upper bound
   downwards).
 
@@ -357,7 +357,7 @@ let bwd_fmod (x:t) (y:t) (r:t) : (t*t) with_bot =
 
   Inner rounding can return empty intervals. Divisions and square roots
   can return empty intervals for any rounding mode.
-                 
+
   We do not track NaN.
   NaN bounds, as in [-∞,-∞] + [+∞,+∞], are transformed into infinities.
  *)
@@ -423,7 +423,7 @@ external divpos_sgl_itv_zero:  t -> t -> t -> unit = "ml_divpos_sgl_itv_zero"
 external divpos_sgl_itv_outer: t -> t -> t -> unit = "ml_divpos_sgl_itv_outer"
 external divpos_sgl_itv_inner: t -> t -> t -> unit = "ml_divpos_sgl_itv_inner"
 
-                                                    
+
 (* internal utilities *)
 
 let mkop () = { lo=0.; up=0.; }
@@ -434,11 +434,11 @@ let wrap_op2 f = fun a b -> let r = mkop () in f a b r; r
 let wrap_op1_bot f a =
   let r = wrap_op1 f a in
   if r.lo <= r.up then Nb r else BOT
-  
+
 let wrap_op2_bot f a b =
   let r = wrap_op2 f a b in
   if r.lo <= r.up then Nb r else BOT
-  
+
 let wrap_sqrt f g a =
   if a.up < 0. then
     BOT
@@ -451,7 +451,7 @@ let wrap_div_unmerged d a b =
   and l2 = if b.lo < 0. then [d a { b with up = if F.sign b.up < 0 then b.up else -.0.; }] else []
   in
   l1@l2
-(* wrapper for division; 
+(* wrapper for division;
    we split into a positive divisor interval and a negative divisor interval;
    we have to be extra careful of the sign of zeros when splitting (to get the correct infinity);
    returns a list of intervals to keep precision;
@@ -459,21 +459,21 @@ let wrap_div_unmerged d a b =
 
 let wrap_div_unmerged_bot d a b =
   list_remove_bot (wrap_div_unmerged d a b)
-  
+
 let wrap_div d a b =
   join_list (wrap_div_unmerged d a b)
 (* wrapper for division; returns a single (possibly empty) interval *)
 
 let wrap_div_bot d a b =
   join_list (wrap_div_unmerged_bot d a b)
-  
-                                                                         
+
+
 module Double = struct
 
   module FF = F.Double
 
   (** {2 Arithmetic} *)
-                
+
   let add_near  : t -> t -> t = wrap_op2 add_dbl_itv_near
   let add_up    : t -> t -> t = wrap_op2 add_dbl_itv_up
   let add_down  : t -> t -> t = wrap_op2 add_dbl_itv_down
@@ -529,7 +529,7 @@ module Double = struct
   let square_outer (a:t) : t = let aa = abs a in mul_outer aa aa
   let square_inner (a:t) : t_with_bot = let aa = abs a in mul_inner aa aa
   (** Square. *)
-                                              
+
   let sqrt_near  : t -> t_with_bot = wrap_sqrt FF.sqrt_near FF.sqrt_near
   let sqrt_up    : t -> t_with_bot = wrap_sqrt FF.sqrt_up   FF.sqrt_up
   let sqrt_down  : t -> t_with_bot = wrap_sqrt FF.sqrt_down FF.sqrt_down
@@ -545,7 +545,7 @@ module Double = struct
   let round_int_outer (a:t) : t = of_float (FF.round_int_down a.lo) (FF.round_int_up a.up)
   let round_int_inner (a:t) : t_with_bot = of_float_bot (FF.round_int_up a.lo)   (FF.round_int_down a.up)
   (** Round to integer. *)
- 
+
   let unround_int_near (a:t) : t = add_outer a mhalf_half
   let unround_int_up   (a:t) : t = sub_outer a zero_one
   let unround_int_down (a:t) : t = add_outer a zero_one
@@ -553,14 +553,14 @@ module Double = struct
     of_float (if a.lo <= 0. then FF.sub_down a.lo 1. else a.lo)
              (if a.up >= 0. then FF.add_up   a.up 1. else a.up)
   let unround_int_any (a:t) : t = sub_outer a mone_one
-  (** Values that, after rounding to integer in the specified direction, may be in the argument interval. 
+  (** Values that, after rounding to integer in the specified direction, may be in the argument interval.
       Useful for backward operators.
    *)
 
   let unround_near (a:t) : t = of_float (FF.pred a.lo) (FF.succ a.up)
   let unround_up   (a:t) : t = of_float (FF.pred a.lo) (a.up)
   let unround_down (a:t) : t = of_float (a.lo) (FF.succ a.up)
-  let unround_zero (a:t) : t = 
+  let unround_zero (a:t) : t =
     of_float (if a.lo <= 0. then FF.pred a.lo else a.lo)
              (if a.up >= 0. then FF.succ a.up else a.up)
   let unround_any (a:t) : t = unround_near a
@@ -575,7 +575,7 @@ module Double = struct
   let of_int_outer (lo:int) (up:int) : t = of_float (FF.of_int_down lo) (FF.of_int_up up)
   let of_int_inner (lo:int) (up:int) : t_with_bot = of_float_bot (FF.of_int_up lo)   (FF.of_int_down up)
   (** Conversion from int. *)
- 
+
   let of_int64_near  (lo:int64) (up:int64) : t = of_float (FF.of_int64_near lo) (FF.of_int64_near up)
   let of_int64_up    (lo:int64) (up:int64) : t = of_float (FF.of_int64_up   lo) (FF.of_int64_up   up)
   let of_int64_down  (lo:int64) (up:int64) : t = of_float (FF.of_int64_down lo) (FF.of_int64_down up)
@@ -592,15 +592,15 @@ module Double = struct
   let of_z_inner (lo:Z.t) (up:Z.t) : t_with_bot = of_float_bot (FF.of_z_up lo)   (FF.of_z_down up)
   (** Conversion from Z.t. *)
 
-                                                
-                                
+
+
   (** {2 Filters} *)
 
-                                                
+
   (** Given two interval aruments, return the arguments assuming that the predicate holds.
    *)
-                                                
-                                                
+
+
   let filter_leq (a:t) (b:t) : (t*t) with_bot =
     bot_merge2 (of_float_bot a.lo (min a.up b.up)) (of_float_bot (max a.lo b.lo) b.up)
 
@@ -626,10 +626,10 @@ module Double = struct
     | _ -> Nb (a,b)
 
 
-         
+
   (** {2 Backward operations} *)
 
-         
+
   (** Given one or two interval argument(s) and a result interval, return the
       argument(s) assuming the result in the operation is in the given result.
    *)
@@ -647,7 +647,7 @@ module Double = struct
   let bwd_add_noround a b r = bwd_add a b r
   (** Backward addition. *)
 
-                         
+
   let bwd_sub (a:t) (b:t) (r:t) : (t*t) with_bot =
     (* r = round(a - b) ⇒ a = b + unround(r) ∧ b = a - unround(r) *)
     bot_merge2 (meet a (add_outer b r)) (meet b (sub_outer a r))
@@ -660,9 +660,9 @@ module Double = struct
   let bwd_sub_noround a b r = bwd_sub a b r
   (** Backward subtraction. *)
 
-                         
+
   let bwd_mul (a:t) (b:t) (r:t) : (t*t) with_bot =
-    (* r = round(a * b) ⇒ ((a = unround(r) / b) ∨ (b = r = 0) ∨ (b unbounded)) ∧ 
+    (* r = round(a * b) ⇒ ((a = unround(r) / b) ∨ (b = r = 0) ∨ (b unbounded)) ∧
                           ((b = unround(r) / a) ∨ (a = r = 0) ∨ (a unbounded)) *)
     let aa =
       if not (is_bounded b) || (contains_zero b && contains_zero r) then Nb a
@@ -681,7 +681,7 @@ module Double = struct
   let bwd_mul_noround a b r = bwd_mul a b r
   (** Backward multiplication. *)
 
-                         
+
   let bwd_div (a:t) (b:t) (r:t) : (t*t) with_bot =
     (* r = round(a / b) ⇒ ((a = b * unround(r)) ∧ (b = a / unround(r)) ∨ (a = r = 0)) ∨ unbounded) *)
     if not (is_bounded a && is_bounded b && is_bounded r) then Nb (a,b)
@@ -722,7 +722,7 @@ module Double = struct
   let bwd_square (a:t) (r:t) : t_with_bot =
     let rr = sqrt_outer r in
     join_bot (meet_bot (Nb a) rr) (meet_bot (Nb a) (bot_lift1 neg rr))
-    
+
   let bwd_square_near  a r = bwd_square a (unround_near r)
   let bwd_square_up    a r = bwd_square a (unround_up   r)
   let bwd_square_down  a r = bwd_square a (unround_down r)
@@ -731,10 +731,10 @@ module Double = struct
   let bwd_square_noround a r = bwd_square a r
   (** Backward square. *)
 
-                             
+
   let bwd_sqrt (a:t) (r:t) : t_with_bot =
     meet a (square_outer r)
-    
+
   let bwd_sqrt_near  a r = bwd_sqrt a (unround_near r)
   let bwd_sqrt_up    a r = bwd_sqrt a (unround_up   r)
   let bwd_sqrt_down  a r = bwd_sqrt a (unround_down r)
@@ -743,7 +743,7 @@ module Double = struct
   let bwd_sqrt_noround a r = bwd_sqrt a r
   (** Backward square root. *)
 
-                           
+
   let bwd_of_z unround lo up r =
     let r = unround r in
     if F.is_finite r.lo && F.is_finite r.up then
@@ -753,7 +753,7 @@ module Double = struct
       if Z.leq lo up then Nb (lo,up)
       else BOT
     else Nb (lo,up)
-                           
+
   let bwd_of_z_near    lo up r = bwd_of_z unround_int_near lo up r
   let bwd_of_z_up      lo up r = bwd_of_z unround_int_up   lo up r
   let bwd_of_z_down    lo up r = bwd_of_z unround_int_down lo up r
@@ -762,29 +762,29 @@ module Double = struct
   let bwd_of_z_noround lo up r = bwd_of_z (fun x -> x) lo up r
   (** Backward conversion from int. *)
 
-                               
+
   let bwd_to_z (lo:Z.t) (up:Z.t) (r:t) : t_with_bot =
     bwd_round_int_zero r (mk (FF.of_z_down lo) (FF.of_z_up up))
   (** Backward conversion to int. *)
-    
-                               
+
+
   let meet_nonzero (a:t) : t_with_bot =
     let lo = if a.lo = 0. then FF.min_denormal else a.lo
     and up = if a.up = 0. then -. FF.min_denormal else a.up
     in
     of_float_bot lo up
   (** Keeps only non-zero elements. *)
-              
+
 end
 (** Intervals with rounding to double. *)
-                  
-                  
+
+
 module Single = struct
 
   module FF = F.Single
 
   (** {2 Arithmetic} *)
-                
+
   let add_near  : t -> t -> t = wrap_op2 add_sgl_itv_near
   let add_up    : t -> t -> t = wrap_op2 add_sgl_itv_up
   let add_down  : t -> t -> t = wrap_op2 add_sgl_itv_down
@@ -840,7 +840,7 @@ module Single = struct
   let square_outer (a:t) : t = let aa = abs a in mul_outer aa aa
   let square_inner (a:t) : t_with_bot = let aa = abs a in mul_inner aa aa
   (** Square. *)
-                                              
+
   let sqrt_near  : t -> t_with_bot = wrap_sqrt FF.sqrt_near FF.sqrt_near
   let sqrt_up    : t -> t_with_bot = wrap_sqrt FF.sqrt_up   FF.sqrt_up
   let sqrt_down  : t -> t_with_bot = wrap_sqrt FF.sqrt_down FF.sqrt_down
@@ -856,7 +856,7 @@ module Single = struct
   let round_int_outer (a:t) : t = of_float (FF.round_int_down a.lo) (FF.round_int_up a.up)
   let round_int_inner (a:t) : t_with_bot = of_float_bot (FF.round_int_up a.lo)   (FF.round_int_down a.up)
   (** Round to integer. *)
- 
+
   let unround_int_near (a:t) : t = add_outer a mhalf_half
   let unround_int_up   (a:t) : t = sub_outer a zero_one
   let unround_int_down (a:t) : t = add_outer a zero_one
@@ -864,14 +864,14 @@ module Single = struct
     of_float (if a.lo <= 0. then FF.sub_down a.lo 1. else a.lo)
              (if a.up >= 0. then FF.add_up   a.up 1. else a.up)
   let unround_int_any (a:t) : t = add_outer a mone_one
-  (** Values that, after rounding to integer in the specified direction, may be in the argument interval. 
+  (** Values that, after rounding to integer in the specified direction, may be in the argument interval.
       Useful for backward operators.
    *)
 
   let unround_near (a:t) : t = of_float (FF.pred a.lo) (FF.succ a.up)
   let unround_up   (a:t) : t = of_float (FF.pred a.lo) (a.up)
   let unround_down (a:t) : t = of_float (a.lo) (FF.succ a.up)
-  let unround_zero (a:t) : t = 
+  let unround_zero (a:t) : t =
     of_float (if a.lo <= 0. then FF.pred a.lo else a.lo)
              (if a.up >= 0. then FF.succ a.up else a.up)
   let unround_any (a:t) : t = unround_near a
@@ -886,7 +886,7 @@ module Single = struct
   let of_int_outer (lo:int) (up:int) : t = of_float (FF.of_int_down lo) (FF.of_int_up up)
   let of_int_inner (lo:int) (up:int) : t_with_bot = of_float_bot (FF.of_int_up lo)   (FF.of_int_down up)
   (** Conversion from int. *)
- 
+
   let of_int64_near  (lo:int64) (up:int64) : t = of_float (FF.of_int64_near lo) (FF.of_int64_near up)
   let of_int64_up    (lo:int64) (up:int64) : t = of_float (FF.of_int64_up   lo) (FF.of_int64_up   up)
   let of_int64_down  (lo:int64) (up:int64) : t = of_float (FF.of_int64_down lo) (FF.of_int64_down up)
@@ -902,7 +902,7 @@ module Single = struct
   let of_double_outer (lo:float) (up:float) : t = of_float (FF.of_double_down lo) (FF.of_double_up up)
   let of_double_inner (lo:float) (up:float) : t_with_bot = of_float_bot (FF.of_double_up lo)   (FF.of_double_down up)
   (** Conversion from double. *)
- 
+
   let of_z_near  (lo:Z.t) (up:Z.t) : t = of_float (FF.of_z_near lo) (FF.of_z_near up)
   let of_z_up    (lo:Z.t) (up:Z.t) : t = of_float (FF.of_z_up   lo) (FF.of_z_up   up)
   let of_z_down  (lo:Z.t) (up:Z.t) : t = of_float (FF.of_z_down lo) (FF.of_z_down up)
@@ -910,16 +910,16 @@ module Single = struct
   let of_z_outer (lo:Z.t) (up:Z.t) : t = of_float (FF.of_z_down lo) (FF.of_z_up up)
   let of_z_inner (lo:Z.t) (up:Z.t) : t_with_bot = of_float_bot (FF.of_z_up lo)   (FF.of_z_down up)
   (** Conversion from Z.t. *)
- 
 
-                                                 
+
+
   (** {2 Filters} *)
 
 
   (** Given two interval aruments, return the arguments assuming that the predicate holds.
    *)
 
-                                                
+
   let filter_leq (a:t) (b:t) : (t*t) with_bot =
     bot_merge2 (of_float_bot a.lo (min a.up b.up)) (of_float_bot (max a.lo b.lo) b.up)
 
@@ -944,11 +944,11 @@ module Single = struct
     | false, true when a.up = b.up -> bot_merge2 (of_float_bot a.lo (FF.pred a.up)) (Nb b)
     | _ -> Nb (a,b)
 
-              
-         
+
+
   (** {2 Backward operations} *)
 
-         
+
   (** Given one or two interval argument(s) and a result interval, return the
       argument(s) assuming the result in the operation is in the given result.
    *)
@@ -966,7 +966,7 @@ module Single = struct
   let bwd_add_noround a b r = bwd_add a b r
   (** Backward addition. *)
 
-                         
+
   let bwd_sub (a:t) (b:t) (r:t) : (t*t) with_bot =
     (* r = round(a - b) ⇒ a = b + unround(r) ∧ b = a - unround(r) *)
     bot_merge2 (meet a (add_outer b r)) (meet b (sub_outer a r))
@@ -979,9 +979,9 @@ module Single = struct
   let bwd_sub_noround a b r = bwd_sub a b r
   (** Backward subtraction. *)
 
-                         
+
   let bwd_mul (a:t) (b:t) (r:t) : (t*t) with_bot =
-    (* r = round(a * b) ⇒ ((a = unround(r) / b) ∨ (b = r = 0) ∨ (b unbounded)) ∧ 
+    (* r = round(a * b) ⇒ ((a = unround(r) / b) ∨ (b = r = 0) ∨ (b unbounded)) ∧
                           ((b = unround(r) / a) ∨ (a = r = 0) ∨ (a unbounded)) *)
     let aa =
       if not (is_bounded b) || (contains_zero b && contains_zero r) then Nb a
@@ -1018,7 +1018,7 @@ module Single = struct
   let bwd_div_any   a b r = bwd_div a b (unround_any r)
   let bwd_div_noround a b r = bwd_div a b r
   (** Backward division. *)
-         
+
   let bwd_round_int_near  a r = meet a (unround_int_near r)
   let bwd_round_int_up    a r = meet a (unround_int_up   r)
   let bwd_round_int_down  a r = meet a (unround_int_down r)
@@ -1034,11 +1034,11 @@ module Single = struct
   let bwd_round_any   a r = meet a (unround_any r)
   let bwd_round_noround a r = meet a r
   (** Backward rounding from double or real. *)
-                              
+
   let bwd_square (a:t) (r:t) : t_with_bot =
     let rr = sqrt_outer r in
     join_bot (meet_bot (Nb a) rr) (meet_bot (Nb a) (bot_lift1 neg rr))
-    
+
   let bwd_square_near  a r = bwd_square a (unround_near r)
   let bwd_square_up    a r = bwd_square a (unround_up   r)
   let bwd_square_down  a r = bwd_square a (unround_down r)
@@ -1047,10 +1047,10 @@ module Single = struct
   let bwd_square_noround a r = bwd_square a r
   (** Backward square. *)
 
-                             
+
   let bwd_sqrt (a:t) (r:t) : t_with_bot =
     meet a (square_outer r)
-    
+
   let bwd_sqrt_near  a r = bwd_sqrt a (unround_near r)
   let bwd_sqrt_up    a r = bwd_sqrt a (unround_up   r)
   let bwd_sqrt_down  a r = bwd_sqrt a (unround_down r)
@@ -1078,11 +1078,11 @@ module Single = struct
   let bwd_of_z_noround lo up r = bwd_of_z (fun x -> x) lo up r
   (** Backward conversion from int. *)
 
-                               
+
   let bwd_to_z (lo:Z.t) (up:Z.t) (r:t) : t_with_bot =
     bwd_round_int_zero (mk (FF.of_z_down lo) (FF.of_z_up up)) r
   (** Backward conversion to int. *)
-    
+
 
   let meet_nonzero (a:t) : t_with_bot =
     let lo = if a.lo = 0. then FF.min_denormal else a.lo
@@ -1104,7 +1104,7 @@ type prec =
   | `REAL   (** real arithmetic (outward double rounding is used) *)
   ]
 (** Precision. *)
-                   
+
 type round =
   [ `NEAR  (** To nearest *)
   | `UP    (** Upwards *)
@@ -1115,7 +1115,7 @@ type round =
 (** Rounding direction.
     This is ignored for real arithmetic.
  *)
-  
+
 let add (prec:prec) (round:round) (x:t) (y:t) : t =
   match prec,round with
   | `SINGLE, `NEAR  -> Single.add_near x y
@@ -1145,7 +1145,7 @@ let sub (prec:prec) (round:round) (x:t) (y:t) : t =
   | `DOUBLE, `ANY   -> Double.sub_outer x y
   | `REAL, _        -> Double.sub_outer x y
 (** Subtraction. *)
-  
+
 let mul (prec:prec) (round:round) (x:t) (y:t) :t =
   match prec,round with
   | `SINGLE, `NEAR  -> Single.mul_near x y
@@ -1160,7 +1160,7 @@ let mul (prec:prec) (round:round) (x:t) (y:t) :t =
   | `DOUBLE, `ANY   -> Double.mul_outer x y
   | `REAL, _        -> Double.mul_outer x y
 (** Multiplication. *)
-                  
+
 let div (prec:prec) (round:round) (x:t) (y:t) : t_with_bot =
   match prec,round with
   | `SINGLE, `NEAR  -> Single.div_near x y
@@ -1175,7 +1175,7 @@ let div (prec:prec) (round:round) (x:t) (y:t) : t_with_bot =
   | `DOUBLE, `ANY   -> Double.div_outer x y
   | `REAL, _        -> Double.div_outer x y
 (** Division. *)
-                  
+
 let div_unmerged (prec:prec) (round:round) (x:t) (y:t) : t list =
   match prec,round with
   | `SINGLE, `NEAR  -> Single.div_unmerged_near x y
@@ -1190,7 +1190,7 @@ let div_unmerged (prec:prec) (round:round) (x:t) (y:t) : t list =
   | `DOUBLE, `ANY   -> Double.div_unmerged_outer x y
   | `REAL, _        -> Double.div_unmerged_outer x y
 (** Division. Returns a list of intervals to remain precise. *)
-                  
+
 let square (prec:prec) (round:round) (x:t) : t =
   match prec,round with
   | `SINGLE, `NEAR  -> Single.square_near x
@@ -1205,7 +1205,7 @@ let square (prec:prec) (round:round) (x:t) : t =
   | `DOUBLE, `ANY   -> Double.square_outer x
   | `REAL, _        -> Double.square_outer x
 (** Square. *)
-                  
+
 let sqrt (prec:prec) (round:round) (x:t) : t_with_bot =
   match prec,round with
   | `SINGLE, `NEAR  -> Single.sqrt_near x
@@ -1368,7 +1368,7 @@ let meet_nonzero (prec:prec) (x:t) : t with_bot =
   | `DOUBLE -> Double.meet_nonzero x
   | `SINGLE -> Single.meet_nonzero x
   | `REAL -> Nb x
-             
+
 let bwd_add (prec:prec) (round:round) (x:t) (y:t) (r:t) : (t*t) with_bot =
   match prec,round with
   | `SINGLE, `NEAR  -> Single.bwd_add_near x y r
@@ -1509,4 +1509,3 @@ let bwd_to_z (prec:prec) (lo:Z.t) (up:Z.t) (r:t) : t_with_bot =
   | `DOUBLE | `REAL -> Double.bwd_to_z lo up r
   | `SINGLE -> Single.bwd_to_z lo up r
 (** Backward conversion to integer. *)
-             

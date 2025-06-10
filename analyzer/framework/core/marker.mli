@@ -23,7 +23,7 @@
 
 open Ast.Stmt
 open Ast.Visitor
-open Mopsa_utils.Location
+open Location
 
 type marker = ..
 

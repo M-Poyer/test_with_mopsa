@@ -97,9 +97,9 @@
 
 *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
+open Lang.Ast
 open Common.Scope_update
 
 let name = "c.iterators.goto"

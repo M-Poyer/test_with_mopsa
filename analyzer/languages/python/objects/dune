@@ -1,6 +1,0 @@
-(library
- (name python_objects)
- (package mopsa)
- (library_flags -linkall)
- (libraries python_lang mopsa framework universal)
- (flags :standard -open Python_lang.Lang))

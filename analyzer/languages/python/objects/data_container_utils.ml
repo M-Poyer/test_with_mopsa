@@ -19,8 +19,8 @@
 (*                                                                          *)
 (****************************************************************************)
 
-open Universal.Ast
-open Mopsa
+open Universal.Lang.Ast
+open MopsaLib
 
 module Rangeset = Set.Make(struct type t = range
     let compare = compare_range end)

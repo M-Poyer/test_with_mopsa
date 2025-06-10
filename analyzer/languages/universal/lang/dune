@@ -1,5 +1,0 @@
-(library
- (name lang)
- (public_name mopsa.mopsa_analyzer.universal.lang)
- (library_flags -linkall)
- (libraries mopsa framework mopsa_universal_parser))

@@ -21,7 +21,7 @@
 
 (** Soundness assumptions *)
 
-open Mopsa
+open MopsaLib
 
 type assumption_kind +=
    | A_cpython_unsupported_fields of string

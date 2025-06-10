@@ -19,10 +19,10 @@
 (*                                                                          *)
 (****************************************************************************)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
-open Universal.Ast
-open C.Ast
+open Universal.Lang.Ast
+open C.Lang.Ast
 open C.Common.Points_to
 open Top
 
@@ -51,13 +51,13 @@ module Domain =
                             (struct
                               type t = ControlCtx.control_ctx
                               let compare = ControlCtx.compare_control_ctx
-                              let print = unformat pp_control_ctx
+                              let print = unformat ControlCtx.pp_control_ctx
                             end)
 
       include CallstackSet
 
       let control_ctx_remove_loop_info (c:t) : t =
-        CallstackSet.map (fun s -> List.map (fun x -> Call x) (ControlCtx.extract_callstack s)) c
+        CallstackSet.map (fun s -> List.map (fun x -> ControlCtx.Call x) (ControlCtx.extract_callstack s)) c
 
       let max_size = 1
       let bound (x:t) : t =

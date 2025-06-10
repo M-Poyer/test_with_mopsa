@@ -3,4 +3,7 @@
  (public_name mopsa.mopsa_c_stubs_parser.passes)
  (libraries parsing mopsa_utils mopsa_c_parser zarith)
  (library_flags -linkall)
- (flags -open Parsing))
+ (flags (:standard -open Mopsa_utils.Core -open Mopsa_utils.Containers -open Parsing))
+)
+
+

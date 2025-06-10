@@ -21,7 +21,7 @@
 
 (**  Pretty-printer of Apron environments *)
 
-open Mopsa
+open MopsaLib
 open Apron
 
 let coeff_eq_1 (c: Coeff.t) = match c with

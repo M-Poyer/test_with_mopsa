@@ -24,7 +24,8 @@
  *)
 
 open Mopsa_utils
-open Bot
+open Core.Bot
+open Containers
 module F = ItvUtils.Float
 module I = ItvUtils.FloatItv
 

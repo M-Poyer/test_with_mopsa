@@ -23,9 +23,9 @@
 (** Static evaluation of a pointer expression  *)
 
 
-open Mopsa
-open Universal.Ast
-open Ast
+open MopsaLib
+open Universal.Lang.Ast
+open Lang.Ast
 open Common.Base
 
 

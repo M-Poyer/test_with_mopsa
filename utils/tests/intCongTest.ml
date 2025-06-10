@@ -25,7 +25,7 @@
 
 
 open Mopsa_utils
-open Bot
+open Core.Bot
 open CongUtils.IntCong
 
 

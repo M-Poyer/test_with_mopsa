@@ -118,7 +118,7 @@ struct
       | Some vv1, Some vv2 ->
         if compare vv1 vv2 = 0
         then Some vv1
-        else Exceptions.panic "Equiva.concat: key %a points to different values %a and %a"
+        else Core.Exceptions.panic "Equiva.concat: key %a points to different values %a and %a"
             kp k vp vv1 vp vv2
     in
     {

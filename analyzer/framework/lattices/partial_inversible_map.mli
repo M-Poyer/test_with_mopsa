@@ -23,13 +23,12 @@
 (** Lattice of partial inversible maps.
 
     Sets of partial maps M ∈ ℘(𝕂 ⇀ 𝕍) from concrete keys set 𝕂 to
-    concrete values set 𝕍 are abstracted as a set of partial maps ℳ ∈ 
+    concrete values set 𝕍 are abstracted as a set of partial maps ℳ ∈
     𝕂 ⇀ (℘(𝕍) ∪ {⊤}).
 *)
 
 
 
-open Mopsa_utils
 open Bot_top
 open Top
 open Core.All

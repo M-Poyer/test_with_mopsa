@@ -21,8 +21,8 @@
 
 (** Python AST *)
 
-open Mopsa
-open Universal.Ast
+open MopsaLib
+open Universal.Lang.Ast
 
 (*==========================================================================*)
                            (** {2 Constants} *)
@@ -75,20 +75,20 @@ type operator +=
 
 
 let is_arith_op = function
-  | Universal.Ast.O_plus
-  | Universal.Ast.O_minus
-  | Universal.Ast.O_mult
+  | O_plus
+  | O_minus
+  | O_mult
   | O_py_mat_mult
-  | Universal.Ast.O_div
+  | O_div
   | O_py_floor_div
-  | Universal.Ast.O_bit_invert
-  | Universal.Ast.O_mod
-  | Universal.Ast.O_pow
-  | Universal.Ast.O_bit_lshift
-  | Universal.Ast.O_bit_rshift
-  | Universal.Ast.O_bit_and
-  | Universal.Ast.O_bit_xor
-  | Universal.Ast.O_bit_or ->
+  | O_bit_invert
+  | O_mod
+  | O_pow
+  | O_bit_lshift
+  | O_bit_rshift
+  | O_bit_and
+  | O_bit_xor
+  | O_bit_or ->
     true
 
   | _ -> false

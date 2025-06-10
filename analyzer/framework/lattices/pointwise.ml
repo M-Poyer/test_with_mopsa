@@ -21,11 +21,11 @@
 
 (** Pointwise lattice construction.
 
-    Lattice of partial maps 𝕂 ⇀ 𝕍 where 𝕂 is a key set 
+    Lattice of partial maps 𝕂 ⇀ 𝕍 where 𝕂 is a key set
     and 𝕍 is a value lattice.
     Unlink Partial_map, ⊥ values is not coalescent.
 
-    Bindings that map keys to ⊥ values are not represented.    
+    Bindings that map keys to ⊥ values are not represented.
 
     We use Maps, so 𝕂 needs to be totally ordered.
 
@@ -33,7 +33,6 @@
     ⊤ map is represented as a special TOP element.
 *)
 
-open Mopsa_utils
 open Top
 open Core.All
 
@@ -63,10 +62,10 @@ struct
   let bottom : t = Nt M.empty
 
   let empty : t = bottom
-  
+
   let top : t = TOP
 
-  let is_bottom (a:t) : bool = 
+  let is_bottom (a:t) : bool =
     top_dfl1 false M.is_empty a
 
   let is_empty (a:t) : bool =
@@ -74,7 +73,7 @@ struct
 
   let is_top (a:t) : bool =
     a = TOP
-  
+
   let subset (a:t) (b:t) : bool =
     if a == b then true else
     top_included
@@ -93,7 +92,7 @@ struct
          (fun _ x y -> Value.join x y)
       )
       a b
-  
+
   let widen ctx (a:t) (b:t) : t =
     if a == b then a else
     top_lift2
@@ -138,14 +137,14 @@ struct
   *)
   let m_add (k: Key.t) (v:Value.t) (a:nt_t) : nt_t =
     if Value.is_bottom v then M.remove k a else M.add k v a
-    
+
   let add (k: Key.t) (v:Value.t) (a:t) : t =
     top_lift1 (fun m -> m_add k v m) a
 
   (** Returns false of a is the ⊤ map, or k is mapped to the ⊥ value. *)
   let mem (k: Key.t) (a:t) : bool =
     top_dfl1 false (M.mem k) a
-  
+
   let rename (k: Key.t) (k': Key.t) (a:t) : t =
     let v = find k a in
     let a = remove k a in
@@ -153,19 +152,19 @@ struct
 
   let apply (k: Key.t) (f:Value.t -> Value.t) (a:t) : t =
     add k (f (find k a)) a
-  
+
   let singleton (k:Key.t) (v:Value.t) : t =
     add k v bottom
 
   let filter (f : Key.t -> Value.t -> bool) (a :t) : t =
     top_lift1 (M.filter f) a
 
-  
+
   (** Raises a Top_encountered exception for the ⊤ map. *)
   let bindings (a:t) : (Key.t * Value.t) list =
     M.bindings (detop a)
 
-  
+
   (** Returns None for a ⊤ or ⊥ map. *)
   let max_binding (a:t) : (Key.t * Value.t) option =
     top_dfl1
@@ -183,11 +182,11 @@ struct
 
 
   (** Iterator functions.
-  
-      These functions do nothing for the ⊤ map, which is 
+
+      These functions do nothing for the ⊤ map, which is
       equivalent here to the empty map.
   *)
-      
+
   let iter (f:Key.t -> Value.t -> unit) (a:t) : unit =
     top_apply (M.iter f) () a
 
@@ -213,9 +212,9 @@ struct
 
      If a key is bound in only one map, the function is called
      with the ⊥ value as missing argument.
-     These functions do nothing if either map is the ⊤ map.     
+     These functions do nothing if either map is the ⊤ map.
   *)
-  
+
   let map2 (f:Key.t -> Value.t -> Value.t -> Value.t) (m1:t) (m2:t) : t =
     top_lift2
       (fun m1 m2 ->
@@ -331,17 +330,17 @@ struct
       m1 m2
 
 
-  
+
 
   (** Slice iterations. *)
-  
+
 
   let map_slice (f:Key.t -> Value.t -> Value.t) (m:t) (lo:Key.t) (hi:Key.t) : t =
     top_lift1 (fun m -> M.fold_slice (fun k v n -> m_add k (f k v) n) m lo hi M.empty) m
 
   let iter_slice (f:Key.t -> Value.t -> unit) (m:t) (lo:Key.t) (hi:Key.t) : unit =
     top_apply (fun m -> M.iter_slice f m lo hi) () m
-      
+
   let fold_slice (f:Key.t -> Value.t -> 'a -> 'a) (m:t) (lo:Key.t) (hi:Key.t) (acc:'a) : 'a =
     top_apply (fun m -> M.fold_slice f m lo hi acc) acc m
 
@@ -350,5 +349,5 @@ struct
 
   let exists_slice (f:Key.t -> Value.t -> bool) (m:t) (lo:Key.t) (hi:Key.t) : bool =
     top_dfl1 false (fun m -> M.exists_slice f m lo hi) m
-  
+
 end

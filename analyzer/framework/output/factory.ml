@@ -23,7 +23,6 @@
 
 open Core.All
 open Common
-open Mopsa_utils
 
 
 (* Output engines *)

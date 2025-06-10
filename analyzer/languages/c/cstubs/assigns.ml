@@ -22,12 +22,12 @@
 (** Generic handler of assigns clauses and primed variables. *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
 open Common.Points_to
-open Ast
+open Lang.Ast
 open Common
 open Common.Base
 open Common.Alarms

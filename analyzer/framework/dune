@@ -1,5 +1,0 @@
-(library
- (name framework)
- (public_name mopsa.mopsa_analyzer.framework)
- (library_flags -linkall)
- (libraries combiners params core engines lattices output sig mopsa_utils))

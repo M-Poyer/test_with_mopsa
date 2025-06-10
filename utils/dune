@@ -2,6 +2,9 @@
  (name mopsa_utils)
  (public_name mopsa.mopsa_utils)
  (library_flags -linkall)
- (libraries mopsa.mopsa_utils.core containers bitfields congUtils itvUtils))
+ (libraries str unix arg-complete zarith)
+ (foreign_stubs (language c) (names floats_round))
+)
 
+(include_subdirs qualified)
 (dirs *)

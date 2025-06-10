@@ -21,7 +21,6 @@
 
 (** Switch of stateless domains *)
 
-open Mopsa_utils
 open Core.All
 open Sig.Combiner.Stateless
 open Common

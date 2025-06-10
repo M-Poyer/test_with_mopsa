@@ -23,8 +23,6 @@
 
 
 open Core.All
-open Mopsa_utils
-
 
 module type DOMAIN =
 sig

@@ -34,22 +34,22 @@ open Clang_AST
 open Clang_parser
 
 
-let debug fmt = Mopsa_utils.Debug.debug ~channel:"c.parser_cache" fmt
+let debug fmt = Debug.debug ~channel:"c.parser_cache" fmt
 
-(** Version number. 
+(** Version number.
     This is checked when using the cache, and should be changed when
     the signature or the AST type change to invalidate the cache.
 *)
 let version = "Mopsa.C.AST/1"
 
-       
+
 (** Source file identification. *)
 type file_signature =
     string   (* absolute filename *)
     * float  (* last modification time *)
     * int    (* length *)
 
-        
+
 (** Parse identification. *)
 type signature =
     string                  (* parser command *)
@@ -58,40 +58,40 @@ type signature =
     * file_signature list   (* file names and timestamp *)
 
 
-                     
+
 (** Make filename absolute. *)
 let file_abs f =
 (*  if Filename.is_relative f then Filename.concat (Sys.getcwd ()) f
   else*) f
 
-         
+
 let get_file_signature (f:string) : file_signature =
   let f = file_abs f in
   let s = Unix.stat f in
   f, s.Unix.st_mtime, s.Unix.st_size
 
-                        
+
 let get_signature cmd tgt opts files : signature =
   cmd, tgt, opts, List.map get_file_signature files
 
-                           
-(** Checks that the signature is valid. *)    
+
+(** Checks that the signature is valid. *)
 let check_signature cmd tgt opts signature : bool =
   let cmd', tgt', opts', files' = signature in
   cmd = cmd' && tgt = tgt' && opts = opts' &&
   (List.for_all (fun s -> let f,_,_ = s in get_file_signature f = s) files')
 
-    
+
 (** File name of cache for a given source file name. *)
 let file_cache_name file =
-   file ^ ".mopsa_ast" 
+   file ^ ".mopsa_ast"
 
-    
+
 (** Drop-in replacement to [Clang_parser.cache], but uses a cache on disk. *)
 let parse cmd tgt file opts : parse_result =
 
   debug "Clang_parser_cache: parsing %s" file;
-      
+
   (* try to read cache *)
   let file_cache = file_cache_name file in
   debug "Clang_parser_cache: looking for cache file %s" file_cache;
@@ -102,7 +102,7 @@ let parse cmd tgt file opts : parse_result =
       Unix.lockf f F_LOCK 0;
       let cache = Unix.in_channel_of_descr f in
       let v = Marshal.from_channel cache in
-      let r = 
+      let r =
         if v <> version then (
           debug "Clang_parser_cache: %s incompatible version" file_cache;
           None
@@ -130,9 +130,9 @@ let parse cmd tgt file opts : parse_result =
     with _ ->
       (* cache file not available *)
       debug "Clang_parser_cache: %s cache file not found" file_cache;
-      None 
+      None
   in
-  
+
   match from_cache with
   | Some c -> c
   | None ->
@@ -159,4 +159,3 @@ let parse cmd tgt file opts : parse_result =
 let parse cmd tgt enable_cache file opts =
   if enable_cache then parse cmd tgt file opts
   else Clang_parser.parse ~command:cmd ~target:tgt ~filename:file ~args:opts
-   

@@ -22,11 +22,12 @@
 (** A constant dictionary abstraction. Useful to be precise when passing named arguments to functions *)
 
 (* I guess this is completely broken... d = {}. x = 2. d[2x+1] = 3. x += 1. d[2]? d[3]? *)
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang
+open Universal.Lang.Ast
 open Data_container_utils
 
 

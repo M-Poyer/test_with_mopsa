@@ -1,0 +1,40 @@
+(env (_ (flags (:standard -open Mopsa_utils.Core -open Mopsa_utils.Containers))))
+
+(library
+ (name mopsa_analyzer)
+ (public_name mopsa.mopsa_analyzer)
+ (libraries
+   mopsa_utils
+   mopsa_universal_parser
+   mopsa_build_db
+   @dune_mopsa_c_parsers@
+   @dune_mopsa_python_parser@
+   yojson
+   apron apron.boxMPQ apron.octMPQ apron.polkaMPQ
+  (select languages.universal.numeric.relational.elinainst.ml from
+   (elina -> languages.universal.numeric.relational.elinainst.real.ml)
+   (-> languages.universal.numeric.relational.elinainst.dummy.ml))
+  (select languages.universal.numeric.relational.ppliteinst.ml from
+   (apron.pplite -> languages.universal.numeric.relational.ppliteinst.real.ml)
+   (-> languages.universal.numeric.relational.ppliteinst.dummy.ml)
+  )
+ )
+ (modules :standard \ mopsa)
+ (library_flags -linkall)
+)
+
+(executable
+ (name mopsa)
+ (public_name mopsa.exe)
+ (modes exe @dune_bytecode@)
+ (package mopsa)
+ (modules mopsa)
+ (libraries mopsa_analyzer)
+ (link_flags -linkall)
+)
+
+(include_subdirs qualified)
+(dirs :standard \ tests)
+
+(subdir languages
+        (dirs :standard \ @dune_c_exclusion@ @dune_python_exclusion@))

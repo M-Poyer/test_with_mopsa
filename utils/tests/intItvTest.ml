@@ -24,7 +24,7 @@
  *)
 
 open Mopsa_utils
-open Bot
+open Core.Bot
 open ItvUtils.IntItv
 
 let test_count = 1000

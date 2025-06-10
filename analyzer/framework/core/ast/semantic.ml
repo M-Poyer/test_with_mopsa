@@ -35,9 +35,9 @@ let is_any_semantic = function
   | _   -> false
 
 module SemanticSet =
-  Mopsa_utils.SetExt.Make
+  SetExt.Make
     (struct type t = semantic let compare = compare_semantic end)
 
 module SemanticMap =
-  Mopsa_utils.MapExt.Make
+  MapExt.Make
     (struct type t = semantic let compare = compare_semantic end)
