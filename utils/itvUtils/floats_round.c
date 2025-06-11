@@ -246,7 +246,7 @@ OP_DD_D(sub_sgl_zero, { ROUND_ZERO; r = (float)a - (float)b; })
 /* mul */
 OP_DD_D(mul_dbl_near, { ROUND_NEAR; r = a * b; })
 OP_DD_D(mul_dbl_up,   { ROUND_UP;   r = a * b; })
-OP_DD_D(mul_dbl_down, { ROUND_DOWN; r = a * b; })
+OP_DD_D(mul_dbl_down, { ROUND_UP;   a = -a; r = -(a * b); })
 OP_DD_D(mul_dbl_zero, { ROUND_ZERO; r = a * b; })
 OP_DD_D(mul_sgl_near, { ROUND_NEAR; r = (float)a * (float)b; })
 OP_DD_D(mul_sgl_up,   { ROUND_UP;   r = (float)a * (float)b; })
@@ -615,11 +615,11 @@ CAMLprim value ml_mul_dbl_itv_up(value a, value b, value r) {
 }
 
 CAMLprim value ml_mul_dbl_itv_down(value a, value b, value r) {
-  ROUND_DOWN;
-  double l1 = get_l(a), l2 = get_l(b), h1 = get_u(a), h2 = get_u(b);
+  ROUND_UP;
+  double l1 = -get_l(a), l2 = get_l(b), h1 = -get_u(a), h2 = get_u(b);
   double ll = MUL(l1,l2), lh = MUL(l1,h2), hl = MUL(h1,l2), hh = MUL(h1,h2);
-  set_l(r, fmin(fmin(ll,hh), fmin(lh,hl)));
-  set_u(r, fmax(fmax(ll,hh), fmax(lh,hl)));
+  set_l(r, -fmax(fmax(ll,hh), fmax(lh,hl)));
+  set_u(r, -fmin(fmin(ll,hh), fmin(lh,hl)));
   return Val_unit;
 }
 
