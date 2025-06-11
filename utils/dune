@@ -3,7 +3,7 @@
  (public_name mopsa.mopsa_utils)
  (library_flags -linkall)
  (libraries str unix arg-complete zarith)
- (foreign_stubs (language c) (names floats_round) (flags -frounding-math))
+ (foreign_stubs (language c) (names floats_round) (flags -fPIC -frounding-math))
 )
 
 (include_subdirs qualified)
