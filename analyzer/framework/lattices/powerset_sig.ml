@@ -21,7 +21,6 @@
 
 (** Powerset lattice with finite cardinality elements or ⊺. *)
 
-open Mopsa_utils
 open Top
 open Core
 

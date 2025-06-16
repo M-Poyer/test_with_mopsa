@@ -26,7 +26,6 @@
     that binds concrete keys to abstract values.
 *)
 
-open Mopsa_utils
 open Bot_top
 open Core.All
 

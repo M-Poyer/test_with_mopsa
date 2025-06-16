@@ -21,10 +21,10 @@
 
 (** Transformation of conditional expressions. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 
 module Domain =
   struct
@@ -44,7 +44,7 @@ module Domain =
          let tmp = mktmp ~typ:(T_py None) () in
          let flow = man.exec
                       (mk_if
-                         (Utils.mk_builtin_call "bool" [test] range)
+                         (Lang.Utils.mk_builtin_call "bool" [test] range)
                          (mk_assign (mk_var tmp (tag_range range "true branch lval")) body (tag_range range "true branch assign"))
                          (mk_assign (mk_var tmp (tag_range range "false branch lval")) orelse (tag_range range "false branch assign"))
                          range
@@ -63,7 +63,7 @@ module Domain =
       let range = srange stmt in
       match skind stmt with
       | S_py_if (test, sthen, selse) ->
-        man.eval   (Utils.mk_builtin_call "bool" [test] range) flow |>
+        man.eval   (Lang.Utils.mk_builtin_call "bool" [test] range) flow |>
         bind_result (fun exp flow ->
             man.exec (mk_if exp sthen selse range) flow >>% Post.return
           )

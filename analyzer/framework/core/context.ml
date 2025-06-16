@@ -21,7 +21,7 @@
 
 (** Flow-insensitive context *)
 
-open Mopsa_utils.Eq
+open Eq
 
 type ('a,_) ctx_key = ..
 
@@ -169,12 +169,12 @@ struct
 
 end
 
-open Mopsa_utils.Callstack
+open ControlCtx
 
-module CallstackKey = GenContextKey
+module ControlCtxKey = GenContextKey
     (struct
-      type 'a t = callstack
-      let print pp fmt cs = pp_callstack fmt cs
+      type 'a t = control_ctx
+      let print pp fmt c = pp_control_ctx fmt c
     end)
 
-let callstack_ctx_key = CallstackKey.key
+let control_ctx_key = ControlCtxKey.key

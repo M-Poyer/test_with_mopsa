@@ -20,9 +20,8 @@
 (****************************************************************************)
 
 open Core.All
-open Mopsa_utils
 open Location
-open Callstack
+open ControlCtx
 open Interface
 open Format
 open Breakpoint
@@ -455,7 +454,7 @@ struct
     if man.lattice.is_bottom (Flow.get T_cur man.lattice flow) then
       fprintf fmt "⊥@."
     else
-      Ast.Var.force_print_uniq_with_uid false (fun () ->
+      Core.Ast.Var.force_print_uniq_with_uid false (fun () ->
       let names =
         match names with
         | [] ->
@@ -608,8 +607,8 @@ struct
 
   let pp_output_command action envdb man flow fmt = function
     | BackTrace ->
-      let cs = Flow.get_callstack flow in
-      fprintf fmt "%a@." pp_callstack cs
+      let cs = Flow.get_control_ctx flow in
+      fprintf fmt "%a@." pp_control_ctx cs
 
     | MopsaBackTrace ->
       let (in_file_descr, out_file_descr) = Unix.pipe () in
@@ -869,8 +868,8 @@ struct
          | Exceptions.PanicAtLocation (range, msg, "") -> fprintf fmt "panic in %a: %s@." Location.pp_range range msg
          | Exceptions.PanicAtLocation (range, msg, loc) -> fprintf fmt "%a: panic raised in %s: %s@." Location.pp_range range loc msg
 
-         | Exceptions.PanicAtFrame (range, cs, msg, "") -> fprintf fmt "panic in %a: %s@\nTrace:@\n%a@." Location.pp_range range msg pp_callstack cs
-         | Exceptions.PanicAtFrame (range, cs, msg, loc) -> fprintf fmt "%a: panic raised in %s: %s@\nTrace:@\n%a@." Location.pp_range range loc msg pp_callstack cs
+         | Exceptions.PanicAtFrame (range, cs, msg, "") -> fprintf fmt "panic in %a: %s@\nTrace:@\n%a@." Location.pp_range range msg pp_control_ctx cs
+         | Exceptions.PanicAtFrame (range, cs, msg, loc) -> fprintf fmt "%a: panic raised in %s: %s@\nTrace:@\n%a@." Location.pp_range range loc msg pp_control_ctx cs
 
          | Exceptions.SyntaxError (range, msg) -> fprintf fmt "%a: syntax error: %s@." Location.pp_range range msg
          | Exceptions.UnnamedSyntaxError range -> fprintf fmt "%a: syntax error@." Location.pp_range range

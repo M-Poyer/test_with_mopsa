@@ -22,10 +22,10 @@
 
 (** Common auxiliary variables used by stubs transfer functions *)
 
-open Mopsa
-open Universal.Ast
+open MopsaLib
+open Universal.Lang.Ast
 open Stubs.Ast
-open Ast
+open Lang.Ast
 open Common.Base
 
 

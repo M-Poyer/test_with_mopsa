@@ -35,11 +35,11 @@
 *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stacked
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
-open Ast
+open Lang.Ast
 open Common
 open Common.Base
 open Common.Points_to
@@ -96,7 +96,7 @@ struct
   (** Pretty printer of cell types *)
   let pp_cell_typ fmt t =
     match t with
-    | Numeric tt -> Pp.pp_c_type_short fmt tt
+    | Numeric tt -> Lang.Pp.pp_c_type_short fmt tt
     | Pointer -> Format.fprintf fmt "ptr"
 
 
@@ -468,7 +468,7 @@ struct
       key = "-cell-deref-expand";
       category = "C";
       doc = " maximal number of expanded cells when dereferencing a pointer";
-      spec = ArgExt.Set_int opt_deref_expand;
+      spec = Set_int (opt_deref_expand, ArgExt.empty);
       default = "1";
     }
 
@@ -479,7 +479,7 @@ struct
       key = "-cell-smash";
       category = "C";
       doc = " activate the on-demand smashing when the expansion threshold is reached";
-      spec = ArgExt.Set opt_smash;
+      spec = Set opt_smash;
       default = "";
     }
 
@@ -489,7 +489,7 @@ struct
       key = "-cell-smash-only-pointers";
       category = "C";
       doc = " the on-demand smashing happens only on pointers";
-      spec = ArgExt.Set opt_smash;
+      spec = Set opt_smash;
       default = "";
     }
 

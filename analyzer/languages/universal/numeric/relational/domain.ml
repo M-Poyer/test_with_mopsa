@@ -21,10 +21,10 @@
 
 (** Relational numeric abstract domain, based on APRON. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified
 open Common
-open Ast
+open Lang.Ast
 open Apron_manager
 open Apron_transformer
 
@@ -36,7 +36,7 @@ let () =
     key = "-show-relational-def-domain";
     category = "Numeric";
     doc = " display the domain on which the relational abstract state is defined";
-    spec = ArgExt.Set opt_show_relational_domain;
+    spec = Set opt_show_relational_domain;
     default = "false";
   }
 
@@ -46,7 +46,7 @@ let () =
     key = "-enforce-sign-constraints";
     category = "Numeric";
     doc = " enforce sign constraints of variables in the relational domain";
-    spec = ArgExt.Set opt_enforce_sign_constraints;
+    spec = Set opt_enforce_sign_constraints;
     default = "false";
   }
 
@@ -126,17 +126,17 @@ struct
   let add_missing_vars (a,bnd) lv =
     let env = Apron.Abstract1.env a in
     let lv = List.sort_uniq compare lv in
-    let lv = List.filter (fun v -> not (Apron.Environment.mem_var env (Binding.mopsa_to_apron_var v bnd |> fst))) lv in
-
-    let int_vars, bnd =
-      let lv' = List.filter (fun v -> vtyp v = T_int || vtyp v = T_bool) lv in
-      Binding.mopsa_to_apron_vars lv' bnd
-    in
-
-    let float_vars, bnd =
-      let lv' = List.filter (function { vtyp = T_float _} -> true | _ -> false) lv in
-      Binding.mopsa_to_apron_vars lv' bnd
-    in
+    let int_vars, float_vars, bnd = List.fold_left (fun (iv, fv, bnd) v ->
+        let av, bnd = Binding.mopsa_to_apron_var v bnd in
+        match not (Apron.Environment.mem_var env av), vtyp v with
+          | true, T_int
+          | true, T_bool ->
+            (av :: iv, fv, bnd)
+          | true, T_float _ ->
+            (iv, av :: fv, bnd)
+          | _ ->
+            iv, fv, bnd
+      ) ([], [], bnd) lv in
 
     let env' = Apron.Environment.add env
         (Array.of_list int_vars)

@@ -21,10 +21,10 @@
 
 (** Control flow abstraction for switch statements. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
 open Universal.Iterators.Loops
-open Ast
+open Lang.Ast
 
 (******************)
 (** Trace markers *)
@@ -53,11 +53,12 @@ let () = register_marker {
         | _ ->
           next m1 m2
       );
-    marker_name = (fun next -> function
+    marker_print_name = (fun next -> function
         | M_c_switch_case _
         | M_c_switch_default _ -> "switch"
         | m -> next m
       );
+    marker_name = "switch"
   }
 
 (********************)
@@ -156,11 +157,11 @@ struct
       | (e',r) :: tl ->
         (* Filter the environments *)
         let cond = match ekind e' with
-          | E_constant (Universal.Ast.C_int_interval (ItvUtils.IntBound.Finite lo,
+          | E_constant (Universal.Lang.Ast.C_int_interval (ItvUtils.IntBound.Finite lo,
                                                       ItvUtils.IntBound.Finite hi)) ->
-            Universal.Ast.mk_in evl_e
-              (Universal.Ast.mk_z ~typ:(etyp e') lo switch_range)
-              (Universal.Ast.mk_z ~typ:(etyp e') hi switch_range)
+            Universal.Lang.Ast.mk_in evl_e
+              (Universal.Lang.Ast.mk_z ~typ:(etyp e') lo switch_range)
+              (Universal.Lang.Ast.mk_z ~typ:(etyp e') hi switch_range)
               switch_range
           | _ -> mk_binop evl_e O_eq e' ~etyp:u8 switch_range
         in
@@ -245,7 +246,7 @@ struct
              | Empty -> Cases.empty flow
              | NotHandled -> Cases.not_handled flow
              | Result(e', _, cleaners) ->
-               exec_switch e e' body (Universal.Ast.mk_block (StmtSet.elements cleaners) (erange e)) stmt.srange man flow)
+               exec_switch e e' body (Universal.Lang.Ast.mk_block (StmtSet.elements cleaners) (erange e)) stmt.srange man flow)
        ) |>
       OptionExt.return
 

@@ -38,11 +38,11 @@
 *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
-open Ast
+open Lang.Ast
 open Common.Base
 open Common.Points_to
 open Common.Alarms
@@ -77,7 +77,7 @@ struct
       key = "-c-track-string-length";
       category = "C";
       doc = " track lengths of dynamic strings";
-      spec = ArgExt.Bool (fun b -> opt_track_length := b);
+      spec = Bool (fun b -> opt_track_length := b);
       default = "true";
     }
 

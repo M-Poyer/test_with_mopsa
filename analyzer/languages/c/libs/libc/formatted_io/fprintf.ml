@@ -21,15 +21,15 @@
 
 (** Evaluation of fprintf-derived functions *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Common.Points_to
 open Common.Base
 open Common.Alarms
 open Format_string
-open Placeholder
+open Mopsa_c_parser.Formatted_io_placeholder
 
 
 module Domain =
@@ -60,7 +60,7 @@ struct
   let check_arg arg placeholder range man flow =
     match placeholder.op_typ with
     | Int t ->
-      let typ = T_c_integer t in
+      let typ = T_c_integer (Lang.Frontend.from_integer_type t) in
       let flow =
         if not (is_c_int_type arg.etyp) then
           raise_c_invalid_format_arg_type_alarm arg typ man flow
@@ -72,7 +72,7 @@ struct
       Post.return flow
 
     | Float t ->
-      let typ = T_c_float t in
+      let typ = T_c_float (Lang.Frontend.from_float_type t) in
       let flow =
         if not (is_c_float_type arg.etyp) then
           raise_c_invalid_format_arg_type_alarm arg typ man flow
@@ -223,25 +223,25 @@ struct
             else
               (* case 2 *)
               vasprintf_stub false format dst exp.erange man flow >>$ fun ret flow ->
-              let range = erange exp in 
+              let range = erange exp in
               let exception UnsupportedFormat in
               let rec process flow ret_value fmt =
                 match fmt with
-                | [] -> Cases.singleton ret_value flow 
+                | [] -> Cases.singleton ret_value flow
                 | String s :: tl -> process flow (add ~typ:(T_c_integer (C_signed_int)) ret_value (mk_int (String.length s) range) range) tl
                 | Placeholder { op_typ = String } :: tl ->
                   man.eval (mk_expr (E_c_var_args ap) ~etyp:(T_c_pointer (T_c_integer (C_signed_char))) range) flow >>$ fun arg flow ->
                   assume (eq arg (mk_c_null range) range) man flow
                     (* if one string is NULL, this counts as an internal error: -1 is returned *)
                     ~fthen:(fun flow -> Cases.singleton (mk_int (-1) ~typ:(T_c_integer C_signed_int) range) flow)
-                    ~felse:(fun flow -> 
+                    ~felse:(fun flow ->
                         man.eval
                           (mk_c_call (find_c_fundec_by_name "strlen" flow)
                              [arg]
                              range) flow >>$ fun sl flow ->
                         process flow (add ret_value sl range) tl)
                 | Placeholder { op_typ = Int t; op_width = None; op_precision=None; } :: tl ->
-                  let range_l, range_u = rangeof (T_c_integer t) flow in 
+                  let range_l, range_u = rangeof (T_c_integer (Lang.Frontend.from_integer_type t)) flow in
                   process flow (add ret_value (mk_int_interval 1 (max (String.length @@ Z.to_string range_l) (String.length @@ Z.to_string range_u)) range) range) tl
                 | _ -> raise UnsupportedFormat
               in
@@ -249,7 +249,7 @@ struct
                  process flow (mk_zero ~typ:(T_c_integer (C_signed_int)) range) output_format >>$ fun return flow ->
                  man.exec (mk_assume (eq ret return range) range) flow >>% Eval.singleton ret
               with UnsupportedFormat ->
-                Eval.singleton ret flow 
+                Eval.singleton ret flow
         )
       |> OptionExt.return
 

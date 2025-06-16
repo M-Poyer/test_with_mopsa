@@ -21,9 +21,9 @@
 
 (** State partitioning depending on the value of target integer variables *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Partitioning
-open Ast
+open Lang.Ast
 
 module Domain =
 struct
@@ -60,7 +60,7 @@ struct
   let () = register_domain_option name {
       key = "-state-partition-int-var";
       doc = "name of the variable used to partition the states (syntax: var or var@value1,value2,...)";
-      spec = ArgExt.String parse_option;
+      spec = ArgExt.String (parse_option, ArgExt.empty);
       category = "PARTITIONING";
       default = "";
     }

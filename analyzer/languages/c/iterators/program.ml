@@ -22,11 +22,11 @@
 (** Main handler of standalone C programs. *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
-open Ast
+open Lang.Ast
 open Common
 open Common.Points_to
 open Common.Base
@@ -60,7 +60,7 @@ struct
       key = "-c-entry";
       category = "C";
       doc = " name of the entry function to be analyzed";
-      spec = ArgExt.Set_string opt_entry_function;
+      spec = Set_string (opt_entry_function, ArgExt.empty);
       default = "main";
     }
 
@@ -71,7 +71,7 @@ struct
       key = "-c-check-unreachable-memory";
       category = "C";
       doc = " check for unreachable allocated memory";
-      spec = ArgExt.Set opt_check_memory;
+      spec = Set opt_check_memory;
       default = "main";
     }
 
@@ -92,30 +92,30 @@ struct
       key = "-c-symbolic-args";
       category = "C";
       doc = " set the number of symbolic arguments given to main (syntax: min[:max])";
-      spec = ArgExt.String (fun s -> opt_symbolic_args := Some (parse_symbolic_args_spec s));
+      spec = String ((fun s -> opt_symbolic_args := Some (parse_symbolic_args_spec s)), ArgExt.empty);
       default = "";
     }
 
-  let opt_arg_max_size = ref None 
+  let opt_arg_max_size = ref None
 
   let () =
     register_domain_option name {
       key = "-c-symbolic-args-max-size";
       category = "C";
       doc = " set the maximum allocated size of all symbolic arguments";
-      spec = ArgExt.Int (fun s -> opt_arg_max_size := Some s);
+      spec = Int ((fun s -> opt_arg_max_size := Some s), ArgExt.empty);
       default = "18446744073709551615";
     }
 
 
-  let opt_arg_min_size = ref None 
+  let opt_arg_min_size = ref None
 
   let () =
     register_domain_option name {
       key = "-c-symbolic-args-min-size";
       category = "C";
       doc = " set the maximum allocated size of all symbolic arguments";
-      spec = ArgExt.Int (fun s -> opt_arg_min_size := Some s);
+      spec = Int ((fun s -> opt_arg_min_size := Some s), ArgExt.empty);
       default = "1"
     }
 
@@ -131,7 +131,7 @@ struct
     match prog.prog_kind with
     | C_program p -> 
       set_c_program p flow |>
-      set_c_target_info !Frontend.target_info |>
+      set_c_target_info !Lang.Frontend.target_info |>
       Post.return |>
       Option.some
 
@@ -667,7 +667,7 @@ struct
               (name, stmt)
             )
         in
-        mk_stmt (Universal.Ast.S_unit_tests tests) (srange stmt)
+        mk_stmt (Universal.Lang.Ast.S_unit_tests tests) (srange stmt)
       in
 
       let tests = get_test_functions c_functions in
@@ -714,7 +714,7 @@ struct
       (* Get global variables *)
       let globals = List.map fst prog.c_globals in
       (* Get local variables of all functions in the callstack, following the same order *)
-      let locals = List.fold_right (fun call acc -> (get_locals prog call.Callstack.call_fun_orig_name) @ acc
+      let locals = List.fold_right (fun call acc -> (get_locals prog call.call_fun_orig_name) @ acc
                      ) cs []
       in
       let all_vars = globals @ locals in

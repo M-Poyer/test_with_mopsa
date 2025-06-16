@@ -22,9 +22,8 @@
 (** Common transfer functions for handling function calls *)
 
 
-open Mopsa
-open Ast
-
+open MopsaLib
+open Lang.Ast
 
 let name = "universal.iterators.interproc.common"
 let debug fmt = Debug.debug ~channel:name fmt
@@ -36,7 +35,7 @@ let () = register_domain_option name {
     key = "-recursion-limit";
     doc = "Limit of recursive calls";
     category = "Interprocedural Analysis";
-    spec = ArgExt.Set_int opt_recursion_limit;
+    spec = Set_int (opt_recursion_limit,ArgExt.empty);
     default = string_of_int !opt_recursion_limit;
   }
 
@@ -47,7 +46,7 @@ let () =
     key = "-disable-var-renaming-recursive-call";
     category = "Interprocedural Analysis";
     doc = " disable renaming of local variables when detecting recursive calls";
-    spec = ArgExt.Clear opt_rename_local_variables_on_recursive_call;
+    spec = Clear opt_rename_local_variables_on_recursive_call;
     default = ""
   }
 
@@ -59,7 +58,8 @@ let () =
 type marker += M_return of range
 
 let () = register_marker {
-    marker_name = (fun next -> function
+    marker_name = "return";
+    marker_print_name = (fun next -> function
         | M_return _ -> "return"
         | m          -> next m
       );
@@ -146,8 +146,8 @@ module ReturnKey = GenContextKey(
 let return_key = ReturnKey.key
 
 let get_last_call_site flow =
-  let cs = Flow.get_callstack flow in
-  let hd, _ = pop_callstack cs in
+  let cs = Flow.get_control_ctx flow in
+  let hd, _ = ControlCtx.pop_callstack cs in
   hd.call_range
 
 
@@ -292,9 +292,7 @@ let exec_fun_body f body ret range man flow =
         (add_ctx return_key ret (Cases.get_ctx post2)) post2 in
 
   (* Restore call stack *)
-  let _,cs = Cases.get_callstack post3 |>
-             Callstack.pop_callstack in
-  let post4 = Cases.set_callstack cs post3 in
+  let _, post4 = Cases.pop_callstack post3 in
 
   post4 >>% fun flow3 ->
 

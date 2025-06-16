@@ -22,10 +22,10 @@
 (** Inter-procedural iterator by inlining, caching the last analysis
    results for each flow *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
-open Callstack
+open Lang.Ast
+open ControlCtx
 open Context
 open Common
 open MapExt
@@ -39,7 +39,7 @@ let () =
     key = "-mod-interproc-size";
     category = "Interproc";
     doc = " size of the cache in the modular interprocedural analysis";
-    spec = ArgExt.Set_int opt_universal_modular_interproc_cache_size;
+    spec = Set_int (opt_universal_modular_interproc_cache_size,ArgExt.empty);
     default = string_of_int !opt_universal_modular_interproc_cache_size;
   };
 

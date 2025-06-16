@@ -31,7 +31,7 @@ type route =
   | Below    of domain   (** Sub-tree below a domain *)
   | Semantic of semantic (** Sub-tree identified by a semantic *)
 
-module DomainSet : Mopsa_utils.SetExtSig.S with type elt = domain
+module DomainSet : SetExtSig.S with type elt = domain
 
  (** Set of domains *)
 val compare_route : route -> route -> int

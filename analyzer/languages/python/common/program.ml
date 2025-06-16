@@ -24,12 +24,12 @@
    variables __name__, __main__, __file__, and collects unit-testing
    functions if required *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Addr
-open Ast
-open Universal.Ast
-
+open Lang.Addr
+open Lang.Ast
+open Universal.Lang.Ast
+open Lang
 
 module Domain =
 struct
@@ -38,7 +38,7 @@ struct
       let name = "python.program"
     end)
 
-  let checks = [Alarms.CHK_PY_UNCAUGHT_EXCEPTION]
+  let checks = [Lang.Alarms.CHK_PY_UNCAUGHT_EXCEPTION]
 
   let init prog man flow =
     match prog.prog_kind with
@@ -74,7 +74,7 @@ struct
       let range = tag_range range "__name__ assignment" in
       mk_assign
         (mk_var v range)
-        (mk_constant (Universal.Ast.C_string "__main__") ~etyp:(T_py (Some Str)) range)
+        (mk_constant (Universal.Lang.Ast.C_string "__main__") ~etyp:(T_py (Some Str)) range)
         range
     in
     man.exec stmt flow1 >>% fun flow2 ->
@@ -85,7 +85,7 @@ struct
       let range = tag_range range "__file__ assignment" in
         mk_assign
           (mk_var v range)
-          (mk_constant (Universal.Ast.C_string (get_range_file range)) ~etyp:(T_py (Some Str)) range)
+          (mk_constant (Universal.Lang.Ast.C_string (get_range_file range)) ~etyp:(T_py (Some Str)) range)
           range
     in
     man.exec stmt flow2 >>% fun flow3 ->
@@ -101,7 +101,7 @@ struct
       String.sub name 0 4 = "test"
 
   let get_test_functions body =
-    Visitor.fold_stmt
+    Core.Ast.Visitor.fold_stmt
         (fun acc exp -> VisitParts acc)
         (fun acc stmt ->
            match skind stmt with
@@ -115,10 +115,10 @@ struct
   let mk_py_unit_tests tests range =
     let tests =
       tests |> List.map (fun test ->
-          (get_orig_vname test.py_func_var, {skind = S_expression (mk_py_call (mk_var test.py_func_var range) [] range); srange = range})
+          (get_orig_vname test.py_func_var, {skind = S_expression (mk_py_call (mk_var test.py_func_var range) [] range); srange = range; ssynthetic=true})
         )
     in
-    mk_stmt (Universal.Ast.S_unit_tests (tests)) range
+    mk_stmt (Universal.Lang.Ast.S_unit_tests (tests)) range
 
   let unprecise_exception_range prog_range =
     tag_range prog_range "unprecise exception range"
@@ -186,7 +186,7 @@ struct
     | _ -> None
 
   let find_function orig_name prog =
-    match Visitor.fold_stmt
+    match Core.Ast.Visitor.fold_stmt
         (fun acc exp -> VisitParts acc)
         (fun acc stmt ->
            match skind stmt with
@@ -216,7 +216,7 @@ struct
        (try
          let allvars =
            List.fold_left (fun acc call ->
-               (get_locals body call.Callstack.call_fun_orig_name) @ acc
+               (get_locals body call.call_fun_orig_name) @ acc
              ) globals cs
          in
          Some (Cases.singleton allvars flow)

@@ -23,7 +23,6 @@
 
 open Core.All
 open Abstraction.Simplified
-open Mopsa_utils
 
 module type SIMPLIFIED_COMBINER =
 sig

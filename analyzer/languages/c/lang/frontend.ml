@@ -24,8 +24,8 @@
 
 open Mopsa_c_parser
 open C_AST
-open Mopsa
-open Universal.Ast
+open MopsaLib
+open Universal.Lang.Ast
 open Stubs.Ast
 open Ast
 
@@ -80,84 +80,84 @@ let () =
     key = "-I";
     category = "C";
     doc = " add the directory to the search path for include files in C analysis";
-    spec = ArgExt.Set_string_list opt_include_dirs;
+    spec = String (ArgExt.set_string_list_lifter opt_include_dirs, ArgExt.empty);
     default = "";
   };
   register_language_option "c" {
     key = "-ccopt";
     category = "C";
     doc = " pass the option to the Clang frontend";
-    spec = ArgExt.Set_string_list opt_clang;
+    spec = String (ArgExt.set_string_list_lifter opt_clang, ArgExt.empty);
     default = "";
   };
   register_language_option "c" {
     key = "-make-target";
     category = "C";
     doc = " binary target to analyze; used only when the Makefile builds multiple targets.";
-    spec = ArgExt.Set_string opt_make_target;
+    spec = Set_string (opt_make_target, ArgExt.empty); (* FIXME BASH *)
     default = "";
   };
   register_language_option "c" {
     key = "-without-libc";
     category = "C";
     doc = " disable stubs of the standard C library.";
-    spec = ArgExt.Set opt_without_libc;
+    spec = Set opt_without_libc;
     default = "false";
   };
   register_language_option "c" {
     key = "-disable-parser-cache";
     category = "C";
     doc = " disable the cache of the Clang parser.";
-    spec = ArgExt.Clear opt_enable_cache;
+    spec = Clear opt_enable_cache;
     default = "unset";
   };
   register_language_option "c" {
     key = "-Wall";
     category = "C";
     doc = " display compiler warnings.";
-    spec = ArgExt.Set opt_warn_all;
+    spec = Set opt_warn_all;
     default = "unset";
   };
   register_language_option "c" {
     key = "-use-stub";
     category = "C";
     doc = " list of functions for which the stub is used instead of the declaration.";
-    spec = ArgExt.Set_string_list opt_use_stub;
+    spec = String (ArgExt.set_string_list_lifter opt_use_stub, ArgExt.empty);
     default = "";
   };
   register_language_option "c" {
     key = "-library-only";
     category = "C";
     doc = " allow library-only targets in the .db files (used for multilanguage analysis)";
-    spec = ArgExt.Set opt_library_only;
+    spec = Set opt_library_only;
     default = "false";
   };
   register_language_option "c" {
     key = "-additional-stubs";
     category = "C";
     doc = " additional stubs file";
-    spec = ArgExt.Set_string_list opt_stubs_files;
+    spec = String (ArgExt.set_string_list_lifter opt_stubs_files, ArgExt.empty);
     default = "";
   };
   register_language_option "c" {
     key = "-target-triple";
     category = "C";
     doc = " target architecture to analyze, as a triple (host if left empty).";
-    spec = ArgExt.Set_string opt_target_triple;
+    spec = Set_string (opt_target_triple, ArgExt.empty); (* FIXME BASH completion *)
     default = "";
   };
   register_language_option "c" {
     key = "-c-ignore-translation-units";
     category = "C";
     doc = " list of translation units ignored during linking.";
-    spec = ArgExt.Set_string_list opt_ignored_translation_units;
+    spec = String (ArgExt.set_string_list_lifter opt_ignored_translation_units, ArgExt.empty);
     default = "";
   };
   register_language_option "c" {
     key = "-c-preprocess-and-exit";
     category = "C";
     doc = " save the whole analyzed project into a single preprocessed file passed as argument to this option; then exit";
-    spec = ArgExt.Set_string opt_save_preprocessed_file;
+    spec = ArgExt.Set_string (opt_save_preprocessed_file, ArgExt.empty);
     default = "";
   };
   register_language_option "c" {
@@ -519,6 +519,33 @@ and from_project prj =
                   )
   in
 
+  (* sanity check: all statements and expressions must be non-syntetic *)
+  let stmts = StringMap.fold (fun _ f acc ->
+      match f.c_func_body with
+      | Some body -> body :: acc
+      | None -> acc
+    ) funcs []
+  in
+  let exprs = StringMap.fold (fun _ f acc ->
+      match f.c_func_stub with
+      | Some stub -> exprs_in_stub_func stub @ acc
+      | None -> acc
+    ) funcs []
+  in
+  let exprs = List.fold_left (fun acc d ->
+    exprs_in_stub_directive d @ acc
+    ) exprs directives
+  in
+  let range = mk_fresh_range () in
+  let all = (List.map (fun e -> mk_expr_stmt ~ssynthetic:false e range) exprs) @ stmts in
+  List.iter (Visitor.iter_stmt
+    (fun e ->
+      if e.esynthetic then panic_at e.erange "original expression %a (of kind: %s) marked as synthetic"
+        pp_expr e Obj.Extension_constructor.(of_val e.ekind |> name))
+    (fun s ->
+      if s.ssynthetic then panic_at s.srange "original statement %a (of kind: %s) marked as synthetic"
+        pp_stmt s Obj.Extension_constructor.(of_val s.skind |> name)))
+    all;
 
   Ast.C_program {
     c_globals = globals;
@@ -578,10 +605,10 @@ and from_stmt ctx ((skind, range): C_AST.statement) : stmt =
       let vv = from_var ctx v in
       let init = from_init_option ctx v.var_init in
       Ast.S_c_declaration (vv, init, from_var_scope ctx v.var_kind)
-    | C_AST.S_expression e -> Universal.Ast.S_expression (from_expr ctx e)
+    | C_AST.S_expression e -> Universal.Lang.Ast.S_expression (from_expr ctx e)
     | C_AST.S_block block -> from_block ctx srange block |> Framework.Core.Ast.Stmt.skind
-    | C_AST.S_if (cond, body, orelse) -> Universal.Ast.S_if (from_expr ctx cond, from_block ctx end_range body, from_block ctx end_range orelse)
-    | C_AST.S_while (cond, body) -> Universal.Ast.S_while (from_expr ctx cond, from_block ctx end_range body)
+    | C_AST.S_if (cond, body, orelse) -> Universal.Lang.Ast.S_if (from_expr ctx cond, from_block ctx end_range body, from_block ctx end_range orelse)
+    | C_AST.S_while (cond, body) -> Universal.Lang.Ast.S_while (from_expr ctx cond, from_block ctx end_range body)
     | C_AST.S_do_while (body, cond) -> S_c_do_while (from_block ctx end_range body, from_expr ctx cond)
     | C_AST.S_for (init, test, increm, body) -> S_c_for(from_block ctx start_range init, from_expr_option ctx test, from_expr_option ctx increm, from_block ctx end_range body)
     | C_AST.S_jump (C_AST.S_goto (label, upd)) -> S_c_goto (label,from_scope_update ctx upd)
@@ -603,9 +630,9 @@ and from_stmt ctx ((skind, range): C_AST.statement) : stmt =
               if Z.equal acc first then None
               else
                 if (Z.(first <= acc)) then
-                  Some (mk_int_general_interval (ItvUtils.IntBound.Finite first) (ItvUtils.IntBound.Finite acc) efirst.erange)
+                  Some (mk_int_general_interval ~esynthetic:false (ItvUtils.IntBound.Finite first) (ItvUtils.IntBound.Finite acc) efirst.erange)
                 else 
-                  Some (mk_int_general_interval (ItvUtils.IntBound.Finite acc) (ItvUtils.IntBound.Finite first) efirst.erange)
+                  Some (mk_int_general_interval ~esynthetic:false (ItvUtils.IntBound.Finite acc) (ItvUtils.IntBound.Finite first) efirst.erange)
             | {ekind = E_constant (C_int h); etyp = th} ::tl when Z.(h = (op acc one)) && compare_typ th tfirst = 0 ->
               process op h tl
             | hd :: tl ->
@@ -630,7 +657,7 @@ and from_stmt ctx ((skind, range): C_AST.statement) : stmt =
     | C_AST.S_target(C_AST.S_label l) -> Ast.S_c_label l
     | C_AST.S_asm a -> Ast.S_c_asm (C_print.string_of_statement (skind,range))
   in
-  {skind; srange}
+  {skind; srange; ssynthetic=false }
 
 and from_block ctx empty_range (block: C_AST.block) : stmt =
   let block_range =
@@ -644,6 +671,7 @@ and from_block ctx empty_range (block: C_AST.block) : stmt =
   mk_block
     (List.map (from_stmt ctx) block.blk_stmts)
     ~vars:(List.map (from_var ctx) block.blk_local_vars)
+    ~ssynthetic:false
     block_range
 
 and from_body_option (ctx) empty_range (block: C_AST.block option) : stmt option =
@@ -662,13 +690,13 @@ and from_expr ctx ((ekind, tc , range) : C_AST.expr) : expr =
   let etyp = from_typ ctx tc in
   let ekind =
     match ekind with
-    | C_AST.E_integer_literal n -> Universal.Ast.(E_constant (C_int n))
-    | C_AST.E_float_literal f -> Universal.Ast.(E_constant (C_float (float_of_string f)))
+    | C_AST.E_integer_literal n -> Universal.Lang.Ast.(E_constant (C_int n))
+    | C_AST.E_float_literal f -> Universal.Lang.Ast.(E_constant (C_float (float_of_string f)))
     | C_AST.E_character_literal (c, k)  -> E_constant(Ast.C_c_character (c, from_character_kind k))
-    | C_AST.E_string_literal (s, k) -> Universal.Ast.(E_constant (C_c_string (s, from_character_kind k)))
+    | C_AST.E_string_literal (s, k) -> Universal.Lang.Ast.(E_constant (C_c_string (s, from_character_kind k)))
     | C_AST.E_variable v -> E_var (from_var ctx v, None)
     | C_AST.E_function f -> Ast.E_c_function (find_function_in_context ctx erange f)
-    | C_AST.E_call (f, args) -> Universal.Ast.E_call(from_expr ctx f, Array.map (from_expr ctx) args |> Array.to_list)
+    | C_AST.E_call (f, args) -> Universal.Lang.Ast.E_call(from_expr ctx f, Array.map (from_expr ctx) args |> Array.to_list)
     | C_AST.E_unary (op, e) -> E_unop (from_unary_operator op etyp, from_expr ctx e)
     | C_AST.E_binary (op, e1, e2) -> E_binop (from_binary_operator op etyp, from_expr ctx e1, from_expr ctx e2)
     | C_AST.E_cast (e,C_AST.EXPLICIT) -> Ast.E_c_cast(from_expr ctx e, true)
@@ -680,7 +708,7 @@ and from_expr ctx ((ekind, tc , range) : C_AST.expr) : expr =
     | C_AST.E_member_access (r, i, f) -> Ast.E_c_member_access(from_expr ctx r, i, f)
     | C_AST.E_arrow_access (r, i, f) -> Ast.E_c_arrow_access(from_expr ctx r, i, f)
     | C_AST.E_statement s -> Ast.E_c_statement (from_block ctx erange s)
-    | C_AST.E_predefined s -> Universal.Ast.(E_constant (C_c_string (s, Ast.C_char_ascii)))
+    | C_AST.E_predefined s -> Universal.Lang.Ast.(E_constant (C_c_string (s, Ast.C_char_ascii)))
     | C_AST.E_var_args e -> Ast.E_c_var_args (from_expr ctx e)
     | C_AST.E_conditional (cond,e1,e2) -> Ast.E_c_conditional(from_expr ctx cond, from_expr ctx e1, from_expr ctx e2)
 
@@ -717,7 +745,7 @@ and from_expr ctx ((ekind, tc , range) : C_AST.expr) : expr =
        (from_expr ctx a.(0)).ekind
 
   in
-  mk_expr ekind erange ~etyp
+  mk_expr ekind erange ~etyp ~esynthetic:false
 
 and from_expr_option ctx : C_AST.expr option -> expr option = function
   | None -> None
@@ -1089,7 +1117,7 @@ and from_stub_local_value ctx lval =
           c_ftype_variadic = f.content.func_variadic;
         })
     in
-    let fff = mk_expr (Ast.E_c_function ff) f.range ~etyp:t in
+    let fff = mk_expr (Ast.E_c_function ff) f.range ~etyp:t ~esynthetic:false in
     L_call (fff, List.map (from_stub_expr ctx) args)
 
 and from_stub_ensures ctx ens =
@@ -1103,7 +1131,7 @@ and from_stub_assumes ctx asm =
 and from_stub_formula ctx f =
   bind_range f @@ function
   | F_expr e -> F_expr (from_stub_expr ctx e)
-  | F_bool b -> F_expr (mk_bool b f.range)
+  | F_bool b -> F_expr (mk_bool ~esynthetic:false b f.range)
   | F_binop(op, f1, f2) -> F_binop(from_stub_log_binop op, from_stub_formula ctx f1, from_stub_formula ctx f2)
   | F_not f -> F_not (from_stub_formula ctx f)
   | F_forall (v, s, f) -> F_forall(from_var ctx v, from_stub_set ctx s, from_stub_formula ctx f)
@@ -1121,14 +1149,14 @@ and from_stub_interval ctx i =
   let lb = from_stub_expr ctx i.itv_lb in
   let ub = from_stub_expr ctx i.itv_ub in
   (* We can use operations on mathematical integers without worrying about overflows *)
-  let lb = if i.itv_open_lb then (add lb one ~typ:T_int lb.erange) else lb in
-  let ub = if i.itv_open_ub then (sub ub one ~typ:T_int ub.erange) else ub in
+  let lb = if i.itv_open_lb then (add lb {one with esynthetic=false} ~typ:T_int ~esynthetic:false lb.erange) else lb in
+  let ub = if i.itv_open_ub then (sub ub {one with esynthetic=false} ~typ:T_int ~esynthetic:false ub.erange) else ub in
   (lb,ub)
 
 and from_stub_expr ctx exp =
   let bind_range_expr (exp:Mopsa_c_stubs_parser.Ast.expr with_range) f =
     let ekind = f exp.content.kind
-    in mk_expr ekind exp.range  ~etyp:(from_typ ctx exp.content.typ)
+    in mk_expr ekind exp.range  ~etyp:(from_typ ctx exp.content.typ) ~esynthetic:false
   in
   bind_range_expr exp @@ function
   | E_top t -> E_constant (C_top (from_typ ctx t))

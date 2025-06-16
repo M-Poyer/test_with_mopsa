@@ -27,9 +27,9 @@
     transfer function.
 *)
 
-open Mopsa
+open MopsaLib
 open Format
-open Ast
+open Lang.Ast
 open Stubs.Ast
 
 
@@ -71,7 +71,7 @@ struct
   let () = register_language_option "C" {
       key = "-c-analysis-bugs-whitelist";
       doc = "whitelist of non-terminating functions";
-      spec = ArgExt.Set_string_list opt_whitelist;
+      spec = String (ArgExt.set_string_list_lifter opt_whitelist, ArgExt.empty);
       category = "C Hooks";
       default = "";
     }

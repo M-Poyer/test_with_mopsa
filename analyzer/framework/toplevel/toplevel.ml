@@ -26,7 +26,6 @@
     not partial functions and return always a result.
 *)
 
-open Mopsa_utils
 open Core.All
 open Sig.Combiner.Domain
 
@@ -156,8 +155,8 @@ struct
     (* Initialize the context with an empty callstack *)
     let ctx =
       singleton_ctx
-        Context.callstack_ctx_key
-        Callstack.empty_callstack
+        Context.control_ctx_key
+        ControlCtx.empty_control_ctx
     in
 
     (* The initial flow is a singleton ⊤ environment *)
@@ -278,24 +277,24 @@ struct
     with
     | Exceptions.Panic(msg, line) ->
       Printexc.raise_with_backtrace
-        (Exceptions.PanicAtFrame(stmt.srange, (Flow.get_callstack flow),msg, line))
+        (Exceptions.PanicAtFrame(stmt.srange, (Flow.get_control_ctx flow),msg, line))
         (Printexc.get_raw_backtrace())
 
     | Exceptions.PanicAtLocation(range, msg, line) ->
       Printexc.raise_with_backtrace
-        (Exceptions.PanicAtFrame(range, (Flow.get_callstack flow),msg, line))
+        (Exceptions.PanicAtFrame(range, (Flow.get_control_ctx flow),msg, line))
         (Printexc.get_raw_backtrace())
 
     | Sys.Break -> raise (SysBreak flow)
 
     | Apron.Manager.Error exc ->
       Printexc.raise_with_backtrace
-        (Exceptions.PanicAtFrame(stmt.srange, (Flow.get_callstack flow), Format.asprintf "Apron.Manager.Error(%a)" Apron.Manager.print_exclog exc, ""))
+        (Exceptions.PanicAtFrame(stmt.srange, (Flow.get_control_ctx flow), Format.asprintf "Apron.Manager.Error(%a)" Apron.Manager.print_exclog exc, ""))
         (Printexc.get_raw_backtrace())
 
     | e when (match e with Exit | Exceptions.PanicAtFrame _ | SysBreak _ | GoBackward -> false | _ -> true) ->
       Printexc.raise_with_backtrace
-        (Exceptions.PanicAtFrame(stmt.srange, (Flow.get_callstack flow), Printexc.to_string e, ""))
+        (Exceptions.PanicAtFrame(stmt.srange, (Flow.get_control_ctx flow), Printexc.to_string e, ""))
         (Printexc.get_raw_backtrace())
 
 

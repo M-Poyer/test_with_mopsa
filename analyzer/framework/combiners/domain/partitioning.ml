@@ -22,7 +22,6 @@
 (** Partitioning combiner *)
 
 open Core.All
-open Mopsa_utils
 open Sig.Combiner.Domain
 open Common
 open Sig.Abstraction.Partitioning
@@ -31,7 +30,7 @@ module M = MapExtPoly
 module Make(P:PARTITIONING)(D:DOMAIN_COMBINER) : DOMAIN_COMBINER =
 struct
 
-  type t = 
+  type t =
     | Top
     | Map of (P.t, D.t) M.t
 
@@ -131,7 +130,7 @@ struct
           | Top -> Post.return flow
 
           | Map map when M.is_empty map -> Post.return flow
-          
+
           | Map map ->
             let map' = M.map (fun _ -> e) map in
             man.set tk (Map map') flow

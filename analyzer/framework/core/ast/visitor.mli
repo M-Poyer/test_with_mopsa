@@ -164,9 +164,11 @@ val fold_map_stmt :
 
 val exists_expr : (expr -> bool) -> (stmt -> bool) -> expr -> bool
 val for_all_expr : (expr -> bool) -> (stmt -> bool) -> expr -> bool
+val iter_expr : (expr -> unit) -> (stmt -> unit) -> expr -> unit
 
 val exists_stmt : (expr -> bool) -> (stmt -> bool) -> stmt -> bool
 val for_all_stmt : (expr -> bool) -> (stmt -> bool) -> stmt -> bool
+val iter_stmt : (expr -> unit) -> (stmt -> unit) -> stmt -> unit
 
 val exists_child_expr : (expr -> bool) -> (stmt -> bool) -> expr -> bool
 val for_all_child_expr : (expr -> bool) -> (stmt -> bool) -> expr -> bool

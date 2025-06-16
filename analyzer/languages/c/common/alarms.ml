@@ -21,12 +21,12 @@
 
 (** Alarms for C runtime errors *)
 
-open Mopsa
+open MopsaLib
 open Format
 open Universal.Numeric.Common
-open Universal.Ast
+open Universal.Lang.Ast
 open Base
-open Ast
+open Lang.Ast
 
 
 
@@ -65,9 +65,9 @@ let pp_base_verbose fmt base =
   | Var v    -> fprintf fmt "variable '%a'" (Debug.bold pp_var) v
   | Addr a   -> fprintf fmt "dynamically allocated block"
   | String (s,k,_) when String.length s > 20 ->
-    fprintf fmt "string %a\"%s...\"" Pp.pp_character_kind k  (String.escaped (String.sub s 0 20))
+    fprintf fmt "string %a\"%s...\"" Lang.Pp.pp_character_kind k  (String.escaped (String.sub s 0 20))
   | String (s,k,_) ->
-    fprintf fmt "string %a\"%s\"" Pp.pp_character_kind k (String.escaped s)
+    fprintf fmt "string %a\"%s\"" Lang.Pp.pp_character_kind k (String.escaped s)
 
 
 (** {2 Checks for invalid memory access} *)

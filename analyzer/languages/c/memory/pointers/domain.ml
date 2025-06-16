@@ -21,10 +21,10 @@
 
 (** Non-relational abstraction of C pointers *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Common
 open Common.Points_to
 open Common.Base

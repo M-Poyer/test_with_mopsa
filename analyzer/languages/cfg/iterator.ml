@@ -21,9 +21,9 @@
 
 (** General intraprocedural iterator on Control Flow Graphs. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
+open Universal.Lang.Ast
 open Ast
 
 
@@ -34,21 +34,21 @@ let name = "cfg.iterators.intraproc"
 (**                       {2 Command line options}                          *)
 (*==========================================================================*)
 
-             
+
 let opt_decreasing_iter : int ref = ref 1
 (** Number of decreasing iterations after widening stabilisation. *)
 
-                                        
+
 let () =
   register_domain_option name {
     key = "-decreasing-iter";
     category = "Loops";
     doc = " number of decreasing iterations after stabilization";
-    spec = ArgExt.Set_int opt_decreasing_iter;
+    spec = Set_int (opt_decreasing_iter, ArgExt.empty);
     default = "1";
   }
- 
-                                        
+
+
 (*==========================================================================*)
                        (** {2 Iterator} *)
 (*==========================================================================*)
@@ -66,10 +66,10 @@ struct
   let init prog man flow = None
 
 
-  (* flow iterator for CFG *)                         
+  (* flow iterator for CFG *)
   let cfg_iterator cfg man flow =
 
-    
+
     (* update the node abstract value as the join of incoming
        edge posts and entries;
        if weak=true, join with the previous value (for widened nodes)
@@ -100,7 +100,7 @@ struct
         pp_node_as_id node (format man.lattice.print) v;
       Flow.set (T_cfg_node nid) v man.lattice flow
     in
-    
+
     (* apply a transfer function, update the edge post *)
     let apply_edge edge flow =
       let stmt = CFG.edge_data edge in
@@ -138,8 +138,8 @@ struct
       in
       Post.return flow
     in
-    
-    (* recompute the node value and call apply_edge for all edges out 
+
+    (* recompute the node value and call apply_edge for all edges out
        of this node
     *)
     let propagate_node weak node flow =
@@ -157,7 +157,7 @@ struct
       | (GraphSig.Simple node)::_ -> CFG.node_id node
       | _ -> Exceptions.panic "node expected at the head of a component"
     in
-    
+
     (* analyze a component until its head is stable, with widening *)
     let rec fix_component count lst flow =
       let wid = get_widening_node lst in
@@ -203,7 +203,7 @@ struct
         refine_component (count+1) lst
       )
 
-                      
+
     (* analyze a list of components *)
     and analyze_component weak lst flow : 'a post =
       match lst with
@@ -213,7 +213,7 @@ struct
         flow |> fix_component 0 l >>% analyze_component false rest
       | [] -> Post.return flow
     in
-    
+
     (* shift the current flow into the entry *)
     let flow_in flow =
       (* set cfg_entry information *)
@@ -229,7 +229,7 @@ struct
       (* remove cur flow *)
       Flow.remove T_cur flow
     in
-      
+
     (* gather the flows from the exit nodes *)
     let flow_out flow =
       List.fold_left
@@ -241,7 +241,7 @@ struct
         flow
         (CFG.exits cfg.cfg_graph)
     in
-    
+
     (* remove all node-related flows (keeping cur, etc.) *)
     let cleanup flow =
       (* clean node info *)
@@ -265,7 +265,7 @@ struct
         (fun flow (port,_) -> Flow.remove (T_cfg_entry port) flow)
         flow (CFG.entries cfg.cfg_graph)
     in
-    
+
     (* all together now *)
     let flow = flow_in flow in
     analyze_component false cfg.cfg_order flow >>% fun flow ->
@@ -278,14 +278,14 @@ struct
     let range = erange cond in
     debug "CFG test [%a] at %a" pp_expr cond pp_range range;
     man.eval cond flow >>$ fun cond flow ->
-    man.exec (mk_assume cond range) flow >>% fun tflow -> 
-    man.exec (mk_assume (mk_not cond range) range) flow >>% fun fflow -> 
+    man.exec (mk_assume cond range) flow >>% fun tflow ->
+    man.exec (mk_assume (mk_not cond range) range) flow >>% fun fflow ->
     let tflow = Flow.set T_true  (Flow.get T_cur man.lattice tflow) man.lattice tflow
     and fflow = Flow.set T_false (Flow.get T_cur man.lattice fflow) man.lattice fflow in
     Flow.join man.lattice tflow fflow |>
     Post.return
 
-    
+
   let exec stmt man flow =
     match skind stmt with
 
@@ -297,11 +297,11 @@ struct
 
     | S_skip ->
        Some (Post.return flow)
-      
+
     | _ ->
        (* S_expression, S_block and S_print are handled by universal's intraproc *)
        None
-   
+
   let eval exp man flow = None
 
   let ask query man flow = None

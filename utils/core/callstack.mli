@@ -2,7 +2,7 @@
 (*                                                                          *)
 (* This file is part of MOPSA, a Modular Open Platform for Static Analysis. *)
 (*                                                                          *)
-(* Copyright (C) 2017-2019 The MOPSA Project.                               *)
+(* Copyright (C) 2017-... The MOPSA Project.                                *)
 (*                                                                          *)
 (* This program is free software: you can redistribute it and/or modify     *)
 (* it under the terms of the GNU Lesser General Public License as published *)
@@ -40,12 +40,7 @@ val pp_callsite : Format.formatter -> callsite -> unit
 val compare_callsite : callsite -> callsite -> int
 (** Compare two call sites *)
 
-
-(** {2 Call stacks} *)
-(** *************** *)
-
 type callstack = callsite list
-(** A call stack *)
 
 val pp_callstack : Format.formatter -> callstack -> unit
 (** Print a call stack *)
@@ -74,8 +69,9 @@ exception Empty_callstack
 (** Exception raised when a call stack is empty *)
 
 val pop_callstack : callstack -> callsite * callstack
-(** [pop_callstack cs] returns the last call site in [cs] and the remaining call stack.
-    Raises [Empty_callstack] if the call stack is empty. *)
+(** [pop_callstack cc] returns the last call site in [cc] and the remaining callstack
+    Raises [Empty_callstack] if the call stack is empty.
+*)
 
 val callstack_top : callstack -> callsite
 (** [callstack_top cs] returns the last call site in [cs].
@@ -83,3 +79,4 @@ val callstack_top : callstack -> callsite
 
 val callstack_begins_with : callstack -> callstack -> bool
 (** [callstack_begins_with ext cs] checks that [ext] is an extension of [cs], i.e. ext = x @ cs *)
+

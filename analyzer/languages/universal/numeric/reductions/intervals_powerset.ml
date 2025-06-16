@@ -21,7 +21,7 @@
 
 (** Reduction operator for intervals and powersets. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Reduction.Value
 
 

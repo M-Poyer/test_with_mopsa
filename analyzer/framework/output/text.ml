@@ -21,12 +21,12 @@
 
 (** Display the results of the analysis in a textual form. *)
 
-open Mopsa_utils
 open ArgExt
 open Core.All
 open Location
 open Format
 open Callstack
+open ControlCtx
 open Common
 
 (** Command-line option to enable display of alarms call stacks *)
@@ -357,9 +357,9 @@ let panic exn ~btrace ~time ~files ~out continuation =
     | Exceptions.PanicAtLocation (range, msg, loc) -> print out "%a: panic raised in %s: %s@." Location.pp_range range loc msg
 
     | Exceptions.PanicAtFrame (range, cs, msg, "") ->
-      print out "panic in %a: %s@\nTrace:@\n%a@." Location.pp_range range msg pp_callstack cs;
+      print out "panic in %a: %s@\nTrace:@\n%a@." Location.pp_range range msg pp_control_ctx cs;
 
-    | Exceptions.PanicAtFrame (range, cs, msg, loc) -> print out "%a: panic raised in %s: %s@\nTrace:@\n%a@." Location.pp_range range loc msg pp_callstack cs
+    | Exceptions.PanicAtFrame (range, cs, msg, loc) -> print out "%a: panic raised in %s: %s@\nTrace:@\n%a@." Location.pp_range range loc msg pp_control_ctx cs
 
     | Exceptions.SyntaxError (range, msg) -> print out "%a: syntax error: %s@." Location.pp_range range msg
     | Exceptions.UnnamedSyntaxError range -> print out "%a: syntax error@." Location.pp_range range
@@ -411,7 +411,7 @@ let help (args:ArgExt.arg list) ~out =
       print out "  %s@." (String.uppercase_ascii cat);
       List.iter (fun arg ->
           match arg.spec with
-          | ArgExt.Symbol(l,_) ->
+          | Symbol(l,_) ->
             print out "    %s={%a} %s%a@."
               arg.key
               (pp_print_list

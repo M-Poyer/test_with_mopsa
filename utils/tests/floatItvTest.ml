@@ -23,9 +23,11 @@
   FloatItvTest - Unit tests for float intervals.
  *)
 
-open Bot
-module F = Intervals.Float
-module I = Intervals.FloatItv
+open Mopsa_utils
+open Core.Bot
+open Containers
+module F = ItvUtils.Float
+module I = ItvUtils.FloatItv
 
 
 let nb_random_bounds = 6
@@ -34,23 +36,23 @@ let nb_samples = 10
 let nb_samples_bwd = 2
 (* increase for more coverage... *)
 
-               
+
 let interesting_bounds_double =
   [1.; infinity;
    F.Double.min_denormal; F.Double.min_normal; F.Double.max_normal; F.Double.max_exact;
   ]
-        
+
 let interesting_bounds_single =
   [1.; infinity;
    F.Single.min_denormal; F.Single.min_normal; F.Single.max_normal; F.Single.max_exact;
   ]
 
-  
-       
-(* random non-NaN, non-infinity floats *)
-(* *********************************** *) 
 
-  
+
+(* random non-NaN, non-infinity floats *)
+(* *********************************** *)
+
+
 let rec sample_double () =
   let i1 = Int64.shift_left (Int64.of_int (Random.bits ())) 60 in
   let i2 = Int64.logxor i1 (Int64.shift_left (Int64.of_int (Random.bits ())) 30) in
@@ -88,17 +90,17 @@ let sample_nb sampler succ pred (i:I.t) nb =
     let r = if i.I.lo <= 0. && i.I.up >= 0. then 0.::r else r in
     let r = i.I.lo::i.I.up::r in
     List.sort_uniq compare r
-(* nb random samples from the interval, plus useful values *)  
-  
-let sample_double_nb = sample_nb sample_double_itv F.Double.succ F.Double.pred 
-let sample_single_nb = sample_nb sample_single_itv F.Single.succ F.Single.pred 
+(* nb random samples from the interval, plus useful values *)
+
+let sample_double_nb = sample_nb sample_double_itv F.Double.succ F.Double.pred
+let sample_single_nb = sample_nb sample_single_itv F.Single.succ F.Single.pred
 
 
-                     
+
 (* random intervals *)
 (* **************** *)
 
-                     
+
 let intervals interesting sampler nb =
   let b = 0.::interesting@(List.map (~-.) interesting) in
   let b1 = b@(sampler I.minf_inf nb) in
@@ -116,22 +118,22 @@ let intervals interesting sampler nb =
       [] b2
   in
   List.sort_uniq compare r
-  
+
 let intervals_single = intervals interesting_bounds_single sample_single_nb
 let intervals_double = intervals interesting_bounds_double sample_double_nb
 
 
-                     
+
 (* test operators with directed rounding *)
 (* ************************************* *)
-                     
-                     
+
+
 let test_bin_val name i1 i2 i3 r1 r2 r3 =
   if F.is_finite r3 && not (I.contains r3 i3) then
     Printf.printf
       "ERROR %s: %a, %a -> %a / %g, %g -> %g\n%!"
       name (I.print I.dfl_fmt) i1 (I.print I.dfl_fmt) i2 (I.print I.dfl_fmt) i3 r1 r2 r3
-    
+
 let test_bin_bot_val name i1 i2 i3 r1 r2 r3 =
   match i3 with
   | BOT ->
@@ -152,7 +154,7 @@ let test_bin_unmerged_val name i1 i2 l r1 r2 r3 =
       name (I.print I.dfl_fmt) i1 (I.print I.dfl_fmt) i2
       (ListExt.print ListExt.printer_list (I.print I.dfl_fmt)) l
       r1 r2 r3
-  
+
 let test_bin intervals sampler name test iop rop =
   Printf.printf "checking %s\n%!" name;
   List.iter
@@ -174,8 +176,8 @@ let test_bin intervals sampler name test iop rop =
     )
     (intervals nb_random_bounds)
 
-let test_bin_single name test iop rop = test_bin intervals_single sample_single_nb name test iop rop 
-let test_bin_double name test iop rop = test_bin intervals_double sample_double_nb name test iop rop 
+let test_bin_single name test iop rop = test_bin intervals_single sample_single_nb name test iop rop
+let test_bin_double name test iop rop = test_bin intervals_double sample_double_nb name test iop rop
 
 
 let test_un_val name i1 i3 r1 r3 =
@@ -183,7 +185,7 @@ let test_un_val name i1 i3 r1 r3 =
     Printf.printf
       "ERROR %s: %a -> %a / %g -> %g\n%!"
       name (I.print I.dfl_fmt) i1 (I.print I.dfl_fmt) i3 r1 r3
-    
+
 let test_un_bot_val name i1 i3 r1 r3 =
   match i3 with
   | BOT ->
@@ -197,7 +199,7 @@ let test_un_bot_val name i1 i3 r1 r3 =
         "ERROR %s: %a -> %a / %g -> %g\n%!"
         name (I.print I.dfl_fmt) i1 (I.print I.dfl_fmt) i3 r1 r3
 
-  
+
 let test_un intervals sampler name test iop rop =
   Printf.printf "checking %s\n%!" name;
   List.iter
@@ -211,15 +213,15 @@ let test_un intervals sampler name test iop rop =
     )
     (intervals nb_random_bounds)
 
-let test_un_single name test iop rop = test_un intervals_single sample_single_nb name test iop rop 
-let test_un_double name test iop rop = test_un intervals_double sample_double_nb name test iop rop 
+let test_un_single name test iop rop = test_un intervals_single sample_single_nb name test iop rop
+let test_un_double name test iop rop = test_un intervals_double sample_double_nb name test iop rop
 
 
-                                     
+
 (* test operators with inner /outter rouinding *)
 (* ******************************************* *)
-                                     
-                                     
+
+
 let inout_bin intervals name up down inner outer =
     Printf.printf "checking %s\n%!" name;
   List.iter
@@ -244,7 +246,7 @@ let inout_bin intervals name up down inner outer =
 
 let inout_bin_double = inout_bin intervals_double
 let inout_bin_single = inout_bin intervals_single
-                     
+
 let inout_bin_bot intervals name up down inner outer =
     Printf.printf "checking %s\n%!" name;
   List.iter
@@ -269,7 +271,7 @@ let inout_bin_bot intervals name up down inner outer =
 
 let inout_bin_bot_double name up down inner outer = inout_bin_bot intervals_double name up down inner outer
 let inout_bin_bot_single name up down inner outer = inout_bin_bot intervals_single name up down inner outer
-                                     
+
 
 let inout_un intervals name up down inner outer =
     Printf.printf "checking %s\n%!" name;
@@ -291,7 +293,7 @@ let inout_un intervals name up down inner outer =
 
 let inout_un_double = inout_un intervals_double
 let inout_un_single = inout_un intervals_single
-                                     
+
 let inout_un_bot intervals name up down inner outer =
     Printf.printf "checking %s\n%!" name;
   List.iter
@@ -314,10 +316,10 @@ let inout_un_bot_double name up down inner outer = inout_un_bot intervals_double
 let inout_un_bot_single name up down inner outer = inout_un_bot intervals_single name up down inner outer
 
 
-                        
+
 (* test filters *)
 (* ************ *)
-                        
+
 
 let filter opname a1 a2 a3 c1 c2 c3 =
   match a3 with
@@ -344,11 +346,11 @@ let filter opname a1 a2 a3 c1 c2 c3 =
      )
 
 
-    
+
 (* test backward operators *)
 (* *********************** *)
-    
-    
+
+
 let test_bwd_un_val opname a1 r a2 c1 c2 =
   match a2 with
   | BOT ->
@@ -367,7 +369,7 @@ let test_bwd_un_val opname a1 r a2 c1 c2 =
           Printf.printf
             "ERROR %s: %a = %a -> %a; %g = %g\n"
             opname
-            (I.print I.dfl_fmt) a1 (I.print I.dfl_fmt) r (I.print I.dfl_fmt) aa1 
+            (I.print I.dfl_fmt) a1 (I.print I.dfl_fmt) r (I.print I.dfl_fmt) aa1
             c1 c2
       with _ -> ()
      )
@@ -391,8 +393,8 @@ let test_bwd_un intervals sampler name test iop rop =
     )
     (intervals nb_random_bounds_bwd)
 
-let test_bwd_un_single name test iop rop = test_bwd_un intervals_single sample_single_nb name test iop rop 
-let test_bwd_un_double name test iop rop = test_bwd_un intervals_double sample_double_nb name test iop rop 
+let test_bwd_un_single name test iop rop = test_bwd_un intervals_single sample_single_nb name test iop rop
+let test_bwd_un_double name test iop rop = test_bwd_un intervals_double sample_double_nb name test iop rop
 
 
 let test_bwd_bin_val opname a1 a2 r a3 c1 c2 c3 =
@@ -446,22 +448,22 @@ let test_bwd_bin intervals sampler name test iop rop =
     )
     (intervals nb_random_bounds_bwd)
 
-let test_bwd_bin_single name test iop rop = test_bwd_bin intervals_single sample_single_nb name test iop rop 
-let test_bwd_bin_double name test iop rop = test_bwd_bin intervals_double sample_double_nb name test iop rop 
+let test_bwd_bin_single name test iop rop = test_bwd_bin intervals_single sample_single_nb name test iop rop
+let test_bwd_bin_double name test iop rop = test_bwd_bin intervals_double sample_double_nb name test iop rop
 
 
-                                      
+
 (* entry point *)
 (* *********** *)
-                                      
-  
+
+
 let test () =
 
   (* unary *)
 
   test_un_double "neg" test_un_val I.neg F.neg;
   test_un_double "abs" test_un_val I.abs F.abs;
-    
+
 
   (* binary *)
 
@@ -508,7 +510,7 @@ let test () =
   test_un_double "round int double zero" test_un_val I.Double.round_int_zero F.Double.round_int_zero;
   inout_un_double "round int double inner/outer" I.Double.round_int_up I.Double.round_int_down I.Double.round_int_inner I.Double.round_int_outer;
 
-  
+
   test_bin_single "add single near" test_bin_val I.Single.add_near F.Single.add_near;
   test_bin_single "add single up"   test_bin_val I.Single.add_up F.Single.add_up;
   test_bin_single "add single down" test_bin_val I.Single.add_down F.Single.add_down;
@@ -551,7 +553,7 @@ let test () =
   inout_un_single "round int single inner/outer" I.Single.round_int_up I.Single.round_int_down I.Single.round_int_inner I.Single.round_int_outer;
 
 
-  (* filters *)  
+  (* filters *)
 
   test_bin_double "filter double =" filter I.Double.filter_eq  (F.eq);
   test_bin_double "filter double ≠" filter I.Double.filter_neq (F.neq);
@@ -559,7 +561,7 @@ let test () =
   test_bin_double "filter double >" filter I.Double.filter_gt  (F.gt);
   test_bin_double "filter double ≤" filter I.Double.filter_leq (F.leq);
   test_bin_double "filter double ≥" filter I.Double.filter_geq (F.geq);
-  
+
   test_bin_single "filter single =" filter I.Single.filter_eq  (F.eq);
   test_bin_single "filter single ≠" filter I.Single.filter_neq (F.neq);
   test_bin_single "filter single <" filter I.Single.filter_lt  (F.lt);
@@ -628,7 +630,7 @@ let test () =
   test_bwd_bin_single "backward div single up  " test_bwd_bin_val I.Single.bwd_div_up   F.Single.div_up  ;
   test_bwd_bin_single "backward div single down" test_bwd_bin_val I.Single.bwd_div_down F.Single.div_down;
   test_bwd_bin_single "backward div single zero" test_bwd_bin_val I.Single.bwd_div_zero F.Single.div_zero;
-  
+
   test_bwd_un_single "backward round int single near" test_bwd_un_val I.Single.bwd_round_int_near F.Single.round_int_near;
   test_bwd_un_single "backward round int single up"   test_bwd_un_val I.Single.bwd_round_int_up   F.Single.round_int_up;
   test_bwd_un_single "backward round int single down" test_bwd_un_val I.Single.bwd_round_int_down F.Single.round_int_down;
@@ -647,4 +649,4 @@ let test () =
   ()
 
 let _ = test ()
-      
+

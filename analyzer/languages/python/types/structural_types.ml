@@ -20,14 +20,15 @@
 (****************************************************************************)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
-open Ast
-open Addr
+open Lang.Ast
+open Lang.Addr
+open Lang
 open Data_model.Attribute
 open MapExt
 open SetExt
-open Universal.Ast
+open Universal.Lang.Ast
 
 type ('a, _) query += Q_exn_string_query : expr -> ('a, string * Universal.Strings.Powerset.StringPower.t) query
 

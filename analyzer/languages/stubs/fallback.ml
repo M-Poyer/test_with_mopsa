@@ -21,9 +21,9 @@
 
 (** Fallback transfer functions *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
+open Universal.Lang.Ast
 open Ast
 open Alarms
 
@@ -46,7 +46,7 @@ struct
       key      = "-stub-use-forall-loop-evaluation";
       doc      = " use the fallback evaluation of universally quantified formulas with loops";
       category = "Stubs";
-      spec     = ArgExt.Set opt_stub_use_forall_loop_eval;
+      spec     = Set opt_stub_use_forall_loop_eval;
       default  = "";
     }
 

@@ -276,7 +276,7 @@ class ReportDiff:
             if self.new_success:
                 diffs.append("+ SUCCESS")
             elif self.new_failure:
-                diffs.append("- FAILURE")
+                diffs.append("+ FAILURE")
             else:
                 diffs += [Diff.add(a) for a in self.new_alarms]
                 diffs += [Diff.remove(a) for a in self.removed_alarms]

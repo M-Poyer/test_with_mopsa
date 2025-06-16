@@ -1,5 +1,0 @@
-(library
- (name combiner)
- (public_name mopsa.mopsa_analyzer.framework.sig.combiner)
- (library_flags -linkall)
- (libraries abstraction core))

@@ -4540,7 +4540,11 @@ CAMLprim value MLTreeBuilderVisitor::TranslateFieldDecl(const FieldDecl * org) {
       Store_field(ret, 1, TranslateNamedDecl(x));
       Store_field(ret, 2, Val_int(x->getFieldIndex()));
       Store_field(ret, 3, TranslateQualType(x->getType()));
+#if CLANG_VERSION_MAJOR < 20
       Store_field_option(ret, 4, x->isBitField(), Val_int(x->getBitWidthValue(*Context)));
+#else
+      Store_field_option(ret, 4, x->isBitField(), Val_int(x->getBitWidthValue()));
+#endif
 #if CLANG_VERSION_MAJOR < 19
       Store_field(ret, 5, Val_bool(x->isUnnamedBitfield()));
 #else
@@ -4956,7 +4960,11 @@ CAML_EXPORT value mlclang_get_target_info(value target) {
   CAMLlocal1(ret);
 
   CompilerInstance ci;
+#if CLANG_VERSION_MAJOR < 20
   ci.createDiagnostics();
+#else
+  ci.createDiagnostics(*llvm::vfs::getRealFileSystem());
+#endif
   std::shared_ptr<TargetOptions> pto = std::make_shared<clang::TargetOptions>();
   TargetOptionsFromML(target, *pto);
   TargetInfo *pti = TargetInfo::CreateTargetInfo(ci.getDiagnostics(), pto);
@@ -5066,7 +5074,11 @@ CAML_EXPORT value mlclang_parse(value command, value target, value name, value a
   CAMLlocal2(ret,tmp);
 
   CompilerInstance ci;
+#if CLANG_VERSION_MAJOR < 20
   ci.createDiagnostics();
+#else
+  ci.createDiagnostics(*llvm::vfs::getRealFileSystem());
+#endif
 
   // compiler command-line arguments
   std::vector<const char*> a;

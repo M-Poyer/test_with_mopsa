@@ -294,3 +294,7 @@ let pp_stmt_vars_info man flow fmt s =
 let breakpoint name man flow =
   let _ = man.exec (mk_breakpoint name dummy_range) flow in
   ()
+
+let warn_prototype_domain name flow =
+  Debug.warn "domain '%s' is a prototype, it may contain bugs!" name;
+  Flow.add_global_assumption (Alarm.A_prototype_domain name) flow

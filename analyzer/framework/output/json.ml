@@ -21,11 +21,11 @@
 
 (** Format the results of the analysis in JSON. *)
 
-open Mopsa_utils
 open Yojson.Basic
 open ArgExt
 open Core.All
 open Callstack
+open ControlCtx
 open Location
 open Common
 
@@ -67,8 +67,21 @@ let render_call (c:callsite)  =
     "range", render_range c.call_range;
   ]
 
-let render_callstack cs  =
+let render_loop (l:loopsite)  =
+  `Assoc [
+    "loop_info", `String (match l.loop_info with
+        | Unrolling n -> Format.asprintf "unrolling %d" n
+        | Fixpoint_iteration -> "fixpoint iteration");
+    "range", render_range l.loop_range;
+  ]
+
+let render_callstack cs =
   `List (List.map render_call cs)
+
+let render_control_context cs  =
+  `List (List.map (function
+      | Call c -> render_call c
+      | Loop l -> render_loop l) cs)
 
 let aggregate_alarms report =
   RangeCallStackMap.fold
@@ -211,12 +224,12 @@ let panic exn ~btrace ~time ~files ~out _ =
         | Some r -> [ "range", render_range r ] )
     @ (match cs with
         | None -> []
-        | Some c -> [ "callstack", render_callstack c ] )
+        | Some c -> [ "callstack", render_control_context c ] )
   in
   print out (`Assoc assoc)
 
 
-let help (args:arg list) ~out =
+let help (args:ArgExt.arg list) ~out =
   let json  = `List (
       args |>
       List.map (fun arg ->
@@ -227,21 +240,16 @@ let help (args:arg list) ~out =
             "default", `String arg.default;
             "type", `String (
               match arg.spec with
-              | ArgExt.Bool _ -> "bool"
-              | ArgExt.Set _ -> "set"
-              | ArgExt.Clear _ -> "clear"
-              | ArgExt.Unit _ -> "unit"
-              | ArgExt.Unit_delayed _ -> "unit"
-              | ArgExt.Unit_exit _ -> "unit"
-              | ArgExt.String _ -> "string"
-              | ArgExt.Set_string _ -> "string"
-              | ArgExt.String_list _ -> "string list"
-              | ArgExt.Set_string_list _ -> "string list"
-              | ArgExt.Int _ -> "int"
-              | ArgExt.Set_int _ -> "int"
-              | ArgExt.Symbol (l, _) -> "symbol:" ^ (String.concat "," l)
-              | ArgExt.Symbol_delayed (l, _) -> "symbol:" ^ (String.concat "," l)
-              | ArgExt.Symbol_exit (l, _) -> "symbol:" ^ (String.concat "," l)
+              | Bool _ -> "bool"
+              | Set _ -> "set"
+              | Clear _ -> "clear"
+              | Unit _ -> "unit"
+              | String _ -> "string"
+              | Set_string _ -> "string"
+              | Int _ -> "int"
+              | Set_int _ -> "int"
+              | Symbol (l, _) -> "symbol:" ^ (String.concat "," l)
+              | _ -> failwith "Not implemented"
             )
           ]
         )

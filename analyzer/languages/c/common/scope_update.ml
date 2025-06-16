@@ -22,9 +22,9 @@
 
 (** Utility functions for updating the scope due to jump statements *)
 
-open Mopsa
-open Universal.Ast
-open Ast
+open MopsaLib
+open Universal.Lang.Ast
+open Lang.Ast
 
 
 (* Update the scope by removing/adding variables as indicated by [upd] *)
