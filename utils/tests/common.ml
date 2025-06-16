@@ -49,7 +49,7 @@
 open Mopsa_utils
 open Core
 open Core.Bot
-       
+
 let test_count = 100000
 (* number of tests to execute *)
 
@@ -68,13 +68,20 @@ module type DOMAIN = sig
   val filter_shift2: t -> t -> t -> bool
   val contains: c -> t -> bool
   val is_valid : c -> bool
-      (* we want to be able to discard some concrete float values sometimes *)
+  (* we want to be able to discard some concrete float values sometimes.
+     `gen` will be patched to ensure its concrete value is valid
+  *)
 end
 
 module Make(D: DOMAIN) = struct
-  let gen = D.gen
   let print : (D.t * D.c) QCheck2.Print.t =
     fun (t, c) -> Format.asprintf "%a ~> %a" D.pp_t t D.pp_c c
+
+  let gen =
+    let open QCheck2.Gen in
+    D.gen >>= fun (t, c) ->
+    QCheck2.assume (D.is_valid c);
+    return (t, c)
 
   let gen2 = QCheck2.Gen.pair gen gen
   let print2 = QCheck2.Print.pair print print
@@ -89,7 +96,6 @@ module Make(D: DOMAIN) = struct
   let test_unop_gen ~(contains: D.c -> 'a -> bool) ~(pp_a : Format.formatter -> 'a -> unit) (name:string) (cop: D.c -> D.c) (aop: D.t -> 'a) =
     let name = Format.sprintf "%sunop (%s)" D.name_prefix name in
     let property (a,c) =
-      QCheck2.assume (D.is_valid c);
       let a' = aop a in
       let c' = cop c in
       QCheck2.assume (D.is_valid c');
@@ -106,8 +112,6 @@ module Make(D: DOMAIN) = struct
   let test_binop_gen ~(contains:D.c -> 'a -> bool) ~filter ~(pp_a:Format.formatter -> 'a -> unit)  (name:string) (cop: D.c -> D.c -> D.c) (aop: D.t -> D.t -> 'a) =
     let name = Format.sprintf "%sbinop (%s)" D.name_prefix name in
     let property ((a, c),(a', c')) =
-      QCheck2.assume (D.is_valid c);
-      QCheck2.assume (D.is_valid c');
       QCheck2.assume (filter a a');
       let a'' = aop a a' in
       try
@@ -131,7 +135,6 @@ module Make(D: DOMAIN) = struct
   (* backward operators *)
   let test_bwd_unop (name:string) (cop: D.c -> D.c) (aop: D.t -> D.t -> D.t with_bot) =
     let property ((a,c),(r,_)) =
-      QCheck2.assume (D.is_valid c);
       let a' = aop a r in (* refine `a` *)
       let c' = cop c in
       QCheck2.assume (D.is_valid c');
@@ -147,8 +150,6 @@ module Make(D: DOMAIN) = struct
 
   let test_bwd_binop_gen ~filter (name:string) (cop: D.c -> D.c -> D.c) (aop: D.t -> D.t -> D.t -> (D.t * D.t) with_bot) =
     let property ((a,c),(a',c'),(r,_)) =
-      QCheck2.assume (D.is_valid c);
-      QCheck2.assume (D.is_valid c');
       QCheck2.assume (filter a a' r);
       let a'',a''' = aop a a' r |> Bot.bot_split in (* refine `a` and `a'` *)
       try
@@ -167,8 +168,6 @@ module Make(D: DOMAIN) = struct
 
   let test_filter_factory (result:bool) (name:string) (cop: D.c -> D.c -> bool) (aop: D.t -> D.t -> (D.t * D.t) with_bot) =
     let property ((a,c),(a',c')) =
-      QCheck2.assume (D.is_valid c);
-      QCheck2.assume (D.is_valid c');
       let a'', a''' = aop a a' |> Bot.bot_split in (* refine `a` and `a'` *)
       try
         if cop c c' = result then
@@ -187,7 +186,6 @@ module Make(D: DOMAIN) = struct
 
   let test_filter_zero_factory (result:bool) (name:string) (cop: D.c -> bool) (aop: D.t -> D.t) =
     let property (a,c) =
-      QCheck2.assume (D.is_valid c);
       let a' = aop a in
       try
         if cop c = result then
@@ -205,4 +203,20 @@ module Make(D: DOMAIN) = struct
 
   let test_bwd_binop = test_bwd_binop_gen ~filter:(fun _ _ _ -> true)
   let test_bwd_binop_shift = test_bwd_binop_gen ~filter:D.filter_shift2
+
+  let test_join (name: string) (join: D.t -> D.t -> D.t) =
+    let property ((a, c), (a', c')) =
+      let a'' = join a a' in
+      D.contains c a'' && D.contains c' a''
+    in
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print2 gen2 property
+
+  let test_meet (name: string) (meet: D.t -> D.t -> D.t with_bot) =
+    let property ((a, c), (a', c')) =
+      let a'' = meet a a' in
+      let (==>) a b = not a || b in
+      ((D.contains c' a ) ==> (contains_bot c' a'')) &&
+      ((D.contains c  a') ==> (contains_bot c  a''))
+    in
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print2 gen2 property
 end
