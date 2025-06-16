@@ -384,6 +384,7 @@ let meet_zero (a:t) : t =
 
 type print_format = FI.print_format
 let dfl_fmt = FI.dfl_fmt
+let hex_fmt = FI.hex_fmt
 
 let to_string (fmt:print_format) (x:t) : string =
   let app x y = if x = "" then y else x ^ "∨" ^ y in

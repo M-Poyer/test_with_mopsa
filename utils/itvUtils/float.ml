@@ -146,18 +146,23 @@ let is_negative_strict (x:t) : bool = sign x < 0
 
 (** {2 Printing} *)
 
-type print_format = unit
+type print_format = | Dfl | Hex
 (** Control the printing of a float (precision, rounding, etc.). *)
 (* TODO *)
 
-let dfl_fmt : print_format = ()
+let dfl_fmt : print_format = Dfl
 (** Default format. *)
+
+let hex_fmt : print_format = Hex
 
 let to_string (fmt:print_format) (x:t) : string =
   if is_nan x then "NaN"
   else if x = infinity then "+∞"
   else if x = neg_infinity then "-∞"
-  else Format.asprintf "%.17g" (x+.0.)
+  else
+    match fmt with
+    | Dfl -> Format.asprintf "%.17g" (x+.0.)
+    | Hex -> Format.asprintf "%h" (x+.0.)
 (* Note: don't remove the "+.0."; it is here to ensure we never print "-0."
    Printing is complicated... https://github.com/ocaml/ocaml/issues/11360
  *)
