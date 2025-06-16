@@ -179,6 +179,8 @@ let test () =
     TestFactory.test_bwd_binop_shift "bwd <<" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck2.assume_fail (); Z.shift_left a (Z.to_int b)) bwd_shift_left;
     TestFactory.test_bwd_binop_shift "bwd >>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck2.assume_fail (); Z.shift_right a (Z.to_int b)) bwd_shift_right;
     TestFactory.test_bwd_binop_shift "bwd >>>" (fun a b -> if Z.sign b < 0 || b >= Z.of_int 256 then QCheck2.assume_fail (); Z.div a (Z.shift_left Z.one (Z.to_int b))) bwd_shift_right_trunc;
+    TestFactory.test_join "join" join;
+    TestFactory.test_meet "meet" (fun a b -> Nb (meet a b));
   ] in
   QCheck_base_runner.run_tests_main tests
 

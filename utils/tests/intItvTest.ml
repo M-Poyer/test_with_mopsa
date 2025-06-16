@@ -27,10 +27,6 @@ open Mopsa_utils
 open Core.Bot
 open ItvUtils.IntItv
 
-let test_count = 1000
-(* number of tests to execute *)
-
-
 
 let one_two = of_int 1 2
 let zero_two = of_int 0 2
@@ -187,6 +183,9 @@ let main () =
     TestFactory.test_bwd_binop "bwd log >" (fun a b -> if a > b then Z.one else Z.zero) bwd_log_gt;
     TestFactory.test_bwd_binop "bwd log <=" (fun a b -> if a <= b then Z.one else Z.zero) bwd_log_leq;
     TestFactory.test_bwd_binop "bwd log >=" (fun a b -> if a >= b then Z.one else Z.zero) bwd_log_geq;
+    TestFactory.test_join "join" join;
+    TestFactory.test_join "widen is a join" widen;
+    TestFactory.test_meet "meet" meet;
   ] in
   QCheck_base_runner.run_tests_main tests
 
