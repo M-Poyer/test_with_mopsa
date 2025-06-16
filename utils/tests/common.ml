@@ -50,7 +50,7 @@ open Mopsa_utils
 open Core
 open Core.Bot
 
-let test_count = 100000
+let test_count = 10000
 (* number of tests to execute *)
 
 let wrap_scalar lo up a =

@@ -18,5 +18,5 @@ Test float intervals:
   $ floatItvTest > out && sed -E 's/seed: [0-9]+/$RANDOM_SEED/' out || cat out
    $RANDOM_SEED
   ================================================================================
-  success (ran 48 tests)
+  success (ran 1808 tests)
 
