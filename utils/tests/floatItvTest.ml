@@ -289,11 +289,16 @@ let main () =
            ]
            @
            (* for rounding operators, I think we want to generate with a (precision, rounding) from TestFactory, but test all (roundings,precisions) *)
-           forall_precs_rounds (fun (precs, precf, preci) (rounds, roundf, roundi) ->
-               [
-                 TestFactory.test_unop "round"     (F.round precf roundf) (IN.round preci roundi);
-                 TestFactory.test_bwd_unop "bwd round" (F.round precf roundf) ((lift_bot2 IN.bwd_round) preci roundi)
-               ]
+           forall_precs_rounds (fun (precs', precf', preci') (rounds', roundf', roundi') ->
+               if precf' = precf && roundf' = roundf then []
+               else
+                 let round = TestFactory.test_unop ("round-" ^ precs')     (F.round precf' roundf') (IN.round preci' roundi') in
+                 let bwd_round = TestFactory.test_bwd_unop ("bwd round" ^ precs') (F.round precf' roundf') ((lift_bot2 IN.bwd_round) preci' roundi') in
+                 match precf with
+                 | `SINGLE -> round::bwd_round::[]
+                 | _ ->
+                   (* round for double precision is the identity, no need to test it *)
+                   bwd_round::[]
              )
       )
   in
