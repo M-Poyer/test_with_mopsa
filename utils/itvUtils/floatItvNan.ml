@@ -865,6 +865,8 @@ let bwd_round_int (prec:prec) (round:round) (x:t) (r:t) : t =
 (** Backward rounding to int. *)
 
 let bwd_round (prec:prec) (round:round) (x:t) (r:t) : t =
+  if contains_special r then x
+  else
     match x.itv, r.itv with
     | _, BOT -> bot
     | BOT, _ -> x
