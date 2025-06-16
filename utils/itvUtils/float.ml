@@ -627,6 +627,14 @@ let sqrt (prec:prec) (round:round) x =
   | `DOUBLE, `ZERO -> Double.sqrt_zero x
 (** Square root. *)
 
+let round (prec:prec) (round:round) (x:t) : t =
+  match prec,round with
+  | `SINGLE, `NEAR -> Single.of_double_near x
+  | `SINGLE, `UP   -> Single.of_double_up   x
+  | `SINGLE, `DOWN -> Single.of_double_down x
+  | `SINGLE, `ZERO -> Single.of_double_zero x
+  | `DOUBLE, _     -> x (* every single is a double *)
+
 let round_int (prec:prec) (round:round) x =
   match prec,round with
   | `SINGLE, `NEAR -> Single.round_int_near x
