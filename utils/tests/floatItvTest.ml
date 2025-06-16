@@ -212,7 +212,7 @@ let main () =
         )
         ["near", `NEAR, `NEAR; "up", `UP, `UP; "down", `DOWN, `DOWN; "zero", `ZERO, `ZERO]
     )
-      ["double", `DOUBLE, `DOUBLE; "single", `SINGLE, `DOUBLE;] in
+      ["double", `DOUBLE, `DOUBLE; "single", `SINGLE, `SINGLE;] in
   let tests_in = List.map (fun (precs, precf, preci) ->
       List.map (fun (rounds, roundf, roundi) ->
            let module TestFactory = Common.Make(struct
@@ -277,7 +277,7 @@ let main () =
          )
           ["near", `NEAR, `NEAR; "up", `UP, `UP; "down", `DOWN, `DOWN; "zero", `ZERO, `ZERO]
       )
-        ["double", `DOUBLE, `DOUBLE; "single", `SINGLE, `DOUBLE;]
+        ["double", `DOUBLE, `DOUBLE; "single", `SINGLE, `SINGLE;]
   in
   QCheck_base_runner.run_tests_main (tests_i @ tests_in |> List.flatten |> List.flatten)
 
