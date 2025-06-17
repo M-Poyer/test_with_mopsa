@@ -883,7 +883,7 @@ let bwd_round (prec:prec) (round:round) (x:t) (r:t) : t =
        in
        (* interval of non-special floats *)
        let itv = FI.bwd_round (fix_prec prec) round ix ir in
-       meet x (fix_itv prec { itv; pinf; minf; nan; })
+       meet x (fix_itv (match prec with `SINGLE -> `DOUBLE | _ -> prec) { itv; pinf; minf; nan; })
 (** Backward rounding to float. *)
 
 let bwd_square (prec:prec) (round:round) (x:t) (r:t) : t =
