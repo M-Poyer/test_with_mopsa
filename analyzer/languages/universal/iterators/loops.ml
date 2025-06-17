@@ -313,7 +313,7 @@ struct
       else if delay = 0 then
         (* Widen *)
         let wflow = Flow.widen man.lattice flow flow' in
-        lfp_aux (count+1) !opt_loop_widening_delay cond body man flow_init wflow
+        lfp_aux (count+1) delay cond body man flow_init wflow
       else
         (* Delay *)
         lfp_aux (count+1) (delay - 1) cond body man flow_init flow'
