@@ -4,16 +4,19 @@ so that diffing yields the same result.
   $ intItvTest > out && sed -E 's/seed: [0-9]+/$RANDOM_SEED/' out || cat out
    $RANDOM_SEED
   ================================================================================
-  success (ran 63 tests)
+  success (ran 66 tests)
 
 Test congruences:
 
   $ intCongTest > out && sed -E 's/seed: [0-9]+/$RANDOM_SEED/' out || cat out
    $RANDOM_SEED
   ================================================================================
-  success (ran 48 tests)
+  success (ran 50 tests)
 
 Test float intervals:
-### disabled for now as it seems to be broken
-#
-#  $ floatItvTest
+
+  $ floatItvTest > out && sed -E 's/seed: [0-9]+/$RANDOM_SEED/' out || cat out
+   $RANDOM_SEED
+  ================================================================================
+  success (ran 1632 tests)
+

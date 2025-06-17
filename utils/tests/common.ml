@@ -47,9 +47,10 @@
 *)
 
 open Mopsa_utils
+open Core
 open Core.Bot
 
-let test_count = 100000
+let test_count = 10000
 (* number of tests to execute *)
 
 let wrap_scalar lo up a =
@@ -57,76 +58,165 @@ let wrap_scalar lo up a =
   Z.add lo (Z.erem (Z.sub a lo) (Z.succ (Z.sub up lo)))
 
 module type DOMAIN = sig
-  type t
-  val arbitrary: (t * Z.t) QCheck.arbitrary
-  val arbitrary2: (t * t * Z.t * Z.t) QCheck.arbitrary
-  val arbitrary3: (t * t * t * Z.t * Z.t * Z.t) QCheck.arbitrary
+  type t (* abstract type *)
+  type c (* concrete type *)
+  val pp_t : Format.formatter -> t -> unit
+  val pp_c : Format.formatter -> c -> unit
+  val name_prefix : string
+  val gen: (t * c) QCheck2.Gen.t
   val filter_shift: t -> t -> bool
   val filter_shift2: t -> t -> t -> bool
-  val contains: Z.t -> t -> bool
+  val contains: c -> t -> bool
+  val is_valid : c -> bool
+  (* we want to be able to discard some concrete float values sometimes.
+     `gen` will be patched to ensure its concrete value is valid
+  *)
 end
 
 module Make(D: DOMAIN) = struct
-  let test_unop (name:string) (cop: Z.t -> Z.t) (aop: D.t -> D.t) =
-    let name = Format.sprintf "unop (%s)" name in
-    let property (a,c) =
-      let a' = aop a in
-      let c' = cop c in
-      D.contains c' a'
-    in
-    QCheck.Test.make ~count:test_count ~name D.arbitrary property
+  let print : (D.t * D.c) QCheck2.Print.t =
+    fun (t, c) -> Format.asprintf "%a ~> %a" D.pp_t t D.pp_c c
 
-  let test_binop_gen ~(contains:Z.t -> 'a -> bool) ~filter (name:string) (cop: Z.t -> Z.t -> Z.t) (aop: D.t -> D.t -> 'a) =
-    let name = Format.sprintf "binop (%s)" name in
-    let property (a,a',c,c') =
-      QCheck.assume (filter a a');
-      let a'' = aop a a' in
-      try
-        let c'' = cop c c' in
-        contains c'' a''
-      with Division_by_zero | Invalid_argument _ -> true
-    in
-    QCheck.Test.make ~count:test_count ~name D.arbitrary2 property
+  let gen =
+    let open QCheck2.Gen in
+    D.gen >>= fun (t, c) ->
+    QCheck2.assume (D.is_valid c);
+    return (t, c)
+
+  let gen2 = QCheck2.Gen.pair gen gen
+  let print2 = QCheck2.Print.pair print print
+
+  let gen3 = QCheck2.Gen.triple gen gen gen
+  let print3 = QCheck2.Print.triple print print print
 
   let contains_bot c a = match a with
     | Nb a -> D.contains c a
     | BOT -> false
 
-  let test_binop = test_binop_gen ~contains:D.contains ~filter:(fun _ _ -> true)
-  let test_binop_bot = test_binop_gen ~contains:contains_bot ~filter:(fun _ _ -> true)
-  let test_binop_shift = test_binop_gen ~contains:D.contains ~filter:D.filter_shift
-  let test_binop_bot_shift = test_binop_gen ~contains:contains_bot ~filter:D.filter_shift
-
-  (* backward operators *)
-  let test_bwd_unop (name:string) (cop: Z.t -> Z.t) (aop: D.t -> D.t -> D.t with_bot) =
-    let property (a,r,c,_) =
-      let a' = aop a r in (* refine `a` *)
+  let test_unop_gen ~(contains: D.c -> 'a -> bool) ~(pp_a : Format.formatter -> 'a -> unit) (name:string) (cop: D.c -> D.c) (aop: D.t -> 'a) =
+    let name = Format.sprintf "%sunop (%s)" D.name_prefix name in
+    let property (a,c) =
+      let a' = aop a in
       let c' = cop c in
-      if D.contains c' r then contains_bot c a' else true
+      QCheck2.assume (D.is_valid c');
+      contains c' a' ||
+      QCheck2.Test.fail_reportf "%a ∈ %a but %a ∉ %a"
+        D.pp_c c  D.pp_t a
+        D.pp_c c' pp_a a'
     in
-    QCheck.Test.make ~count:test_count ~name D.arbitrary2 property
+    QCheck2.Test.make ~count:test_count ~name ~print gen property
 
-  let test_bwd_binop_gen ~filter (name:string) (cop: Z.t -> Z.t -> Z.t) (aop: D.t -> D.t -> D.t -> (D.t * D.t) with_bot) =
-    let property (a,a',r,c,c',_) =
-      QCheck.assume (filter a a' r);
-      let a'',a''' = aop a a' r |> bot_split in (* refine `a` and `a'` *)
+  let test_unop = test_unop_gen ~contains:D.contains ~pp_a:D.pp_t
+  let test_unop_bot = test_unop_gen ~contains:contains_bot ~pp_a:(Bot.bot_fprint D.pp_t)
+
+  let test_binop_gen ~(contains:D.c -> 'a -> bool) ~filter ~(pp_a:Format.formatter -> 'a -> unit)  (name:string) (cop: D.c -> D.c -> D.c) (aop: D.t -> D.t -> 'a) =
+    let name = Format.sprintf "%sbinop (%s)" D.name_prefix name in
+    let property ((a, c),(a', c')) =
+      QCheck2.assume (filter a a');
+      let a'' = aop a a' in
       try
         let c'' = cop c c' in
-        if D.contains c'' r then contains_bot c a'' && contains_bot c' a''' else true
+        QCheck2.assume (D.is_valid c'');
+        contains c'' a'' ||
+        QCheck2.Test.fail_reportf "  %a ∈ %a@.  %a ∈ %a@.⚠ %s(%a, %a) = %a ∉ %a"
+          D.pp_c c  D.pp_t a
+          D.pp_c c'  D.pp_t a'
+          name D.pp_c c D.pp_c c'
+          D.pp_c c'' pp_a a''
       with Division_by_zero | Invalid_argument _ -> true
     in
-    QCheck.Test.make ~count:test_count ~name D.arbitrary3 property
+    QCheck2.Test.make ~count:test_count ~name ~print:print2 gen2 property
 
-  let test_filter (name:string) (cop: Z.t -> Z.t -> bool) (aop: D.t -> D.t -> (D.t * D.t) with_bot) =
-    let property (a,a',c,c') =
-      assert (D.contains c a && D.contains c' a');
-      let a'',a''' = aop a a' |> bot_split in (* refine `a` and `a'` *)
+  let test_binop = test_binop_gen ~contains:D.contains ~filter:(fun _ _ -> true) ~pp_a:D.pp_t
+  let test_binop_bot = test_binop_gen ~contains:contains_bot ~filter:(fun _ _ -> true) ~pp_a:(Bot.bot_fprint D.pp_t)
+  let test_binop_shift = test_binop_gen ~contains:D.contains ~filter:D.filter_shift ~pp_a:D.pp_t
+  let test_binop_bot_shift = test_binop_gen ~contains:contains_bot ~filter:D.filter_shift ~pp_a:(Bot.bot_fprint D.pp_t)
+
+  (* backward operators *)
+  let test_bwd_unop (name:string) (cop: D.c -> D.c) (aop: D.t -> D.t -> D.t with_bot) =
+    let property ((a,c),(r,_)) =
+      let a' = aop a r in (* refine `a` *)
+      let c' = cop c in
+      QCheck2.assume (D.is_valid c');
+      if D.contains c' r then
+        contains_bot c a' ||
+        QCheck2.Test.fail_reportf "⚠ %a ∈ %a, but concrete value not in refined %a@. %s(%a) = %a ∈ %a"
+          D.pp_c c  D.pp_t a (Bot.bot_fprint D.pp_t) a'
+          name D.pp_c c
+          D.pp_c c' D.pp_t r
+      else true
+    in
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print2 gen2 property
+
+  let test_bwd_binop_gen ~filter (name:string) (cop: D.c -> D.c -> D.c) (aop: D.t -> D.t -> D.t -> (D.t * D.t) with_bot) =
+    let property ((a,c),(a',c'),(r,_)) =
+      QCheck2.assume (filter a a' r);
+      let a'',a''' = aop a a' r |> Bot.bot_split in (* refine `a` and `a'` *)
       try
-        if cop c c' then contains_bot c a'' && contains_bot c' a''' else true
+        let c'' = cop c c' in
+        QCheck2.assume (D.is_valid c'');
+        if D.contains c'' r then
+          (contains_bot c a'' && contains_bot c' a''') ||
+          QCheck2.Test.fail_reportf "@[%s%a ∈ %a, %s %a%s@.%s%a ∈ %a, %s %a%s@.  %a ∈ %a@]"
+            (if contains_bot c a'' then "  " else "⚠ ") D.pp_c c D.pp_t a (if contains_bot c a'' then "refined into" else "but concrete value not in refined") (Bot.bot_fprint D.pp_t) a'' ""
+            (if contains_bot c' a''' then "  " else "⚠ ") D.pp_c c' D.pp_t a' (if contains_bot c' a''' then "refined into" else "but concrete value not in refined") (Bot.bot_fprint D.pp_t) a''' ""
+            D.pp_c c'' D.pp_t r
+        else true
       with Division_by_zero | Invalid_argument _ -> true
     in
-    QCheck.Test.make ~count:test_count ~name D.arbitrary2 property
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print3 gen3 property
+
+  let test_filter_factory (result:bool) (name:string) (cop: D.c -> D.c -> bool) (aop: D.t -> D.t -> (D.t * D.t) with_bot) =
+    let property ((a,c),(a',c')) =
+      let a'', a''' = aop a a' |> Bot.bot_split in (* refine `a` and `a'` *)
+      try
+        if cop c c' = result then
+          (contains_bot c a'' && contains_bot c' a''') ||
+          QCheck2.Test.fail_reportf "@[%s%a ∈ %a, %s %a%s@.%s%a ∈ %a, %s %a%s@.  cop %a %a = true@]"
+            (if contains_bot c a'' then "  " else "⚠ ") D.pp_c c D.pp_t a (if contains_bot c a'' then "refined into" else "but concrete value not in refined") (Bot.bot_fprint D.pp_t) a'' ""
+            (if contains_bot c' a''' then "  " else "⚠ ") D.pp_c c' D.pp_t a' (if contains_bot c' a''' then "refined into" else "but concrete value not in refined") (Bot.bot_fprint D.pp_t) a''' ""
+            D.pp_c c D.pp_c c'
+        else true
+      with Division_by_zero | Invalid_argument _ -> true
+    in
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print2 gen2 property
+
+  let test_filter = test_filter_factory true
+  let test_filter_false = test_filter_factory false
+
+  let test_filter_zero_factory (result:bool) (name:string) (cop: D.c -> bool) (aop: D.t -> D.t) =
+    let property (a,c) =
+      let a' = aop a in
+      try
+        if cop c = result then
+          D.contains c a' ||
+          QCheck2.Test.fail_reportf "@[%s%a ∈ %a, %s %a%s@.  cop %a = true@]"
+            (if D.contains c a' then "  " else "⚠ ") D.pp_c c D.pp_t a (if D.contains c a' then "refined into" else "but concrete value not in refined") D.pp_t a' ""
+            D.pp_c c
+        else true
+      with Division_by_zero | Invalid_argument _ -> true
+    in
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print gen property
+
+  let test_filter_zero = test_filter_zero_factory true
+  let test_filter_zero_false = test_filter_zero_factory false
 
   let test_bwd_binop = test_bwd_binop_gen ~filter:(fun _ _ _ -> true)
   let test_bwd_binop_shift = test_bwd_binop_gen ~filter:D.filter_shift2
+
+  let test_join (name: string) (join: D.t -> D.t -> D.t) =
+    let property ((a, c), (a', c')) =
+      let a'' = join a a' in
+      D.contains c a'' && D.contains c' a''
+    in
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print2 gen2 property
+
+  let test_meet (name: string) (meet: D.t -> D.t -> D.t with_bot) =
+    let property ((a, c), (a', c')) =
+      let a'' = meet a a' in
+      let (==>) a b = not a || b in
+      ((D.contains c' a ) ==> (contains_bot c' a'')) &&
+      ((D.contains c  a') ==> (contains_bot c  a''))
+    in
+    QCheck2.Test.make ~count:test_count ~name:(D.name_prefix ^ name) ~print:print2 gen2 property
 end

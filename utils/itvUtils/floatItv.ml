@@ -194,6 +194,7 @@ let is_log_neq (ab:t) (ab':t) : bool = not (equal ab ab' && is_singleton ab)
 
 type print_format = F.print_format
 let dfl_fmt = F.dfl_fmt
+let hex_fmt = F.hex_fmt
 
 let to_string (fmt:print_format) (x:t) : string =
   "["^(F.to_string fmt x.lo)^","^(F.to_string fmt x.up)^"]"

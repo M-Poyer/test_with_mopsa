@@ -384,6 +384,7 @@ let meet_zero (a:t) : t =
 
 type print_format = FI.print_format
 let dfl_fmt = FI.dfl_fmt
+let hex_fmt = FI.hex_fmt
 
 let to_string (fmt:print_format) (x:t) : string =
   let app x y = if x = "" then y else x ^ "∨" ^ y in
@@ -595,7 +596,9 @@ let div (prec:prec) (round:round) (x:t) (y:t) =
 let fmod (prec:prec) (round:round) (x:t) (y:t) : t =
   fix_itv
     prec
-    { itv = bot_absorb2 FI.fmod x.itv y.itv;
+    { itv = FI.join_bot
+          (bot_absorb2 FI.fmod x.itv y.itv)
+          (if contains_infinity y then x.itv else BOT);
       nan = (contains_special x) || y.nan || (contains_zero y);
       minf = false;
       pinf = false;
@@ -752,7 +755,7 @@ let rec filter_neq (prec:prec) (x:t) (y:t) : t * t =
         | BOT -> BOT, BOT
         | Nb (xx,yy) -> Nb xx, Nb yy
       in
-      { x with itv = ix; }, { y with itv = iy; }
+      (if y.pinf || y.minf then x else { x with itv = ix; }), { y with itv = iy; }
   else if is_singleton y then
     let yy,xx = filter_neq prec y x in xx, yy (* symmetric case *)
   else x, y (* no singleton -> no refinement *)
@@ -831,16 +834,17 @@ let bwd_mul (prec:prec) (round:round) (x:t) (y:t) (r:t) : t * t =
 
 let bwd_div (prec:prec) (round:round) (x:t) (y:t) (r:t) : t * t =
   let xx, yy = bwd_generic2 prec round FI.bwd_div x y r in
-  (* add back infinities to y if the result can be 0 *)
-  let yy =
-    if contains_zero r then { yy with pinf = y.pinf; minf = y.minf; }
-    else yy
-  in
-  xx, yy
+  (* add back infinities to y if the result can be 0. In that case we can't filter x *)
+  if contains_zero r && contains_infinity y then
+    x, {yy with pinf = y.pinf; minf = y.minf}
+  else
+    xx, yy
 (** Backward division. *)
 
 let bwd_fmod (prec:prec) (round:round) (x:t) (y:t) (r:t) : t * t =
-  bwd_generic2 prec round (fun _ _ -> FI.bwd_fmod) x y r
+  let xx, yy = bwd_generic2 prec round (fun _ _ -> FI.bwd_fmod) x y r in
+  if contains_infinity y then x, {yy with pinf = y.pinf; minf = y.minf}
+  else xx, yy
 (** Backward modulo. *)
 
 let bwd_generic1 (prec:prec) (round:round) f (x:t) (r:t) : t =
@@ -861,6 +865,8 @@ let bwd_round_int (prec:prec) (round:round) (x:t) (r:t) : t =
 (** Backward rounding to int. *)
 
 let bwd_round (prec:prec) (round:round) (x:t) (r:t) : t =
+  if contains_special r then x
+  else
     match x.itv, r.itv with
     | _, BOT -> bot
     | BOT, _ -> x

@@ -27,10 +27,6 @@ open Mopsa_utils
 open Core.Bot
 open ItvUtils.IntItv
 
-let test_count = 1000
-(* number of tests to execute *)
-
-
 
 let one_two = of_int 1 2
 let zero_two = of_int 0 2
@@ -70,16 +66,16 @@ let interesting_intervals =
 (* *************** *)
 
 let sample_z ((lo,hi):t) =
-  let open QCheck.Gen in
+  let open QCheck2.Gen in
   match lo, hi with
   | B.MINF, B.PINF -> map Z.of_int int
-  | B.Finite l, B.PINF -> map (Z.add l) (map Z.of_int pint)
-  | B.MINF, B.Finite h -> map (Z.sub h) (map Z.of_int pint)
-  | B.Finite l, B.Finite h -> map (Z.add l) (map (fun z -> Z.rem z (Z.succ (Z.sub h l))) (map Z.of_int pint))
+  | B.Finite l, B.PINF -> map (Z.add l) (map Z.of_int (pint ~origin:0))
+  | B.MINF, B.Finite h -> map (Z.sub h) (map Z.of_int (pint ~origin:0))
+  | B.Finite l, B.Finite h -> map (Z.add l) (map (fun z -> Z.rem z (Z.succ (Z.sub h l))) (map Z.of_int (pint ~origin:0)))
   | _ -> failwith "IntItvTest.sample: invalid interval"
 
 let generator_itv =
-  let open QCheck.Gen in
+  let open QCheck2.Gen in
   bool >>= fun b ->
   match b with
   | false -> oneofl interesting_intervals
@@ -89,46 +85,10 @@ let generator_itv =
     return (ItvUtils.IntItv.of_int l h)
 
 let generator_z =
-  let open QCheck.Gen in
+  let open QCheck2.Gen in
   generator_itv >>= fun itv ->
   sample_z itv >>= fun z ->
   return (itv,z)
-
-let arbitrary_z =
-  let open QCheck.Iter in
-  let print (itv,z) =
-    Format.asprintf "%a ⇝ %a" ItvUtils.IntItv.fprint itv Z.pp_print z
-  in
-  QCheck.make ~print generator_z
-
-let generator_z2 =
-  let open QCheck.Gen in
-  pair generator_itv generator_itv >>= fun (itv1,itv2) ->
-  sample_z itv1 >>= fun z1 ->
-  sample_z itv2 >>= fun z2 ->
-  return (itv1,itv2,z1,z2)
-
-let arbitrary_z2 =
-  let open QCheck.Iter in
-  let print (itv1,itv2,z1,z2) =
-    Format.asprintf "(%a,%a) ⇝ (%a,%a)" ItvUtils.IntItv.fprint itv1 ItvUtils.IntItv.fprint itv2 Z.pp_print z1 Z.pp_print z2
-  in
-  QCheck.make ~print generator_z2
-
-let generator_z3 =
-  let open QCheck.Gen in
-  triple generator_itv generator_itv generator_itv >>= fun (itv1,itv2,itv3) ->
-  sample_z itv1 >>= fun z1 ->
-  sample_z itv2 >>= fun z2 ->
-  sample_z itv3 >>= fun z3 ->
-  return (itv1,itv2,itv3,z1,z2,z3)
-
-let arbitrary_z3 =
-  let open QCheck.Iter in
-  let print (itv1,itv2,itv3,z1,z2,z3) =
-    Format.asprintf "(%a,%a,%a) ⇝ (%a,%a,%a)" ItvUtils.IntItv.fprint itv1 ItvUtils.IntItv.fprint itv2 ItvUtils.IntItv.fprint itv3 Z.pp_print z1 Z.pp_print z2 Z.pp_print z3
-  in
-  QCheck.make ~print generator_z3
 
 let filter_shift _ (_,h) =
   B.is_positive h && B.leq h (B.of_int 256)
@@ -138,12 +98,15 @@ let filter_shift2 _ (_,h) _ =
 
 module TestFactory = Common.Make(struct
   type t = ItvUtils.IntItv.t
-  let arbitrary = arbitrary_z
-  let arbitrary2 = arbitrary_z2
-  let arbitrary3 = arbitrary_z3
+  type c = Z.t
+  let pp_t = ItvUtils.IntItv.fprint
+  let pp_c = Z.pp_print
+  let name_prefix = ""
+  let gen = generator_z
   let filter_shift = filter_shift
   let filter_shift2 = filter_shift2
   let contains = contains
+  let is_valid _ = true
 end)
 
 (* operator tests *)
@@ -189,7 +152,7 @@ let main () =
     TestFactory.test_binop "log <=" (fun a b -> if a <= b then Z.one else Z.zero) log_leq;
     TestFactory.test_binop "log >=" (fun a b -> if a >= b then Z.one else Z.zero) log_geq;
     TestFactory.test_filter "filter =" (=) filter_eq;
-    TestFactory.test_filter "filter !=" (!=) filter_neq;
+    TestFactory.test_filter "filter !=" (<>) filter_neq;
     TestFactory.test_filter "filter <=" (<=) filter_leq;
     TestFactory.test_filter "filter >=" (>=) filter_geq;
     TestFactory.test_filter "filter <" (<) filter_lt;
@@ -220,6 +183,9 @@ let main () =
     TestFactory.test_bwd_binop "bwd log >" (fun a b -> if a > b then Z.one else Z.zero) bwd_log_gt;
     TestFactory.test_bwd_binop "bwd log <=" (fun a b -> if a <= b then Z.one else Z.zero) bwd_log_leq;
     TestFactory.test_bwd_binop "bwd log >=" (fun a b -> if a >= b then Z.one else Z.zero) bwd_log_geq;
+    TestFactory.test_join "join" join;
+    TestFactory.test_join "widen is a join" widen;
+    TestFactory.test_meet "meet" meet;
   ] in
   QCheck_base_runner.run_tests_main tests
 
