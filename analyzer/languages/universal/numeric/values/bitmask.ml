@@ -21,9 +21,9 @@
 
 (** Abstraction of integers with bitmasks *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified_value
-open Ast
+open Lang.Ast
 open Bitfields
 open Bot
 

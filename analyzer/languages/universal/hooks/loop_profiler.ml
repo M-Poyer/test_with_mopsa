@@ -21,9 +21,9 @@
 
 (** Hook to profile loops iterations *)
 
-open Mopsa
+open MopsaLib
 open Hook
-open Ast
+open Lang.Ast
 
 
 module Hook =

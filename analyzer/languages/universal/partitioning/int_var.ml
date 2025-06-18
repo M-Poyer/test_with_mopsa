@@ -21,9 +21,9 @@
 
 (** State partitioning depending on the value of target integer variables *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Partitioning
-open Ast
+open Lang.Ast
 
 module Domain =
 struct

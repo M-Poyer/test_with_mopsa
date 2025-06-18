@@ -21,7 +21,7 @@
 
 (** Reduction operator for intervals and congruences. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Reduction.Value
 
 

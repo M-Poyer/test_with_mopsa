@@ -21,9 +21,9 @@
 
 (** Interval abstraction of float values. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified_value
-open Ast
+open Lang.Ast
 open Bot
 open Common
 

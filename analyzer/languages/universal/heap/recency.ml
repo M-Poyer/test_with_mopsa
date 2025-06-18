@@ -23,9 +23,9 @@
 (** Abstraction of the heap *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
-open Ast
+open Lang.Ast
 
 module Pool =
   Framework.Lattices.Powerset.Make
@@ -212,7 +212,7 @@ struct
       let recent_addr = Policies.mk_addr addr_kind STRONG range (Flow.get_control_ctx flow) in
       let () = debug "option = %s@\ncontrol_ctx = %a@\nrecent_addr = %a"
           !opt_default_allocation_policy
-          pp_control_ctx (Flow.get_control_ctx flow)
+          ControlCtx.pp_control_ctx (Flow.get_control_ctx flow)
           pp_addr recent_addr in
 
       if not (Pool.mem recent_addr pool) then

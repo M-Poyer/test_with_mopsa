@@ -21,7 +21,7 @@
 
 (** Abstract Syntax Tree extension for the simple Universal language. *)
 
-open Mopsa
+open MopsaLib
 open Format
 
 

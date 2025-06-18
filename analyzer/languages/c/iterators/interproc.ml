@@ -21,11 +21,11 @@
 
 (** Abstraction of C function calls *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
-open Ast
+open Lang.Ast
 open Common
 open Common.Points_to
 open Common.Scope_update
@@ -452,7 +452,7 @@ struct
          Cases.set_ctx (Cases.get_ctx args_eval |> add_ctx c_program_ctx new_c_program) args_eval >>$ fun args flow ->
          match fundec with
          | {c_func_body = Some body; c_func_stub = None; c_func_variadic = false} ->
-           let open Universal.Ast in
+           let open Universal.Lang.Ast in
            let body' =
              if exists_stmt
                  (fun e -> false)

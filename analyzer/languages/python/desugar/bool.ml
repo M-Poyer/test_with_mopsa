@@ -21,11 +21,11 @@
 
 (** Handling of and/or operators. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Universal.Lang.Ast
 
 module Domain =
   struct
@@ -43,7 +43,7 @@ module Domain =
       if is_py_exp exp then
       match ekind exp with
       | E_unop(O_py_not, e) ->
-        man.eval   (Utils.mk_builtin_call "bool" [e] range) flow >>$
+        man.eval   (Lang.Utils.mk_builtin_call "bool" [e] range) flow >>$
           (fun ee flow ->
             man.eval (mk_not {ee with etyp=(T_py (Some Bool))} range) flow)
         |> OptionExt.return
@@ -58,7 +58,7 @@ module Domain =
       | E_binop(O_py_and, e1, e2) ->
          man.eval e1 flow >>$
            (fun ee1 flow ->
-           man.eval (Utils.mk_builtin_call "bool" [ee1] range) flow >>$
+           man.eval (Lang.Utils.mk_builtin_call "bool" [ee1] range) flow >>$
            (fun be1 flow1 ->
              assume be1 man
                ~fthen:(fun true_flow -> man.eval e2 true_flow)
@@ -72,7 +72,7 @@ module Domain =
       | E_binop(O_py_or, e1, e2) ->
          man.eval e1 flow >>$
          (fun ee1 flow ->
-           man.eval (Utils.mk_builtin_call "bool" [ee1] range) flow >>$
+           man.eval (Lang.Utils.mk_builtin_call "bool" [ee1] range) flow >>$
            (fun be1 flow1 ->
              assume be1
                ~fthen:(fun true_flow ->
@@ -105,10 +105,10 @@ module Domain =
              man.eval (mk_py_type e2 range) flow >>$
                (fun cls2 flow ->
                  assume
-                   (Utils.mk_hasattr cls2 "__contains__" range) man flow
+                   (Lang.Utils.mk_hasattr cls2 "__contains__" range) man flow
                    ~fthen:(fun true_flow ->
                      let exp' = mk_py_call (mk_py_attr cls2 "__contains__" range) [e2; e1] range in
-                     Flow.add_safe_check Alarms.CHK_PY_TYPEERROR e2.erange true_flow |>
+                     Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR e2.erange true_flow |>
                        man.eval exp'
                      )
                    ~felse:(fun false_flow ->
@@ -124,7 +124,7 @@ module Domain =
                                  (mk_block [] range)
                                   )) range
                      in
-                     Flow.add_safe_check Alarms.CHK_PY_TYPEERROR e2.erange false_flow |>
+                     Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR e2.erange false_flow |>
                        man.exec stmt >>%
                        man.eval (mk_var v range) |>
                        Cases.add_cleaners [mk_remove_var v range]

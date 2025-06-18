@@ -25,11 +25,11 @@
    it's a generic, rewriting-based approach that may be helpful *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Addr
-open Ast
-open Universal.Ast
+open Lang.Addr
+open Lang.Ast
+open Universal.Lang.Ast
 
 module Domain =
   struct
@@ -50,7 +50,7 @@ module Domain =
               let i_conds = List.rev conds in
               let empty_stmt = mk_block [] range in
               let if_stmt = List.fold_left (fun acc cond ->
-                                mk_stmt (Ast.S_py_if (cond, acc, empty_stmt)) range
+                                mk_stmt (Lang.Ast.S_py_if (cond, acc, empty_stmt)) range
                               ) (unfold_lc tl) i_conds in
               let cleaners =
                 Visitor.fold_expr

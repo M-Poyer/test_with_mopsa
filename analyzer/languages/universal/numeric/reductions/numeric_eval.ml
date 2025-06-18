@@ -21,8 +21,8 @@
 
 (** Reduction rule for numeric evaluations *)
 
-open Mopsa
-open Ast
+open MopsaLib
+open Lang.Ast
 open Sig.Reduction.Eval
 
 

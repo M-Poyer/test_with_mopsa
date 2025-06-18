@@ -23,10 +23,10 @@
 (** Support for variadic functions *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 module Itv = Universal.Numeric.Values.Intervals.Integer.Value
 open Common.Alarms
 open Common.Base

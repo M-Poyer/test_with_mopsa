@@ -21,11 +21,11 @@
 
 (** Coverage - compute coverage statistics *)
 
-open Mopsa
+open MopsaLib
 open Format
-open Ast
+open Lang.Ast
 open Stubs.Ast
-open Universal.Ast
+open Universal.Lang.Ast
 
 
 module Hook =

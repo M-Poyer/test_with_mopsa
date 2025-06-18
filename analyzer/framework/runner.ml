@@ -21,7 +21,6 @@
 
 (** Runner - main entry point of the analysis *)
 
-open Mopsa_utils
 open Core.All
 open Params.Options
 

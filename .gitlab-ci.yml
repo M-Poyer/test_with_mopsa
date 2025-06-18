@@ -171,6 +171,7 @@ test-u:
         do
           echo $U_FILE
           $MOPSA_U analyzer/tests/universal/$U_FILE
+          $MOPSA_U -config=universal/collecting.json analyzer/tests/universal/$U_FILE
         done
 
 ################
@@ -294,6 +295,7 @@ test-unit:
   dependencies: [build_job]
   script:
     - eval `opam config env`
+    - opam pin add -y git+https://github.com/c-cube/qcheck/
     - dune runtest --profile release
 
 #####################

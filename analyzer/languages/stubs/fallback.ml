@@ -21,9 +21,9 @@
 
 (** Fallback transfer functions *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
+open Universal.Lang.Ast
 open Ast
 open Alarms
 

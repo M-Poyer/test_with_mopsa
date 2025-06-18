@@ -28,10 +28,10 @@
     callee packs.
 *)
 
-open Mopsa
+open MopsaLib
 open Universal.Packing.Static
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Common.Base
 
 
@@ -297,7 +297,7 @@ struct
     (*    eval_calls_in_args a *)
     | Var { vkind = V_range_attr(range, "arg"); vtyp }
       when is_c_scalar_type vtyp ->
-      let prog = find_ctx Ast.c_program_ctx ctx in
+      let prog = find_ctx Lang.Ast.c_program_ctx ctx in
       let o_caller = List.find_opt (fun f -> subset_range range f.c_func_range) prog.c_functions in
       OptionExt.apply (fun caller ->
           let o_callee = OptionExt.none_to_exn @@
@@ -324,7 +324,7 @@ struct
 
     (* Return variables are also part of the caller and the callee packs *)
     | Var { vkind = Universal.Iterators.Interproc.Common.V_return call } ->
-      let cs = find_ctx Context.control_ctx_key ctx |> extract_callstack in
+      let cs = find_ctx Context.control_ctx_key ctx |> ControlCtx.extract_callstack in
       let r = if is_empty_callstack cs
       then []
       else
@@ -409,7 +409,7 @@ struct
 
     | Addr { addr_kind = Stubs.Ast.A_stub_resource r;
              addr_partitioning = Universal.Heap.Policies.G_stack_range (cs, range) } when !opt_pack_resources ->
-      let prog = find_ctx Ast.c_program_ctx ctx in
+      let prog = find_ctx Lang.Ast.c_program_ctx ctx in
       let is_c_stub func =
         not (List.exists (fun c -> c.c_func_unique_name = func && c.c_func_stub = None) prog.c_functions) in
       let _path_contains p1 p2 =
@@ -442,7 +442,7 @@ struct
 
   (** Packing function returning packs of a variable *)
   let rec packs_of_var ctx v =
-    if !opt_pack_only_stubs && is_outside_stub_init (find_ctx control_ctx_key ctx |> extract_callstack) then
+    if !opt_pack_only_stubs && is_outside_stub_init (find_ctx control_ctx_key ctx |> ControlCtx.extract_callstack) then
       let () = debug "packs_of_var %a, globals due to pack_only_stubs" pp_var v in [Globals]
     else
     let () = debug "packs_of_var %a" pp_var v in

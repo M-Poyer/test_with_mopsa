@@ -25,8 +25,8 @@
 *)
 
 
-open Mopsa
-open Universal.Ast
+open MopsaLib
+open Universal.Lang.Ast
 module Itv = Universal.Numeric.Values.Intervals.Integer.Value
 
 
@@ -99,7 +99,7 @@ let insert addr window (t:table) flow =
     let u =
       match Itv.bounds_opt allocated with
       | _, Some b -> Z.succ b
-      | _, None   -> Ast.(rangeof s32 flow) |> snd
+      | _, None   -> Lang.Ast.(rangeof s32 flow) |> snd
                   (* When allocated is not upper-bounded *)
     in
 
