@@ -21,7 +21,7 @@
 
 (** Soundness assumptions *)
 
-open Mopsa
+open MopsaLib
 
 type assumption_kind += A_stub_soundness_message of string
 

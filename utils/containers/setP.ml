@@ -22,7 +22,7 @@
 (** Set with printing builder *)
 
 (** Builder *)
-module Make(K : ValueSig.S) =
+module Make(K : Core.ValueSig.S) =
 struct
   include Set.Make(K)
   let print fmt (s : t) =

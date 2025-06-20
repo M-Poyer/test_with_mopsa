@@ -21,11 +21,11 @@
 
 (** Inter-procedural iterator by inlining.  *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
+open Lang.Ast
 open Common
-
+open ControlCtx
 
 (** {2 Domain definition} *)
 (** ===================== *)

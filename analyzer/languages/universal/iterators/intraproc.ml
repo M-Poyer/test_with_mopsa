@@ -21,9 +21,9 @@
 
 (** Intra-procedural iterator for blocks, assignments and tests *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
+open Lang.Ast
 open Numeric.Common
 
 (******************)

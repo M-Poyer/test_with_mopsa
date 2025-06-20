@@ -21,7 +21,6 @@
 
 (** Definitions common to output engines *)
 
-open Mopsa_utils
 open Core.All
 
 (** Command-line option to show safe checks *)

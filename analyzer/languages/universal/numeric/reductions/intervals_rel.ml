@@ -23,9 +23,9 @@
     post-condition and inform the intervals domain about it.
 *)
 
-open Mopsa
+open MopsaLib
 open Sig.Reduction.Simplified
-open Ast
+open Lang.Ast
 
 module Reduction =
 struct

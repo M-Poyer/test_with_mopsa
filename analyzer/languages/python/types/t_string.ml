@@ -19,12 +19,13 @@
 (*                                                                          *)
 (****************************************************************************)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
+open Lang.Ast
 open MapExt
-open Addr
-open Universal.Ast
+open Lang.Addr
+open Lang
+open Universal.Lang.Ast
 
 module Domain =
   struct
@@ -34,7 +35,7 @@ module Domain =
       end)
 
     type stub_signature = {in_args: string list;
-                           out_type: Mopsa.typ}
+                           out_type: typ}
     type stub_db = stub_signature StringMap.t
 
     let add_signature funname in_args out_type db =

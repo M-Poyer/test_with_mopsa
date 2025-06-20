@@ -102,6 +102,8 @@ sig
   val print: printer -> t -> unit
   (** Printer of an abstract element. *)
 
+  val domain_assumptions : Alarm.assumption_kind list
+  (** List of domain general assumptions (eg, prototype domain) **)
 end
 
 
@@ -117,6 +119,7 @@ struct
   let backward_binop = default_backward_binop
   let compare = default_compare
   let avalue avk v = None
+  let domain_assumptions = []
 end
 
 

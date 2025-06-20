@@ -21,11 +21,11 @@
 
 (** With statement and context managers *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Universal.Lang.Ast
 
 module Domain =
   struct

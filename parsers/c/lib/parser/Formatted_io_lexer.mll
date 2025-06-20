@@ -20,7 +20,7 @@
 (****************************************************************************)
 
 {
-  open Parser
+  open Formatted_io_parser
 
 let format = ref false
 

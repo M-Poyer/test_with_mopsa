@@ -21,11 +21,12 @@
 
 (** Abstraction of exceptions flows. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang
+open Universal.Lang.Ast
 open Alarms
 
 
@@ -276,7 +277,7 @@ module Domain =
              let clean_except_var = mk_remove_var except_var (tag_range range "clean_except_var") in
              let except_body =
                (* replace raise without arguments with `raise except_var` *)
-               Visitor.map_stmt
+               Core.Ast.Visitor.map_stmt
                  (fun e -> Keep e)
                  (fun s -> match skind s with
                            | S_py_raise None -> Keep {s with skind=(S_py_raise (Some (mk_var except_var range)))}

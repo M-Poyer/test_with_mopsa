@@ -21,9 +21,9 @@
 
 (** Heap addresses of Python objects. *)
 
-open Mopsa
+open MopsaLib
 open Ast
-open Universal.Ast
+open Universal.Lang.Ast
 
 let debug fmt = Debug.debug ~channel:"python.addr" fmt
 

@@ -21,9 +21,9 @@
 
 (** Finite powerset of integer constants *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified_value
-open Ast
+open Lang.Ast
 open Top
 open Common
 
@@ -51,6 +51,7 @@ struct
         let display = "powerset"
     end
     )
+
 
   (** {2 Options} *)
   (** *********** *)
@@ -115,6 +116,8 @@ struct
   (** ********************* *)
 
   include DefaultValueFunctions
+
+  let domain_assumptions = [A_prototype_domain name]
 
   let accept_type = function
     | T_int | T_bool -> true

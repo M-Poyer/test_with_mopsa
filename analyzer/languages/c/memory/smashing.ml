@@ -50,11 +50,11 @@
       is fully covered.
 *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stacked
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
-open Ast
+open Lang.Ast
 open Common.Base
 open Common.Points_to
 open Common.Alarms

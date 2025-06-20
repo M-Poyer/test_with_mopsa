@@ -21,9 +21,9 @@
 
 (** Main handler of Universal programs. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
+open Lang.Ast
 
 module Domain =
 struct

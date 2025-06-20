@@ -1,6 +1,0 @@
-(library
- (name universal_iterators)
- (public_name mopsa.mopsa_analyzer.universal.iterators)
- (libraries universal_interproc lang universal_numeric framework mopsa)
- (library_flags -linkall)
- (flags :standard -open Lang -open Universal_interproc -open Universal_numeric))

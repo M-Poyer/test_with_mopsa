@@ -21,10 +21,10 @@
 
 (** Relational numeric abstract domain, based on APRON. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified
 open Common
-open Ast
+open Lang.Ast
 open Apron_manager
 open Apron_transformer
 
@@ -197,7 +197,7 @@ struct
   (** {2 Transfer functions} *)
   (** ********************** *)
 
-  let init prog = top
+  let init prog = top, []
 
   let remove_var (v:var) (a,bnd) =
     let env = Apron.Abstract1.env a in

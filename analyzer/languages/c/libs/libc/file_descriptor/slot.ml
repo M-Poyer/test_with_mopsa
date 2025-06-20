@@ -21,8 +21,8 @@
 
 (* Slot for a specific file descriptor *)
 
-open Mopsa
-open Universal.Ast
+open MopsaLib
+open Universal.Lang.Ast
 
 type slot =
   | Bot

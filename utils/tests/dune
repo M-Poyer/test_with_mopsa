@@ -6,3 +6,5 @@
 
 (cram
  (deps %{bin:intItvTest} %{bin:floatItvTest} %{bin:intCongTest}))
+
+(include_subdirs no)

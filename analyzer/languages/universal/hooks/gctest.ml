@@ -21,7 +21,7 @@
 
 (** Hook for displaying analysis logs as a tree *)
 
-open Mopsa
+open MopsaLib
 open Format
 open Core.All
 

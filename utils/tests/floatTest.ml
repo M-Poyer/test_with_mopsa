@@ -27,7 +27,7 @@
 
   Important notes:
 
-  - A recent version of mlgmpidl is required ; older versions incorrectly 
+  - A recent version of mlgmpidl is required ; older versions incorrectly
   handle rounding modes other than to nearest in MPFR.
 
   - The test issues errors. This is expected because MPFR does not
@@ -38,7 +38,7 @@
   correct range. However, for rounding to nearest, this can cause
   double rounding issues.
   To sum up, when the result has a very low or very high exponent
-  (especially multiplications and divisions), the hardware and the 
+  (especially multiplications and divisions), the hardware and the
   MPFR results may differ when rounding to nearest.
  *)
 
@@ -48,11 +48,11 @@ open Intervals.Float
 let nb_samples = 250
 
 
-   
+
 (* Float / MPFR operator correspondance *)
 (* ************************************ *)
-               
-   
+
+
 type round = NEAR | ZERO | UP | DOWN
 type prec = SINGLE | DOUBLE
 type op1 = SQRT | ROUND_INT
@@ -163,12 +163,12 @@ let mpfr_round prec round v =
    unfortunately, this may cause double-rounding errors in near rounding mode...
  *)
 
-                 
+
 let mk_mpfr prec round (v:t) : Mpfr.t =
   let r = Mpfr.init2 (match prec with SINGLE -> 24 | DOUBLE -> 53) in
   ignore (Mpfr.set_d r v round);
   r
-                       
+
 let mpfr_op1 prec op round (a:float) : float =
   let d = match round with ZERO -> Mpfr.Zero | NEAR -> Mpfr.Near | UP -> Mpfr.Up | DOWN -> Mpfr.Down in
   let a = mk_mpfr prec d a in
@@ -178,7 +178,7 @@ let mpfr_op1 prec op round (a:float) : float =
    | ROUND_INT  -> ignore (Mpfr.rint r a d)
   );
   mpfr_round prec round (Mpfr.get_d r d)
-  
+
 let mpfr_op2 prec op round (a:float) (b:float) : float =
   let d = match round with ZERO -> Mpfr.Zero | NEAR -> Mpfr.Near | UP -> Mpfr.Up | DOWN -> Mpfr.Down in
   let a = mk_mpfr prec d a in
@@ -194,26 +194,26 @@ let mpfr_op2 prec op round (a:float) (b:float) : float =
    | MOD  -> ignore (Mpfr.fmod r a b d)
   );
   mpfr_round prec round (Mpfr.get_d r d)
-  
 
-  
+
+
 (* random non-NaN floats *)
 (* ********************* *)
-  
+
 
 let rec mk_single () =
   let i1 = Int32.shift_left (Int32.of_int (Random.bits ())) 30 in
   let i2 = Int32.logxor i1 (Int32.of_int (Random.bits ())) in
   let f = Single.of_bits i2 in
   if is_nan f then mk_single () else f
-  
+
 let rec mk_double () =
   let i1 = Int64.shift_left (Int64.of_int (Random.bits ())) 60 in
   let i2 = Int64.logxor i1 (Int64.shift_left (Int64.of_int (Random.bits ())) 30) in
   let i3 = Int64.logxor i2 (Int64.of_int (Random.bits ())) in
   let f = Double.of_bits i3 in
   if is_nan f then mk_double () else f
-  
+
 let mk i prec =
   match i,prec with
   (* special values *)
@@ -241,17 +241,17 @@ let mk i prec =
   | _,SINGLE -> mk_single ()
   | _,DOUBLE -> mk_double ()
 
-              
-              
+
+
 (* tests *)
 (* ***** *)
 
-              
+
 let to_string f  =
   let p = Double.rep_of_bits (Double.to_bits f) in
   Printf.sprintf "%c%se%i" (if p.sign then '-' else '+') (Z.to_string p.fraction) p.exponent
 
-  
+
 let test_op1 () =
   List.iter
     (fun prec ->
@@ -266,13 +266,13 @@ let test_op1 () =
                 let r2 = mpfr_op1 prec op round f1 in
                 if not (equal_nan r1 r2) then Printf.printf "ERROR %g = %s -> %g = %s (Float) / %g = %s (MPFR)\n%!" f1 (to_string f1) r1 (to_string r1) r2 (to_string r2)
               done
-            )          
+            )
             [SQRT;ROUND_INT]
         )
         [NEAR;ZERO;UP;DOWN]
     )
     [SINGLE;DOUBLE]
-  
+
 let test_op2 () =
   List.iter
     (fun prec ->
@@ -290,19 +290,19 @@ let test_op2 () =
                   if not (equal_nan r1 r2) then Printf.printf "ERROR %g = %s, %g = %s -> %g = %s (Float) / %g = %s (MPFR)\n%!" f1 (to_string f1) f2 (to_string f2) r1 (to_string r1) r2 (to_string r2)
                 done
               done
-            )          
+            )
             [ADD;SUB;MUL;MULZ;DIV;DIVZ;MOD]
         )
         [NEAR;ZERO;UP;DOWN]
     )
     [SINGLE;DOUBLE]
-  
-  
+
+
 
 (* entry point *)
 (* *********** *)
-  
-  
+
+
 let test () =
   Printf.printf "NOTES:\n- a recent OCaml gmp wrapper library (mlgmpidl) is required as an important bug concerning rounding modes has been fixed\n- currently, errors are expected for multiplication and division when the result has a very low or very high exponent, as MPFR does not obey the IEEE float and double exponent ranges\n\n";
   test_op1 ();

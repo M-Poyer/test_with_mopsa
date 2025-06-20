@@ -24,7 +24,6 @@
 open Core.All
 open Sig.Abstraction.Value
 open Common
-open Mopsa_utils
 
 
 module Make(V1:VALUE)(V2:VALUE) : VALUE with type t = V1.t * V2.t =
@@ -259,6 +258,8 @@ struct
       (join_query query)
       (V1.ask (v1_man man) query)
       (V2.ask (v2_man man) query)
+
+  let domain_assumptions = V1.domain_assumptions @ V2.domain_assumptions
 end
 
 (** Create a union of a list of domains *)

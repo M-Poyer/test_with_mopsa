@@ -25,18 +25,18 @@
   We rely on Zarith for arithmetic operations.
  *)
 
-open Bot
+open Core.Bot
 
 
 (** {2 Types} *)
 
-             
+
 type t = Z.t (** set *) * Z.t (** cleared *)
 (**
-   Bitfields: bit sequences with bit values in a 3-valued logic: set, 
+   Bitfields: bit sequences with bit values in a 3-valued logic: set,
    cleared, or unknown.
-   Alternatively, this can be seen representing a set of arbtirary      
-   precision integers through a Cartesian (non-relational) abstraction: 
+   Alternatively, this can be seen representing a set of arbtirary
+   precision integers through a Cartesian (non-relational) abstraction:
    each bit is abstracted independently.
 
    The first component has a 1 for each bit that can be set.
@@ -47,13 +47,13 @@ type t = Z.t (** set *) * Z.t (** cleared *)
    (set | cleared = -1), i.e., an element of [t] is not empty.
    set and cleared can be negative, indicating bit sequences starting with
    infinitely many 1s in 2's complement representation.
- *)    
+ *)
 
-       
+
 type t_with_bot = t with_bot
 (** The type of possibly empty bitfields. *)
 
-  
+
 module I = ItvUtils.IntItv
 module B = ItvUtils.IntBound
 module C = CongUtils.IntCong
@@ -61,10 +61,10 @@ module C = CongUtils.IntCong
 
 let is_valid ((set,clr):t) : bool =
   Z.logor set clr = Z.minus_one
-(** Every bit in a bitfield must be set, cleared, or both. *)  
+(** Every bit in a bitfield must be set, cleared, or both. *)
 
-  
-  
+
+
 (** {2 Constructors} *)
 
 
@@ -87,7 +87,7 @@ let cst_int (c:int) : t =
 
 let cst_int64 (c:int64) : t =
   cst (Z.of_int64 c)
-  
+
 let zero : t =
   cst Z.zero
 (** 0 *)
@@ -109,12 +109,12 @@ let minf_inf : t =
   (* all bits can be set and cleared *)
   Z.minus_one, Z.minus_one
 (** All integers. Indistiguishable from [0,+∞]. *)
-                                    
+
 let unsigned (sz:int) : t =
   (* bits 0 to sz can be set or cleared, other bits must be cleared *)
   Z.pred (Z.shift_left Z.one sz), Z.minus_one
 (** Bitfields of unsigned integers with the specified bitsize. *)
-                            
+
 let unsigned8 : t = unsigned 8
 let unsigned16 : t = unsigned 16
 let unsigned32 : t = unsigned 32
@@ -132,11 +132,11 @@ let of_range_bot (lo:Z.t) (hi:Z.t) : t with_bot =
     (* mask is all 1 after the highest bit != in lo and hi *)
     let to_mask = Z.numbits (Z.logxor lo hi) in
     let mask = Z.pred (Z.shift_left Z.one to_mask) in
-    (* the bits in the mask can be set or cleared, 
+    (* the bits in the mask can be set or cleared,
        other bits are fixed to lo (or equivalently to hi) *)
     Nb (Z.logor lo mask, Z.logor (Z.lognot lo) mask)
 (** Bitfield enclosing the range [lo,hi]. *)
-    
+
 let of_bound_bot (lo:B.t) (hi:B.t) : t with_bot =
   match lo,hi with
   | B.Finite l, B.Finite h -> of_range_bot l h
@@ -147,7 +147,7 @@ let of_range (lo:Z.t) (hi:Z.t) : t =
   match of_range_bot lo hi with
   | Nb x -> x
   | BOT -> invalid_arg (Printf.sprintf "IntBitfields.of_range [%s,%s]" (Z.to_string lo) (Z.to_string hi))
-(** Bitfield enclosing the range [lo,hi]. 
+(** Bitfield enclosing the range [lo,hi].
     Fails with [invalid_arg] if the range is empty.
  *)
 
@@ -155,51 +155,51 @@ let of_bound (lo:B.t) (hi:B.t) : t =
   match of_bound_bot lo hi with
   | Nb x -> x
   | BOT -> invalid_arg (Printf.sprintf "IntBitfields.of_bound [%s,%s]" (B.to_string lo) (B.to_string hi))
-(** Bitfield enclosing the range [lo,hi]. 
+(** Bitfield enclosing the range [lo,hi].
     Fails with [invalid_arg] if the range is empty.
  *)
 
-    
+
 
 (** {2 Predicates} *)
 
-                  
+
 let equal ((set1,clr1):t) ((set2,clr2):t) : bool =
   set1 = set2 && clr1 = clr2
 (** Equality. = also works. *)
 
 let equal_bot : t_with_bot -> t_with_bot -> bool =
   bot_equal equal
-  
+
 let included ((set1,clr1):t) ((set2,clr2):t) : bool =
   (* set1 (resp. clr1) has less bits at 1 than set2 (resp. clr2) *)
   Z.logor set1 set2 = set2 && Z.logor clr1 clr2 = clr2
 (** Set ordering. *)
 
 let included_bot : t_with_bot -> t_with_bot -> bool =
-  bot_included included  
+  bot_included included
 
 let intersect ((set1,clr1):t) ((set2,clr2):t) : bool =
   (* for each bit, it must be set in both arguments, or cleared in both *)
   Z.logor (Z.logand set1 set2) (Z.logand clr1 clr2) = Z.minus_one
 (** Whether the intersection is non-empty. *)
-     
+
 let intersect_bot : t_with_bot -> t_with_bot -> bool =
   bot_dfl2 false intersect
 
 let contains (x:Z.t) ((set,clr):t) : bool =
   (* each bit at 1 in x must be in set, and each bit at 0 must be in clr *)
   (x = Z.logand x set) && (x = Z.logor x (Z.lognot clr))
-  
+
 let compare ((set1,clr1):t) ((set2,clr2):t) : int =
   if set1 = set2 then Z.compare clr1 clr2 else Z.compare set1 set2
 (**
   A total ordering on bitfields, returning -1, 0, or 1.
-  Can be used as compare for sets, maps, etc. 
+  Can be used as compare for sets, maps, etc.
  *)
 
 let compare_bot (x:t with_bot) (y:t with_bot) : int =
-  Bot.bot_compare compare x y
+  bot_compare compare x y
 (** Total ordering on possibly empty bitfields. *)
 
 let contains_zero ((set,clr):t) : bool =
@@ -231,8 +231,8 @@ let is_negative_strict ((set,clr):t) : bool =
   clr >= Z.zero
 
 let is_negative (a:t) : bool =
-  (* any bitfield allowing 0 and a negative number also allows a strictly 
-     positive number; the only way to be negative or nul is to either 
+  (* any bitfield allowing 0 and a negative number also allows a strictly
+     positive number; the only way to be negative or nul is to either
      contain only strictly negative numbers, or to contain only 0
    *)
   is_negative_strict a || is_zero a
@@ -245,7 +245,7 @@ let is_nonzero ((set,clr):t) : bool =
 let is_minf_inf ((a,b):t) : bool =
   a = Z.minus_one && b = Z.minus_one
 (** The bitfield represents [-∞,+∞]. *)
-                                 
+
 let is_singleton ((set,clr):t) : bool =
   (* every bit can be either set of cleared, but not both *)
   set = Z.lognot clr
@@ -270,7 +270,7 @@ let upper_bound ((set,clr):t) : B.t =
     B.Finite set (* set all the bits that can be set *)
 (** Get the upper bound (possibly PINF). *)
 
-  
+
 
 (** {2 Printing} *)
 
@@ -301,22 +301,22 @@ let print_bot = bot_print print
 let fprint_bot = bot_fprint fprint
 let bprint_bot = bot_bprint bprint
 
-  
-  
+
+
 (** {2 Enumeration} *)
 
-               
+
 let size ((set,clr):t) : int =
   let both = Z.logand set clr in
-  if both < Z.zero then 
+  if both < Z.zero then
     invalid_arg (Printf.sprintf "Bitfields.size: unbounded set %s" (to_string (set,clr)));
   Z.popcount both
 (** Number of elements. Raises an invalid argument if it is unbounded. *)
 
-  
+
 let to_list ((set,clr):t) : Z.t list =
   let both = Z.logand set clr in
-  if both < Z.zero then 
+  if both < Z.zero then
     invalid_arg (Printf.sprintf "Bitfields.size: unbounded set %s" (to_string (set,clr)));
   let rec doit acc v i =
     if i < 0 then v::acc else
@@ -331,15 +331,15 @@ let to_list ((set,clr):t) : Z.t list =
   in
   let org = Z.lognot clr in
   doit [] org (Z.numbits both - 1)
-(** List of elements, in increasing order. 
-    Raises an invalid argument if it is unbounded. 
+(** List of elements, in increasing order.
+    Raises an invalid argument if it is unbounded.
  *)
 
-       
-       
+
+
 (** {2 Set operations} *)
 
-               
+
 let join ((set,clr):t) ((set',clr'):t) : t =
   Z.logor set set', Z.logor clr clr'
 (** Abstract union. *)
@@ -353,15 +353,15 @@ let join_list (l:t list) : t_with_bot =
 let meet ((set,clr):t) ((set',clr'):t) : t_with_bot =
   of_z_bot (Z.logand set set') (Z.logand clr clr')
 (** Abstract intersection. *)
-     
+
 let meet_bot (a:t_with_bot) (b:t_with_bot) : t_with_bot =
   bot_absorb2 meet a b
-          
+
 let meet_list (l:t list) : t_with_bot =
   List.fold_left (fun a b -> meet_bot a (Nb b)) (Nb minf_inf) l
 
-  
-  
+
+
 (** {2 Forward operations} *)
 
 
@@ -372,11 +372,11 @@ let to_bool (can_be_zero:bool) (can_be_one:bool) : t =
   | true, true -> zero_one
   | _ -> failwith "unreachable case encountered in IntBitfields.to_bool"
 (* helper function for operators returning a boolean that can be zero and/or one *)
-            
+
 let log_cast (a:t) : t =
   to_bool (contains_zero a) (contains_nonzero a)
 (** Conversion from integer to boolean in [0,1]: maps 0 to 0 (false) and non-zero to 1 (true). *)
-                  
+
 let log_not (a:t) : t =
   to_bool (contains_nonzero a) (contains_zero a)
 (** Logical negation.
@@ -386,7 +386,7 @@ let log_not (a:t) : t =
 let log_and (a:t) (b:t) : t =
   to_bool (contains_zero a || contains_zero b) (contains_nonzero a && contains_nonzero b)
 (** Logical and. *)
-    
+
 let log_or (a:t) (b:t) : t =
   to_bool (contains_zero a && contains_zero b) (contains_nonzero a || contains_nonzero b)
 (** Logical or. *)
@@ -421,7 +421,7 @@ let log_gt (a:t) (b:t) : t =
 
 (** C comparison tests. Returns an interval included in [0,1] (a boolean) *)
 
-  
+
 let is_log_eq (a:t) (b:t) : bool =
   intersect a b
 
@@ -443,7 +443,7 @@ let is_log_gt (a:t) (b:t) : bool =
 (** C comparison tests. Returns a boolean if the test may succeed *)
 
 
-  
+
 let shift_left ((set,clr):t) ((set',clr'):t) : t =
   if is_singleton (set',clr') && set' >= Z.zero then
     (* exact when the right argument is a positive singleton, top else *)
@@ -495,13 +495,13 @@ let bit_xor ((set,clr):t) ((set',clr'):t) : t =
 (** Bitwise exclusive or. *)
 
 
-                    
+
 (** {2 Filters} *)
 
 
 (** Given two interval aruments, return the arguments assuming that the predicate holds.
  *)
-           
+
 let filter_eq (a:t) (b:t) : (t*t) with_bot =
   match meet a b with BOT -> BOT | Nb x -> Nb (x,x)
 
@@ -515,16 +515,16 @@ let filter_leq = filter_sgl (<=)
 let filter_geq = filter_sgl (>=)
 let filter_lt  = filter_sgl (<)
 let filter_gt  = filter_sgl (>)
-  
+
 
 (** {2 Reduction} *)
 
-  
+
 let of_interval ((lo,hi):I.t) : t =
   of_bound lo hi
 
 let to_interval ((set,clr):t) : I.t =
-  lower_bound (set,clr), upper_bound (set,clr) 
+  lower_bound (set,clr), upper_bound (set,clr)
 
 let meet_inter (b:t) (i:I.t) : (t * I.t) with_bot =
   bot_merge2 (meet b (of_interval i)) (I.meet i (to_interval b))
@@ -532,6 +532,3 @@ let meet_inter (b:t) (i:I.t) : (t * I.t) with_bot =
     both as a bitfield and as an interval.
     Useful to implement reductions.
  *)
-
-                                            
-                              

@@ -21,9 +21,9 @@
 
 (** AST of the C language. *)
 
-open Mopsa
+open MopsaLib
 open Mopsa_c_parser
-open Universal.Ast
+open Universal.Lang.Ast
 
 
 (*==========================================================================*)

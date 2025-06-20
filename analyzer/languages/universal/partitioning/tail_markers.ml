@@ -21,7 +21,7 @@
 
 (** Trace partitioning keeping the k last of markers *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Partitioning
 
 module Domain =

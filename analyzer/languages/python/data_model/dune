@@ -1,6 +1,0 @@
-(library
- (name data_model)
- (package mopsa)
- (libraries python_lang mopsa framework)
- (library_flags -linkall)
- (flags :standard -open Python_lang.Lang))

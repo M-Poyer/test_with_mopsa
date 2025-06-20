@@ -21,13 +21,14 @@
 
 (** An environment is a total map from variables to addresses. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang
+open Universal.Lang.Ast
 open Data_model.Attribute
-open Alarms
+open Lang.Alarms
 
 
 (* FIXME: can iterators over addresses be renamed? *)

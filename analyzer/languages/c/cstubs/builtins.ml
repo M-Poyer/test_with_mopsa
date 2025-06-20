@@ -21,12 +21,12 @@
 
 (** Evaluation of stub builtins: bytes, size, base, offset and valid_ptr *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
 open Common.Points_to
-open Ast
+open Lang.Ast
 open Common.Alarms
 open Aux_vars
 

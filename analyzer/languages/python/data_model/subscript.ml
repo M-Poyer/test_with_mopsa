@@ -21,11 +21,11 @@
 
 (** Python data model for subscript access. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Universal.Lang.Ast
 
 module Domain =
 struct
@@ -50,17 +50,17 @@ struct
           man.eval   (mk_py_type eobj range) flow >>$
  (fun cls flow ->
               assume
-                (Utils.mk_hasattr cls "__getitem__" range)
+                (Lang.Utils.mk_hasattr cls "__getitem__" range)
                 man flow
                 ~fthen:(fun true_flow ->
                     (* we need to keep the unevaluated index here for the type analysis *)
                     let exp' = mk_py_call (mk_py_attr cls "__getitem__" range) [eobj; index] range in
-                    Flow.add_safe_check Alarms.CHK_PY_TYPEERROR range true_flow |>
+                    Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR range true_flow |>
                     man.eval   exp'
                   )
                 ~felse:(fun false_flow ->
                   let msg = Format.asprintf "'%a' object is not subscriptable" pp_addr_kind (akind @@ fst @@ object_of_expr cls) in
-                  man.exec (Utils.mk_builtin_raise_msg "TypeError" msg range) false_flow >>%
+                  man.exec (Lang.Utils.mk_builtin_raise_msg "TypeError" msg range) false_flow >>%
                     Eval.empty
                   )
             )
@@ -74,11 +74,11 @@ struct
           man.eval   (mk_py_type eobj range) flow >>$
             (fun cls flow ->
               assume
-                (Utils.mk_hasattr cls "__getitem__" range)
+                (Lang.Utils.mk_hasattr cls "__getitem__" range)
                 man flow
                 ~fthen:(fun true_flow ->
-                    let true_flow = Flow.add_safe_check Alarms.CHK_PY_TYPEERROR range true_flow in
-                    man.eval   (Utils.mk_builtin_call "slice" [start; stop; step] range) true_flow >>$
+                    let true_flow = Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR range true_flow in
+                    man.eval   (Lang.Utils.mk_builtin_call "slice" [start; stop; step] range) true_flow >>$
                       (fun slice flow ->
                         let exp' = mk_py_call (mk_py_attr cls "__getitem__" range) [eobj; slice] range in
                         man.eval   exp' flow
@@ -86,7 +86,7 @@ struct
                   )
                 ~felse:(fun false_flow ->
                   let msg = Format.asprintf "'%a' object is not subscriptable" pp_addr_kind (akind @@ fst @@ object_of_expr cls) in
-                  man.exec (Utils.mk_builtin_raise_msg "TypeError" msg range) false_flow >>%
+                  man.exec (Lang.Utils.mk_builtin_raise_msg "TypeError" msg range) false_flow >>%
                     Eval.empty
                   )
             )
@@ -107,17 +107,17 @@ struct
            man.eval   (mk_py_type eobj range) flow |>
            bind_result (fun cls flow ->
                assume
-                 (Utils.mk_hasattr cls "__setitem__" range)
+                 (Lang.Utils.mk_hasattr cls "__setitem__" range)
                  man flow
                  ~fthen:(fun true_flow ->
                    (* we need to keep the unevaluated index here to improve the precision *)
                      let exp' = mk_py_call (mk_py_attr cls "__setitem__" range) [obj; index; exp] range in
-                     let true_flow = Flow.add_safe_check Alarms.CHK_PY_TYPEERROR range true_flow in
+                     let true_flow = Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR range true_flow in
                      man.exec {stmt with skind = S_expression(exp')} true_flow >>% Post.return
                    )
                  ~felse:(fun false_flow ->
                    let msg = Format.asprintf "'%a' object does not support item assignment" pp_addr_kind (akind @@ fst @@ object_of_expr cls) in
-                   man.exec (Utils.mk_builtin_raise_msg "TypeError" msg range) false_flow >>% Post.return
+                   man.exec (Lang.Utils.mk_builtin_raise_msg "TypeError" msg range) false_flow >>% Post.return
                    )
              )
         )
@@ -130,11 +130,11 @@ struct
           man.eval   (mk_py_type eobj range) flow |>
           bind_result (fun cls flow ->
               assume
-                (Utils.mk_hasattr cls "__setitem__" range)
+                (Lang.Utils.mk_hasattr cls "__setitem__" range)
                 man flow
                 ~fthen:(fun true_flow ->
-                    let true_flow = Flow.add_safe_check Alarms.CHK_PY_TYPEERROR range true_flow in
-                    man.eval   (Utils.mk_builtin_call "slice" [start; stop; step] range) true_flow |>
+                    let true_flow = Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR range true_flow in
+                    man.eval   (Lang.Utils.mk_builtin_call "slice" [start; stop; step] range) true_flow |>
                     bind_result (fun slice flow ->
                         let exp' = mk_py_call (mk_py_attr cls "__setitem__" range) [eobj; slice; exp] range in
                         man.exec {stmt with skind = S_expression(exp')} flow >>% Post.return
@@ -142,7 +142,7 @@ struct
                   )
                 ~felse:(fun false_flow ->
                   let msg = Format.asprintf "'%a' object does not support item assignment" pp_addr_kind (akind @@ fst @@ object_of_expr cls) in
-                  man.exec (Utils.mk_builtin_raise_msg "TypeError" msg range) false_flow >>% Post.return
+                  man.exec (Lang.Utils.mk_builtin_raise_msg "TypeError" msg range) false_flow >>% Post.return
                   )
             )
         )

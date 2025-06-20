@@ -21,10 +21,10 @@
 
 (** Visitors for CFG. *)
 
-open Mopsa
-open Universal.Ast
+open MopsaLib
+open Universal.Lang.Ast
 open Ast
-   
+
 
 let () =
     register_stmt_visitor (fun default stmt ->
@@ -49,7 +49,7 @@ let () =
            | a::b -> Hashtbl.add idxmap (CFG.edge_id a) i; mkmap (i+1) b
          in
          mkmap 0 l;
-         
+
          { exprs = []; stmts = List.map CFG.edge_data l; },
          (function { stmts } ->
             (* copy *)
@@ -63,7 +63,6 @@ let () =
               cfg;
             mk_cfg { c with cfg_graph = cfg; } (srange stmt)
          )
-         
+
       | _ -> default stmt
       )
-  

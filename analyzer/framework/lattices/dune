@@ -1,5 +1,0 @@
-(library
- (name lattices)
- (public_name mopsa.mopsa_analyzer.framework.lattices)
- (library_flags -linkall)
- (libraries core mopsa_utils))
