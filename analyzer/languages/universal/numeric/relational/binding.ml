@@ -56,8 +56,9 @@ let apron_to_mopsa_var (v:Apron.Var.t) (b:t) : var =
 let concat b1 b2 =
   Equiv.concat b1 b2
 
-let remove_apron_var v b =
-  Equiv.remove_r v b
+(* DO NOT remove_apron_vars, the comparison on Apron Variables is much more sensitive than the one on Mopsa variables. The idea is that in Mopsa we can create range_attr_var with the same variable/range/attr multiple times, while Apron they will have a UID *)
+let remove_var v b =
+  Equiv.remove_l v b
 
-let remove_apron_vars vl b =
-  List.fold_left (fun acc v -> remove_apron_var v acc) b vl
+let remove_vars vl b =
+  List.fold_left (fun acc v -> remove_var v acc) b vl

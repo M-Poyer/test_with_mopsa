@@ -204,7 +204,7 @@ struct
     if is_env_var v (a,bnd) then
       let vv,bnd = Binding.mopsa_to_apron_var v bnd in
       let env = Apron.Environment.remove env [|vv|] in
-      let bnd = Binding.remove_apron_var vv bnd in
+      let bnd = Binding.remove_var v bnd in
       (Apron.Abstract1.change_environment ApronManager.man a env true, bnd)
     else
       (a,bnd)
@@ -325,7 +325,7 @@ struct
       let a, bnd' = add_missing_vars (a,bnd) [var1] in
       let a, bnd' = remove_var var2 (a,bnd') in
       let v1, _ = Binding.mopsa_to_apron_var var1 bnd in
-      let bnd' = Binding.remove_apron_var v1 bnd in
+      let bnd' = Binding.remove_var var1 bnd in
       let v2, bnd' = Binding.mopsa_to_apron_var var2 bnd' in
       (Apron.Abstract1.rename_array ApronManager.man a [| v1  |] [| v2 |], bnd') |>
       OptionExt.return
@@ -339,12 +339,11 @@ struct
         ) vars
       in
       let env = Apron.Abstract1.env a in
-      let vars, bnd = Binding.mopsa_to_apron_vars vars bnd in
-      let old_vars1, old_vars2 = Apron.Environment.vars env in
-      let old_vars = Array.to_list old_vars1 @ Array.to_list old_vars2 in
-      let to_remove = List.filter (fun v -> not (List.mem v vars)) old_vars in
-      let bnd = Binding.remove_apron_vars to_remove bnd in
-      let new_env = Apron.Environment.remove env (Array.of_list to_remove) in
+      let dom = Binding.Equiv.fold (fun (a, _) acc -> a::acc) bnd [] in
+      let to_remove = List.filter (fun v -> not (List.mem v vars)) dom in
+      let to_remove_apron, bnd = Binding.mopsa_to_apron_vars to_remove bnd in
+      let bnd = Binding.remove_vars to_remove bnd in
+      let new_env = Apron.Environment.remove env (Array.of_list to_remove_apron) in
       Some (
         Apron.Abstract1.change_environment ApronManager.man a new_env true,
         bnd
@@ -408,10 +407,10 @@ struct
         ) vl
       in
       let a, bnd = add_missing_vars (a,bnd) (v::vl) in
-      let v, bnd = Binding.mopsa_to_apron_var v bnd in
-      let vl, bnd = Binding.mopsa_to_apron_vars vl bnd in
-      let bnd = Binding.remove_apron_vars vl bnd in
-      let abs' = try Apron.Abstract1.fold ApronManager.man a (Array.of_list (v::vl))
+      let v_apron, bnd = Binding.mopsa_to_apron_var v bnd in
+      let vl_apron, bnd = Binding.mopsa_to_apron_vars vl bnd in
+      let bnd = Binding.remove_vars vl bnd in
+      let abs' = try Apron.Abstract1.fold ApronManager.man a (Array.of_list (v_apron::vl_apron))
                  with Apron.Manager.Error exc ->
                    panic_at stmt.srange "Apron.Manager.Error(%a)" Apron.Manager.print_exclog exc
       in
