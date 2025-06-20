@@ -300,7 +300,7 @@ struct
     (* FIXME: change the simplified abstraction to handle this... *)
     Debug.warn "domain '%s' is a prototype, it may contain bugs!" name;
     Apron_transformer.apron_int_to_rationals := true;
-    top
+    top, [Alarm.A_prototype_domain name]
 
   let remove_var (v:var) (a,bnd,l) =
     let env = Apron.Abstract1.env a in
