@@ -61,6 +61,8 @@ struct
     | T_float _ -> true
     | _ -> false
 
+  let domain_assumptions = []
+
   (** Lattice operations *)
 
   let bottom = I.bot

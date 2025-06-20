@@ -258,6 +258,8 @@ struct
       (join_query query)
       (V1.ask (v1_man man) query)
       (V2.ask (v2_man man) query)
+
+  let domain_assumptions = V1.domain_assumptions @ V2.domain_assumptions
 end
 
 (** Create a union of a list of domains *)

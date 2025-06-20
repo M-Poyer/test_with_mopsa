@@ -298,3 +298,15 @@ let breakpoint name man flow =
 let warn_prototype_domain name flow =
   Debug.warn "domain '%s' is a prototype, it may contain bugs!" name;
   Flow.add_global_assumption (Alarm.A_prototype_domain name) flow
+
+let warn_no_guaranteed_termination_domain name flow =
+  Debug.warn "domain '%s' is not guaranteed to terminate!" name;
+  Flow.add_global_assumption (Alarm.A_no_guaranteed_termination_domain name) flow
+
+let warn_assumptions assumptions flow =
+  List.fold_left (fun flow assumption ->
+      match assumption with
+      | Alarm.A_prototype_domain s -> warn_prototype_domain s flow
+      | Alarm.A_no_guaranteed_termination_domain s -> warn_no_guaranteed_termination_domain s flow
+      | _ -> assert false
+    ) flow assumptions

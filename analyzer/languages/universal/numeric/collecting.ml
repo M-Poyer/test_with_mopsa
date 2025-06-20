@@ -91,10 +91,9 @@ struct
   let merge _ _ _ = failwith "ni"
 
   let init _ =
-    Debug.warn "%s is not guaranteed to terminate!" name;
-    Debug.warn "domain '%s' is a prototype, it may contain bugs!" name; (* FIXME: refactor interface to allow simplified domains to use [Utils.warn_prototype_domain] *)
-    Bot_top.Nbt (StateCollection.singleton (VarMap.empty))
-  (* FIXME: StateCollection.empty can be bot *)
+    (* FIXME: StateCollection.empty can be bot *)
+    Bot_top.Nbt (StateCollection.singleton (VarMap.empty)),
+    [Alarm.A_prototype_domain name; Alarm.A_no_guaranteed_termination_domain name]
 
   let accept_type = function
     | T_int | T_bool -> true
