@@ -24,12 +24,6 @@ open Instances
 open MopsaLib
 open Sig.Abstraction.Simplified
 
-
-(* the next two open are here to force compilation of the instances before the registration of domain options, in order to be sure all domains are registered *)
-(* open Elinainst *)
-(* open Ppliteinst *)
-
-
 let numeric_domain : (module RELATIONAL) ref = ref (module HetPolyhedra : RELATIONAL)
 
 let enable_rel_domain rel_domain_type activate name =

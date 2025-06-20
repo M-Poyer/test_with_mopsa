@@ -25,10 +25,10 @@
 
 (* TODO: reduction with itvs? *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified
 open Common
-open Ast
+open Lang.Ast
 open Apron_manager
 open Apron_transformer
 open Domain
@@ -297,8 +297,7 @@ struct
   (** ********************** *)
 
   let init prog =
-    (* FIXME: change the simplified abstraction to handle this... *)
-    Debug.warn "domain '%s' is a prototype, it may contain bugs!" name;
+    Debug.warn "Heterogeneous domain can only rely on polyhedra, not other relational domains?";
     Apron_transformer.apron_int_to_rationals := true;
     top, [Alarm.A_prototype_domain name]
 
