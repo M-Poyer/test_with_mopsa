@@ -324,7 +324,7 @@ struct
 
 
   (** Evaluate arguments containing function calls *)
-  let rec eval_calls_in_args args man flow =
+  let rec eval_calls_in_args fundec arg_number args man flow =
     match args with
     | [] -> Cases.singleton [] flow
     | arg::tl ->
@@ -335,13 +335,13 @@ struct
         (* Evaluating arguments may result in disjunctions.
            To avoid calling the function several times, we assign the call
            to a temporary variable *)
-        let tmp = mk_range_attr_var arg.erange "arg" arg.etyp in
+        let tmp = mk_range_attr_var arg.erange (Format.asprintf "arg_%s_#%d_%d_%d" fundec arg_number (Hashtbl.hash arg) (Hashtbl.hash @@ Flow.get_callstack flow)) arg.etyp in
         man.exec (mk_add_var tmp arg.erange) flow >>%
         man.exec (mk_assign (mk_var tmp arg.erange) arg arg.erange) >>%
-        eval_calls_in_args tl man >>$ fun tl flow ->
+        eval_calls_in_args fundec (arg_number+1) tl man >>$ fun tl flow ->
         Cases.singleton (mk_var tmp arg.erange :: tl) ~cleaners:[mk_remove_var tmp arg.erange] flow
       else
-        eval_calls_in_args tl man flow >>$ fun tl flow ->
+        eval_calls_in_args fundec (arg_number+1) tl man flow >>$ fun tl flow ->
         Cases.singleton (arg::tl) flow
 
   let is_c_fun_boolean_predicate fundec args man flow =
@@ -438,7 +438,7 @@ struct
       let flow = set_env_flow T_cur empty man flow in
       let ret =
         (* Process arguments by evaluating function calls *)
-        eval_calls_in_args args man flow >>$ fun args flow ->
+        eval_calls_in_args fundec.c_func_org_name 0 args man flow >>$ fun args flow ->
         if is_recursive_call fundec range flow then (
           warn_at range "recursive call on %s, returning top" fundec.c_func_org_name;
           let flow =
