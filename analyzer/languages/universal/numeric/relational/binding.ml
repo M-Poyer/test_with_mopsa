@@ -38,6 +38,7 @@ let empty : t = Equiv.empty
 let mopsa_to_apron_var (v:var) (b:t) : Apron.Var.t * t =
   try Equiv.find_l v b, b
   with Not_found ->
+    (* careful, this assumes vnames are unique, but compare_var also relies on the vtyp etc... This may create issues of vnames are not unique *)
     let vv = Apron.Var.of_string v.vname in
     vv, Equiv.add (v,vv) b
 
