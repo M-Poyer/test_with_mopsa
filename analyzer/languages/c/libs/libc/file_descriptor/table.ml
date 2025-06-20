@@ -110,7 +110,7 @@ let insert addr window (t:table) flow =
     let minitv = AddrItvMap.fold (fun _ itv acc -> itv :: acc) minmap [] in
     (* Sort intervals using the lowest bound *)
     let sorted = List.sort (fun itv1 itv2 ->
-        let a1 = Itv.bounds itv2 |> fst in
+        let a1 = Itv.bounds itv1 |> fst in
         let a2 = Itv.bounds itv2 |> fst in
         Z.compare a1 a2
       ) minitv
