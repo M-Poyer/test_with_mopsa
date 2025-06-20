@@ -117,6 +117,7 @@ struct
       (V1.ask (v1_man man) query)
       (V2.ask (v2_man man) query)
 
+  let domain_assumptions = V1.domain_assumptions @ V2.domain_assumptions
 end
 
 module Make(V:VALUE)(R:sig val rules: (module VALUE_REDUCTION) list end) : VALUE with type t = V.t =

@@ -187,7 +187,7 @@ struct
     (** Initialization *)
     let init prog =
       let () = Strategy.init prog in
-      Map.empty
+      Map.empty, []
 
 
     (** Get the packs of a variable *)

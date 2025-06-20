@@ -52,6 +52,7 @@ struct
     end
     )
 
+
   (** {2 Options} *)
   (** *********** *)
 
@@ -115,6 +116,8 @@ struct
   (** ********************* *)
 
   include DefaultValueFunctions
+
+  let domain_assumptions = [A_prototype_domain name]
 
   let accept_type = function
     | T_int | T_bool -> true

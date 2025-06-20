@@ -361,6 +361,8 @@ struct
 
   include DefaultValueFunctions
 
+  let domain_assumptions = [A_prototype_domain name]
+
   let avalue : type r. r avalue_kind -> t -> r option =
     fun aval a ->
     match aval with

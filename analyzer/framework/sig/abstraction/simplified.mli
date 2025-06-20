@@ -117,8 +117,8 @@ sig
   (** {2 Transfer functions} *)
   (** ********************** *)
 
-  val init : program -> t
-  (** Initial abstract element *)
+  val init : program -> t * Alarm.assumption_kind list
+  (** Initial abstract element, and assumptions about the domain (prototype, ...) *)
 
   val exec : stmt -> ('a,t) simplified_man -> 'a ctx -> t -> t option
   (** Computation of post-conditions *)

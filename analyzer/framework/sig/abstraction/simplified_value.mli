@@ -114,6 +114,9 @@ sig
   val print: printer -> t -> unit
   (** Printer of an abstract element. *)
 
+  val domain_assumptions : Alarm.assumption_kind list
+  (** List of domain general assumptions (eg, prototype domain) **)
+
 end
 
 
@@ -131,6 +134,7 @@ sig
   val backward_binop : operator -> typ -> 't -> typ -> 't -> typ -> 't -> 't * 't
   val compare : operator -> bool -> typ -> 't -> typ -> 't -> ('t * 't)
   val avalue : 'r avalue_kind -> 't -> 'r option
+  val domain_assumptions : Alarm.assumption_kind list
 end
 
 (** Functor to create a value abstraction from a simplified value abstraction *)

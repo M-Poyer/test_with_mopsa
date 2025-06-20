@@ -389,7 +389,7 @@ struct
   (** {2 Transfer functions} *)
   (** ********************** *)
 
-  let init prog = empty
+  let init prog = empty, Value.domain_assumptions
 
   let exec stmt man ctx (map:t) : t option =
     match skind stmt with

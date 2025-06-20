@@ -206,6 +206,9 @@ sig
   val compare_ext : ('v,t) value_man -> operator -> bool -> expr -> 'v -> expr -> 'v -> ('v * 'v) option
   (** Extend comparison between heterogenous expressions *)
 
+  val domain_assumptions : Alarm.assumption_kind list
+  (** List of domain general assumptions (eg, prototype domain) **)
+
   (** {2 Communication handlers } *)
   (** *************************** *)
 
@@ -235,6 +238,7 @@ sig
   val backward_ext : ('v,'t) value_man -> expr -> 'v vexpr -> 'v -> 'v vexpr option
   val compare_ext : ('v,'t) value_man -> operator -> bool -> expr -> 'v -> expr -> 'v -> ('v * 'v) option
   val avalue : 'r avalue_kind -> 't -> 'r option
+  val domain_assumptions : Alarm.assumption_kind list
   val ask : ('v,'t) value_man -> ('a,'r) query -> 'r option
 end
 

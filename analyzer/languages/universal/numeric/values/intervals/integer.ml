@@ -47,6 +47,8 @@ struct
     | T_int | T_bool -> true
     | _ -> false
 
+  let domain_assumptions = []
+
   let bottom = BOT
 
   let top = Nb (I.minf_inf)
