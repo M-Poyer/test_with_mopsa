@@ -90,6 +90,7 @@ let signedness_int t =
 
 let sizeof_float target t : int =
   match t with
+  | FLOAT16 -> 2
   | FLOAT -> target.C.target_float_width / 8
   | DOUBLE -> target.C.target_double_width / 8
   | LONG_DOUBLE -> target.C.target_long_double_width / 8
@@ -98,6 +99,7 @@ let sizeof_float target t : int =
 
 let alignof_float target t : int =
   match t with
+  | FLOAT16 -> 2
   | FLOAT -> target.C.target_float_align / 8
   | DOUBLE -> target.C.target_double_align / 8
   | LONG_DOUBLE -> target.C.target_long_double_align / 8
@@ -868,6 +870,7 @@ let resolve_scope (b:block) : block =
     | E_float_literal _
     | E_string_literal _
     | E_compound_literal _
+    | E_null_ptr
     | E_variable _
     | E_function _
     | E_predefined _ -> ()

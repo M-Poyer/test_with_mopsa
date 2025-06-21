@@ -304,7 +304,10 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
         | C.Type_LongDouble -> T_float LONG_DOUBLE, no_qual
         | C.Type_Float128 -> T_float FLOAT128, no_qual
         | C.Type_BuiltinFn -> T_builtin_fn, no_qual
+        | C.Type_Float16 -> T_float FLOAT16, no_qual
+        | C.Type_BFloat16 -> T_float FLOAT16, no_qual (* TODO: distinguish float16 and bfloat16 *)
         | C.Type_unknown_builtin s -> T_unknown_builtin s, no_qual
+        | C.Type_NullPtr -> void_ptr_type
         | _ -> error range "unhandled builtin type" (C.string_of_type t)
        )
 
@@ -1067,6 +1070,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
       let o = match k with
         | C.CStyleCast -> EXPLICIT
         | C.ImplicitCast -> IMPLICIT
+        | C.BuiltinBitCast -> BITCAST
         | _ -> error range "unhandled cast kind" (C.cast_kind_name k)
       in
       E_cast (e, o), typ, range
@@ -1166,7 +1170,21 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
    | ShuffleVectorExpr ea ->
       E_shuffle_vector (Array.map (expr func) ea), typ, range
 
-   | e -> error range "unhandled expression" (C.expr_kind_name e)
+   | CXXBoolLiteralExpr b ->
+      E_integer_literal (if b then Z.one else Z.zero), typ, range
+
+   | CXXNullPtrLiteralExpr ->
+      E_null_ptr, void_ptr_type, range
+
+   | ExprWithCleanups e ->
+     if Array.length e.cleanup_cleanups > 0 then
+         warning range "unsupported expression" "expression_with_cleanups has non-empty cleanup list; cleanups ignored";
+      expr func e.cleanup_expr
+
+   | MaterializeTemporaryExpr e ->
+      expr func e.materialize_tmp_expr
+
+   | k -> error range "unhandled expression" ((C.expr_kind_name k)^": "^(C.string_of_expr e))
 
 
   (* translate initializers *)

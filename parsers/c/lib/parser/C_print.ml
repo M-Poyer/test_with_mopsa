@@ -121,12 +121,14 @@ let integer_suffix = function
   | UNSIGNED_LONG_LONG | UNSIGNED_INT128 -> "ULL"
 
 let string_of_float_type = function
+  | FLOAT16 -> "__Float16"
   | FLOAT -> "float"
   | DOUBLE -> "double"
   | LONG_DOUBLE -> "long double"
   | FLOAT128 -> "__float128"
 
 let float_suffix = function
+  | FLOAT16 -> "f16"
   | FLOAT -> "F"
   | DOUBLE -> ""
   | LONG_DOUBLE -> "L"
@@ -194,7 +196,7 @@ let rec prio_expr ((e,_,_):expr) =
   | E_unary _ | E_increment (_,PRE,_) | E_cast _ | E_address_of _ | E_deref _ -> 13
   | E_increment (_,POST,_) | E_array_subscript _ | E_member_access _ | E_arrow_access _ | E_call _ -> 14
   | E_character_literal _ | E_integer_literal _ | E_float_literal _
-  | E_string_literal _ | E_compound_literal _
+  | E_string_literal _ | E_compound_literal _ | E_null_ptr
   | E_variable _ | E_function _ | E_predefined _ | E_statement _
   | E_var_args _ | E_atomic _
   | E_convert_vector _ | E_vector_element _ | E_shuffle_vector _
@@ -377,6 +379,11 @@ and c_buf_expr indent buf ((e,t,_) as ee:expr) =
    | E_cast (e1,IMPLICIT) when ignore_implicit_casts ->
       c_buf_expr indent buf e1
 
+   | E_cast (e1,BITCAST) ->
+      bp buf "__builtin_bit_cast(%a, %a)"
+        (c_buf_type_qual indent "") t
+        (c_buf_expr indent) e1
+
    | E_cast (e1,ex) ->
       bp buf "(%a)%a"
          (c_buf_type_qual indent "") t
@@ -407,6 +414,8 @@ and c_buf_expr indent buf ((e,t,_) as ee:expr) =
       bp buf "(%a){ %a }"
          (c_buf_type_qual indent "") t
          (c_buf_init indent) i
+
+   | E_null_ptr -> bp_str buf "NULL"
 
    | E_variable v -> bp_str buf v.var_unique_name
    | E_function f -> bp_str buf f.func_unique_name

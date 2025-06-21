@@ -313,10 +313,11 @@ let make_unsigned =
 let rank_float =
   let open C_AST in
   function
-  | FLOAT -> 0
-  | DOUBLE -> 1
-  | LONG_DOUBLE -> 2
-  | FLOAT128 -> 3
+  | FLOAT16 -> 0
+  | FLOAT -> 1
+  | DOUBLE -> 2
+  | LONG_DOUBLE -> 3
+  | FLOAT128 -> 4
 
 let is_int_binop = function
   | EQ | NEQ | LT | LE | GT | GE | LAND | LOR -> true

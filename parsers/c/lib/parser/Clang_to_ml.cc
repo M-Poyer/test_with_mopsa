@@ -790,6 +790,11 @@ public:
   CAMLprim value TranslateTemplateTypeParmType(const TemplateTypeParmType* x);
   CAMLprim value TranslateTemplateTypeParmDecl(const TemplateTypeParmDecl* x);
   CAMLprim value TranslateNamedDecl(const NamedDecl *x);
+#if CLANG_VERSION_MAJOR >= 11
+  CAMLprim value TranslateCleanupObject(const ExprWithCleanups::CleanupObject x);
+#else
+  CAMLprim value TranslateCleanupObject(const BlockDecl* x);
+#endif
 
   explicit MLTreeBuilderVisitor(MLLocationTranslator& loc, ASTContext *Context, SourceManager& src, MLCommentTranslator& com) :
     src(src), Context(Context), loc(loc), com(com),
@@ -1566,6 +1571,41 @@ CAMLprim value MLTreeBuilderVisitor::TranslateBlockDecl(const BlockDecl *x) {
   CAMLreturn(ret);
 }
 
+
+enum {
+  MLTAG_Cleanup_block_decl,
+  MLTAG_Cleanup_compound_literal_expr,
+};
+
+#if CLANG_VERSION_MAJOR >= 11
+/* CleanupObject -> cleanup_object */
+CAMLprim value MLTreeBuilderVisitor::TranslateCleanupObject(const ExprWithCleanups::CleanupObject x) {
+  CAMLparam0();
+  CAMLlocal1(ret);
+
+  if (isa<BlockDecl*>(x)) {
+    ret = caml_alloc(1, MLTAG_Cleanup_block_decl);
+    Store_field(ret, 0, TranslateBlockDecl(cast<BlockDecl*>(x)));
+  }
+  else {
+    ret = caml_alloc(1, MLTAG_Cleanup_compound_literal_expr);
+  }
+
+  CAMLreturn(ret);
+}
+#else
+/* BlockDecl -> cleanup_object */
+CAMLprim value MLTreeBuilderVisitor::TranslateCleanupObject(const BlockDecl* x) {
+  CAMLparam0();
+  CAMLlocal1(ret);
+
+  ret = caml_alloc(1, MLTAG_Cleanup_block_decl);
+  Store_field(ret, 0, TranslateBlockDecl(x));
+
+  CAMLreturn(ret);
+}
+#endif
+
 /* BlockDecl::Capture -> capture */
 CAMLprim value MLTreeBuilderVisitor::TranslateCapture(const BlockDecl::Capture *x) {
   CAMLparam0();
@@ -2194,6 +2234,7 @@ enum {
   MLTAG_CXXReinterpretCast,
   MLTAG_CXXStaticCast,
   MLTAG_ImplicitCast,
+  MLTAG_BuiltinBitCast,
 };
 
 /* character_kind */
@@ -2336,6 +2377,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateExpr(const Expr * node) {
           else if (isa<CXXReinterpretCastExpr>(x)) r = MLTAG_CXXReinterpretCast;
           else if (isa<CXXStaticCastExpr>(x))      r = MLTAG_CXXStaticCast;
           else if (isa<ImplicitCastExpr>(x))       r = MLTAG_ImplicitCast;
+          else if (isa<BuiltinBitCastExpr>(x))     r = MLTAG_BuiltinBitCast;
           else {
             if (verbose_exn) node->dump();
             caml_failwith("mlClangAST: unknown kind of cast");
@@ -2736,12 +2778,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateExpr(const Expr * node) {
 
       GENERATE_NODE_INDIRECT(ExprWithCleanups, ret, node, 2, {
           Store_field(ret, 0, TranslateExpr(x->getSubExpr()));
-#if CLANG_VERSION_MAJOR < 11
-          Store_field_array(ret, 1, x->getNumObjects(), TranslateBlockDecl(x->getObject(i)));
-#else
-          // TODO: API for cleanup has changed for recent Clang; we need to support CleanupObject
-          caml_failwith("mlCLangAST: ExprWithCleanups not supported");
-#endif
+          Store_field_array(ret, 1, x->getNumObjects(), TranslateCleanupObject(x->getObject(i)));
         });
 
       GENERATE_NODE(FunctionParmPackExpr, ret, node, 2, {
@@ -3810,6 +3847,8 @@ enum {
   MLTAG_Type_BuiltinFn,
   MLTAG_Type_ARCUnbridgedCast,
   MLTAG_Type_OMPArraySection,
+  MLTAG_Type_Float16,
+  MLTAG_Type_BFloat16,
 };
 
 enum {
@@ -3876,6 +3915,8 @@ CAMLprim value MLTreeBuilderVisitor::TranslateBuiltinType(const BuiltinType * no
 #if CLANG_VERSION_MAJOR < 19
     GENERATE_CASE_PREFIX(r, BuiltinType::, Type_, OMPArraySection);
 #endif
+    GENERATE_CASE_PREFIX(r, BuiltinType::, Type_, Float16);
+    GENERATE_CASE_PREFIX(r, BuiltinType::, Type_, BFloat16);
     // unknown
   default:
     // new version: generate a "unknown builtin" AST node that OCaml can use

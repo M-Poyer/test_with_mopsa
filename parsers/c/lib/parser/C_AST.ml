@@ -90,6 +90,7 @@ type unary_operator =
 type explicitness =
   | EXPLICIT
   | IMPLICIT
+  | BITCAST
 (** Whether a cast is explicit (in the source) or implicit (added for implicit conversions *)
 
 type inc_location =
@@ -119,7 +120,7 @@ type integer_type =
   | SIGNED_INT128 | UNSIGNED_INT128
 (** Integer types. *)
 
-type float_type = FLOAT | DOUBLE | LONG_DOUBLE | FLOAT128
+type float_type = FLOAT | DOUBLE | LONG_DOUBLE | FLOAT128 | FLOAT16
 (** Floating-point types. *)
 
 type record_kind = STRUCT | UNION
@@ -433,6 +434,7 @@ and type_qual = typ * qualifier
    | E_integer_literal of Z.t (** literal integer *)
    | E_float_literal of string (** literal float, in binary string notation *)
    | E_string_literal of string * character_kind
+   | E_null_ptr
 
    | E_compound_literal of init
 

@@ -342,6 +342,7 @@ let rec simplify_expr ctx f (call:bool) ((e,t,r):expr)
    | E_integer_literal _
    | E_float_literal _
    | E_string_literal _
+   | E_null_ptr
    | E_variable _
    | E_function _
    | E_predefined _
@@ -444,6 +445,7 @@ let rec simplify_expr ctx f (call:bool) ((e,t,r):expr)
    | E_integer_literal _
    | E_float_literal _
    | E_string_literal _
+   | E_null_ptr
    | E_variable _
    | E_function _
    | E_predefined _

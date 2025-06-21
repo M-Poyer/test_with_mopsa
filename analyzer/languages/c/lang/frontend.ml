@@ -694,6 +694,7 @@ and from_expr ctx ((ekind, tc , range) : C_AST.expr) : expr =
     | C_AST.E_float_literal f -> Universal.Lang.Ast.(E_constant (C_float (float_of_string f)))
     | C_AST.E_character_literal (c, k)  -> E_constant(Ast.C_c_character (c, from_character_kind k))
     | C_AST.E_string_literal (s, k) -> Universal.Lang.Ast.(E_constant (C_c_string (s, from_character_kind k)))
+    | C_AST.E_null_ptr -> (Ast.mk_c_null ~esynthetic:false erange).ekind
     | C_AST.E_variable v -> E_var (from_var ctx v, None)
     | C_AST.E_function f -> Ast.E_c_function (find_function_in_context ctx erange f)
     | C_AST.E_call (f, args) -> Universal.Lang.Ast.E_call(from_expr ctx f, Array.map (from_expr ctx) args |> Array.to_list)
@@ -701,6 +702,7 @@ and from_expr ctx ((ekind, tc , range) : C_AST.expr) : expr =
     | C_AST.E_binary (op, e1, e2) -> E_binop (from_binary_operator op etyp, from_expr ctx e1, from_expr ctx e2)
     | C_AST.E_cast (e,C_AST.EXPLICIT) -> Ast.E_c_cast(from_expr ctx e, true)
     | C_AST.E_cast (e,C_AST.IMPLICIT) -> Ast.E_c_cast(from_expr ctx e, false)
+    | C_AST.E_cast (_,C_AST.BITCAST) -> Exceptions.panic_at erange "bit_cast not supported"
     | C_AST.E_assign (lval, rval) -> Ast.E_c_assign(from_expr ctx lval, from_expr ctx rval)
     | C_AST.E_address_of(e) -> Ast.E_c_address_of(from_expr ctx e)
     | C_AST.E_deref(p) -> Ast.E_c_deref(from_expr ctx p)
@@ -966,6 +968,7 @@ and from_float_type : C_AST.float_type -> Ast.c_float_type = function
   | C_AST.DOUBLE -> Ast.C_double
   | C_AST.LONG_DOUBLE -> Ast.C_long_double
   | C_AST.FLOAT128 -> Ast.C_float128
+  | C_AST.FLOAT16 -> Ast.C_float16
 
 and from_array_length ctx al = match al with
   | C_AST.No_length -> Ast.C_array_no_length

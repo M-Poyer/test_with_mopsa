@@ -103,6 +103,8 @@ let builtin_type_name = function
   | Type_BuiltinFn -> "builtin_fn"
   | Type_ARCUnbridgedCast -> "__bridge"
   | Type_OMPArraySection -> "array_sections"
+  | Type_Float16 -> "_Float16"
+  | Type_BFloat16 -> "__bf16"
   | Type_unknown_builtin s -> s
 
 let binary_operator_name = function
@@ -179,6 +181,7 @@ let cast_kind_name = function
   | CXXReinterpretCast -> "reinterpret_cast"
   | CXXStaticCast -> "static_cast"
   | ImplicitCast -> "implicit"
+  | BuiltinBitCast -> "bit_cast"
 
 let character_kind_name = function
   | Char_Ascii -> "Ascii"
@@ -1308,7 +1311,7 @@ module P = struct
          expr d.expr_trait_queried_expr d.expr_trait_value
     | ExprWithCleanups c ->
        p ch "ExprWithCleanups(%a,{%a})"
-         expr c.cleanup_expr (bp_array (block_decl "--") ";") c.cleanup_cleanups
+         expr c.cleanup_expr (bp_array cleanup ";") c.cleanup_cleanups
     | FunctionParmPackExpr (a,b) ->
        p ch "FunctionParmPackExpr(%a,{%a})"
          param_var_decl a (bp_array param_var_decl ",") b
@@ -1382,6 +1385,10 @@ module P = struct
     | UnknownExpr (i,s) ->
        p ch "UnknownExpr(%i,%s)"
          i s
+  and cleanup ch = function
+    | Cleanup_block_decl b -> block_decl "--" ch b
+    | Cleanup_compound_literal_expr e -> expr ch e
+
   and lambda_capture ch l =
     p ch "capture(%s,%B,%B,%a,%B,%B)"
       (lambda_capture_kind_name l.lambda_capture_kind)
