@@ -266,6 +266,7 @@ and type_qual = typ * qualifier
      mutable var_after_stmts: statement list; (** statements executed after the declaration of the variable *)
      mutable var_range: range;
      mutable var_com: comment list; (** comments associated to the declaration *)
+     mutable var_init_org: init option; (** initialisation _before_ simplification, if different from var_init; used for printing *)
    }
 
  and variable_kind =

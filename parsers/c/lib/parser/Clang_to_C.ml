@@ -630,6 +630,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
             var_type = typ;
             var_kind = kind;
             var_init = None;
+            var_init_org = None;
             var_range = range;
             var_com = !c;
             var_before_stmts = [];
@@ -648,11 +649,13 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
           if var.var_init <> None
           then warning range "variable is defined twice with initializers" org_name;
           let init = init func i in
-          if variable_is_global kind && !simplify then
+          if variable_is_global kind && !simplify then (
+            var.var_init_org <- Some init;
             let before, init, after = simplify_global_init ctx.ctx_simplify init in
             var.var_init <- Some init;
             var.var_before_stmts <- before;
             var.var_after_stmts <- after
+          )
           else
             var.var_init <- Some init;
           var.var_range <- range
@@ -725,6 +728,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
                 var_type = typ;
                 var_kind = Variable_parameter func;
                 var_init = None;
+                var_init_org = None;
                 var_range = p.C.var_range;
                 var_com = p.C.var_com;
                 var_before_stmts = [];

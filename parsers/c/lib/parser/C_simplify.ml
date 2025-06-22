@@ -57,6 +57,7 @@ let make_temp ctx range ?(com:comment list=[]) (f:func option) (t:type_qual) : v
       );
       var_type = t;
       var_init = None;
+      var_init_org = None;
       var_range = range;
       var_com = com;
       var_before_stmts = [];

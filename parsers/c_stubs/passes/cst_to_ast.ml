@@ -255,6 +255,7 @@ let visit_var v range prj func =
       var_kind = Variable_local func;
       var_type = visit_qual_typ v.vtyp prj func;
       var_init = None;
+      var_init_org = None;
       var_range = Clang_AST.{
           range_begin = {
             loc_file = get_range_start v.vrange |> get_pos_file;
