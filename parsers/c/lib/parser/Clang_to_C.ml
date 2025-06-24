@@ -339,7 +339,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
   (* translate type declarations *)
   (* *************************** *)
 
-  and fmt_range fmt r = Format.fprintf fmt "%s--%s" (Clang_dump.string_of_loc r.Clang_AST.range_begin) (Clang_dump.string_of_loc r.Clang_AST.range_end)
+  and fmt_range fmt r = Format.fprintf fmt "%s--%s" (Clang_dump.string_of_loc r.Clang_AST.range_begin.eloc_loc) (Clang_dump.string_of_loc r.Clang_AST.range_end.eloc_loc)
 
 
   (* enums *)
@@ -1273,7 +1273,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
               macro.macro_contents old_macro.macro_contents
              != 0
           then
-            let range = C.{ range_begin = macro.macro_loc; range_end = macro.macro_loc } in
+            let range = C.{ range_begin = C.mk_eloc macro.macro_loc; range_end = C.mk_eloc macro.macro_loc } in
             warning range "macro is defined twice" macro.macro_name
         end;
       Hashtbl.add ctx.ctx_macros macro.C.macro_name macro

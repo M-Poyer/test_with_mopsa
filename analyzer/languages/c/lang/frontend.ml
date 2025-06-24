@@ -1007,20 +1007,27 @@ and under_type t =
 (** {2 Ranges and locations} *)
 (** ======================== *)
 
+and from_loc (loc:Clang_AST.loc) =
+  let open Clang_AST in
+  let open Location in
+  {
+    pos_file = loc.loc_file;
+    pos_line = loc.loc_line;
+    pos_column = loc.loc_column;
+  }
+
+and from_eloc (eloc:Clang_AST.eloc) =
+  let open Clang_AST in
+  let open Location in
+  {
+    epos_pos = from_loc eloc.eloc_loc;
+    epos_stack = List.map from_loc eloc.eloc_stack;
+  }
+
 and from_range (range:C_AST.range) =
   let open Clang_AST in
   let open Location in
-  mk_orig_range
-    {
-      pos_file = range.range_begin.loc_file;
-      pos_line = range.range_begin.loc_line;
-      pos_column = range.range_begin.loc_column;
-    }
-    {
-      pos_file = range.range_end.loc_file;
-      pos_line = range.range_end.loc_line;
-      pos_column = range.range_end.loc_column;
-    }
+  mk_ext_orig_range (from_eloc range.range_begin) (from_eloc range.range_end)
 
 
 

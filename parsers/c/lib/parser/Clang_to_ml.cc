@@ -499,15 +499,17 @@ class MLLocationTranslator {
   SourceManager& src;
   const LangOptions &opts;
   Cache cacheLoc;
+  Cache cacheLocStack;
   Cache cacheFile;
   value invalid_file;
 
 public:
   CAMLprim value TranslateSourceLocation(SourceLocation a, int offset = 0);
+  CAMLprim value TranslateSourceLocationStack(SourceLocation a, int offset = 0);
   CAMLprim value TranslateSourceRange(SourceRange a);
 
   MLLocationTranslator(SourceManager& src, const LangOptions &opts)
-    : src(src), opts(opts), cacheLoc("location"), cacheFile("filename") {
+    : src(src), opts(opts), cacheLoc("location"), cacheLocStack("location_stack"), cacheFile("filename") {
     invalid_file = caml_copy_string("<invalid>");
     caml_register_global_root(&invalid_file);
   }
@@ -520,6 +522,7 @@ public:
   const LangOptions& getOpts() { return opts; }
 };
 
+/* SourceLocation -> loc */
 CAMLprim value MLLocationTranslator::TranslateSourceLocation(SourceLocation a, int offset) {
   CAMLparam0();
   CAMLlocal2(ret,tmp);
@@ -555,6 +558,35 @@ CAMLprim value MLLocationTranslator::TranslateSourceLocation(SourceLocation a, i
   CAMLreturn(ret);
 }
 
+/* SourceLocation -> eloc */
+CAMLprim value MLLocationTranslator::TranslateSourceLocationStack(SourceLocation a, int offset) {
+  CAMLparam0();
+  CAMLlocal3(ret,head,next);
+  unsigned raw = a.getRawEncoding();
+
+  CACHED(cacheLocStack, ret, raw, {
+
+      ret = caml_alloc_tuple(2);
+      Store_field(ret, 0, TranslateSourceLocation(a, offset));
+
+      // walk up macro stack
+      head = Val_emptylist;
+      while (a.isValid() && a.isMacroID()) {
+        SourceLocation b = src.isMacroArgExpansion(a) ? src.getImmediateExpansionRange(a).getBegin() : a;
+
+        next = caml_alloc_tuple(2);
+        Store_field(next, 0, TranslateSourceLocation(src.getSpellingLoc(b), offset));
+        Store_field(next, 1, head);
+        head = next;
+
+        a = src.getImmediateMacroCallerLoc(a);
+        if (a.isFileID()) a = src.getImmediateMacroCallerLoc(b);
+      }
+      Store_field(ret, 1, head);
+    });
+
+  CAMLreturn(ret);
+}
 
 /* SourceRange -> range */
 CAMLprim value MLLocationTranslator::TranslateSourceRange(SourceRange a) {
@@ -562,14 +594,14 @@ CAMLprim value MLLocationTranslator::TranslateSourceRange(SourceRange a) {
   CAMLlocal1(ret);
   ret = caml_alloc_tuple(2);
   // from the begining of the first token...
-  Store_field(ret, 0, TranslateSourceLocation(a.getBegin()));
+  Store_field(ret, 0, TranslateSourceLocationStack(a.getBegin()));
   // ...to the last character of the last token (if possible)
   SourceLocation end(clang::Lexer::getLocForEndOfToken(a.getEnd(),0,src,opts));
   if (src.getPresumedLoc(end).isValid()) {
-    Store_field(ret, 1, TranslateSourceLocation(end));
+    Store_field(ret, 1, TranslateSourceLocationStack(end));
   }
   else {
-    Store_field(ret, 1, TranslateSourceLocation(a.getEnd(), 1));
+    Store_field(ret, 1, TranslateSourceLocationStack(a.getEnd(), 1));
   }
   CAMLreturn(ret);
 }

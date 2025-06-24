@@ -29,7 +29,9 @@ open Clang_AST
 (** {1 Locations} *)
 
 val empty_loc : loc
+val empty_eloc : eloc
 val empty_range : range
+val mk_eloc : loc -> eloc
 val loc_is_empty : loc -> bool
 val range_is_empty : range -> bool
 

@@ -86,7 +86,7 @@ let inc_indent indent =
 
 let bp_loc indent buf loc =
   if !print_loc
-  then bp buf "%s/* %s */\n" indent (Clang_dump.string_of_loc loc.Clang_AST.range_begin)
+  then bp buf "%s/* %s */\n" indent (Clang_dump.string_of_loc loc.Clang_AST.range_begin.eloc_loc)
 
 
 

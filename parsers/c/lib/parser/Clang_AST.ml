@@ -68,9 +68,15 @@ type loc = {
   }
 (** Location in a source file *)
 
+type eloc = {
+    eloc_loc: loc; (** final location of lexical token *)
+    eloc_stack: loc list; (** stack of macro argument expansions leading to the token *)
+  }
+(** Location of lexical token, expanded with a macro-argument expansion stack of locations *)
+
 type range = {
-    range_begin: loc;
-    range_end: loc;
+    range_begin: eloc;
+    range_end: eloc;
   }
 (** Location range in a source file *)
 
