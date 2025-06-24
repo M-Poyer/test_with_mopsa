@@ -606,9 +606,12 @@ and c_buf_var_decl_inner indent buf v =
   bp buf "%s%a"
      (if variable_is_static v.var_kind then "static " else "")
      (c_buf_type_qual indent2 v.var_unique_name) v.var_type;
-  (match v.var_init with
-   | None -> ()
+  (match v.var_init_org with
    | Some i -> bp buf " = %a" (c_buf_init indent2) i
+   | None ->
+     match v.var_init with
+     | Some i -> bp buf " = %a" (c_buf_init indent2) i
+     | None -> ()
   )
 
 and c_buf_var_decl indent buf v =
@@ -623,7 +626,7 @@ and c_buf_var_advance_decl indent buf v =
   c_buf_com indent buf v.var_com;
   bp buf "%s%s%a;\n" indent
      (if v.var_kind = Variable_extern then "extern " else "")
-     (c_buf_var_decl_inner indent) { v with var_init = None; }
+     (c_buf_var_decl_inner indent) { v with var_init = None; var_init_org = None; }
 
 and c_buf_func_decl indent buf f =
   let indent2 = inc_indent indent in
@@ -835,7 +838,7 @@ let print_project ?(verbose = true) (ch:out_channel) (p:project) =
 
   (* variable with initializer and functions with bodies *)
   output_string ch "\n/* global variable definitions */\n\n";
-  let vars = StringMap.filter (fun _ v -> v.var_init <> None) vars in
+  let vars = StringMap.filter (fun _ v -> v.var_init <> None || v.var_init_org <> None) vars in
   StringMap.iter (pr string_of_var_decl) vars;
 
   output_string ch "\n/* functions definitions */\n\n";
