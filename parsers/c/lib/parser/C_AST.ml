@@ -248,9 +248,10 @@ and type_qual = typ * qualifier
  (** Type of functions and prototypes. *)
 
  and vector_type = {
-     vector_type: type_qual;
-     vector_size: int;
+     vector_type: type_qual; (** element type *)
+     vector_size: int; (** size, in elements *)
      vector_kind: int;
+     vector_sizeof: Z.t; (** size, in bytes *)
    }
  (** GCC vector types. *)
 

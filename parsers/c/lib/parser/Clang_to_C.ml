@@ -334,8 +334,15 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
     | C.TypeOfExprType { C.expr_type = Some t; } -> type_qual range t
     | C.TypeOfType t -> type_qual range t
     | C.VectorType (t,s,k) ->
-       T_vector { vector_type = type_qual range t; vector_size = s; vector_kind = k; },
-       no_qual
+        let et = type_qual range t in
+        let sz = Z.mul (Z.of_int s) (sizeof_type ctx.ctx_target (fst et)) in
+          T_vector {
+          vector_type = type_qual range t;
+          vector_size = s;
+          vector_kind = k;
+          vector_sizeof = sz;
+        },
+        no_qual
     | _ -> error range "unhandled type" (C.string_of_type t)
 
 

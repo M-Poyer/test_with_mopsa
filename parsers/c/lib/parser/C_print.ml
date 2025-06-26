@@ -121,7 +121,7 @@ let integer_suffix = function
   | UNSIGNED_LONG_LONG | UNSIGNED_INT128 -> "ULL"
 
 let string_of_float_type = function
-  | FLOAT16 -> "__Float16"
+  | FLOAT16 -> "_Float16"
   | FLOAT -> "float"
   | DOUBLE -> "double"
   | LONG_DOUBLE -> "long double"
@@ -295,7 +295,8 @@ and c_buf_type_suffix buf var indent inptr inner (t,q) = match t with
        inner buf var
 
     | T_vector v ->
-       bp buf "__attribute__((__vector_size__(%i)))" v.vector_size
+       (* TODO: print real size and alignment attributes *)
+       bp buf "%s __attribute__((__vector_size__(%a)))" var Z.bprint v.vector_sizeof
 
     | T_unknown_builtin _ ->
        inner buf var
@@ -413,7 +414,7 @@ and c_buf_expr indent buf ((e,t,_) as ee:expr) =
    | E_compound_literal i ->
       bp buf "(%a){ %a }"
          (c_buf_type_qual indent "") t
-         (c_buf_init indent) i
+         (c_buf_init true indent) i
 
    | E_null_ptr -> bp_str buf "NULL"
 
@@ -467,10 +468,11 @@ and c_buf_char_literal buf c =
 and c_buf_string_literal buf s =
   String.iter (c_buf_char_literal buf) s
 
-and c_buf_init indent buf i = match i with
+and c_buf_init compound indent buf i = match i with
   | I_init_expr e -> c_buf_expr indent buf e
   | I_init_list (l,o) ->
-     bp buf "{ %a }" (bp_list (c_buf_init indent) ", ") l
+     if compound then bp_list (c_buf_init false indent) ", " buf l
+     else bp buf "{ %a }" (bp_list (c_buf_init false indent) ", ") l
   | I_init_implicit tq ->
      bp_str buf "/*implicit*/"
 
@@ -607,10 +609,10 @@ and c_buf_var_decl_inner indent buf v =
      (if variable_is_static v.var_kind then "static " else "")
      (c_buf_type_qual indent2 v.var_unique_name) v.var_type;
   (match v.var_init_org with
-   | Some i -> bp buf " = %a" (c_buf_init indent2) i
+   | Some i -> bp buf " = %a" (c_buf_init false indent2) i
    | None ->
      match v.var_init with
-     | Some i -> bp buf " = %a" (c_buf_init indent2) i
+     | Some i -> bp buf " = %a" (c_buf_init false indent2) i
      | None -> ()
   )
 
@@ -720,14 +722,14 @@ let builtin_typedef =
 (* some built-in typedef we should not print *)
 
 let builtin_funcs =
-  ["__builtin_va_start"; "__builtin_va_end"; "__builtin_va_copy"; "__sigsetjmp";
-   "_gl_verify_function2"; "_gl_verify_function3"; "_gl_verify_function4";
-   "_gl_verify_function5"; "_gl_verify_function6"; "_gl_verify_function7";
-   "_gl_verify_function8"; "_gl_verify_function9"; "_gl_verify_function10";
-   "_gl_verify_function11"; "_gl_verify_function12"; "_gl_verify_function13";
-   "_gl_verify_function14";
-   "__builtin_mul_overflow";
-   "__atomic_is_lock_free";
+  List.map Str.regexp
+    ["__builtin_.*";
+     "__sigsetjmp";
+     "_gl_verify_.*";
+     "__builtin_mul_overflow";
+     "__atomic_is_lock_free";
+     "__builtin_elementwise_.*";
+     "__builtin_ia32_.*";
   ]
 (* some built-in functions, the declaration of which we should omit when printing *)
 
@@ -833,7 +835,13 @@ let print_project ?(verbose = true) (ch:out_channel) (p:project) =
   StringMap.iter (pr string_of_var_advance_decl) vars;
 
   output_string ch "\n/* function declarations */\n\n";
-  let funcs = StringMap.filter (fun _ f -> not (List.mem f.func_org_name builtin_funcs)) p.proj_funcs in
+  let funcs = StringMap.filter
+      (fun _ f ->
+         not (List.exists
+                (fun x -> Str.string_match x f.func_org_name 0)
+                builtin_funcs)
+      ) p.proj_funcs
+  in
   StringMap.iter (pr string_of_func_proto) funcs;
 
   (* variable with initializer and functions with bodies *)

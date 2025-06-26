@@ -126,8 +126,7 @@ let rec sizeof_type target t : Z.t =
   | T_enum e ->
      if not e.enum_defined then invalid_arg "sizeof_type: size of incomplete enum";
      Z.of_int (sizeof_int target (match e.enum_integer_type with | Some s -> s | None -> assert false))
-  | T_vector v ->
-     Z.mul (sizeof_type target (fst v.vector_type)) (Z.of_int v.vector_size)
+  | T_vector v -> v.vector_sizeof
   | T_unknown_builtin _ -> Z.zero
 (** Size (in bytes) of a type. Raises an Invalid_argument if the size is not a constant. *)
 
@@ -516,8 +515,9 @@ let rec type_unify gray target (t1:typ) (t2:typ) =
        (* TODO: is that correct? *)
        let t = type_qual_unify gray target v1.vector_type v2.vector_type in
        let size = min v1.vector_size v2.vector_size in
+       let sizeof = min v1.vector_sizeof v2.vector_sizeof in
        let kind = if v1.vector_kind = v2.vector_kind then v1.vector_kind else -1 in
-       T_vector { vector_type = t; vector_size = size; vector_kind = kind; }
+       T_vector { vector_type = t; vector_size = size; vector_kind = kind; vector_sizeof = sizeof; }
 
     | T_unknown_builtin s1, T_unknown_builtin s2 when s1 = s2 ->
        T_unknown_builtin s1
