@@ -323,7 +323,7 @@ struct
         ) [] o_caller
 
     (* Return variables are also part of the caller and the callee packs *)
-    | Var { vkind = Universal.Iterators.Interproc.Common.V_return call } ->
+    | Var { vkind = Universal.Iterators.Interproc.Common.V_return (call,_) } ->
       let cs = find_ctx Context.control_ctx_key ctx |> ControlCtx.extract_callstack in
       let r = if is_empty_callstack cs
       then []

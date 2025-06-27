@@ -105,22 +105,22 @@ let () =
 
 
 (** Return variable of a function call *)
-type var_kind += V_return of expr (* call expression *)
+type var_kind += V_return of expr (* call expression *) * callstack
 
 (** Registration of the kind of return variables *)
 let () =
   register_var {
     print = (fun next fmt v ->
         match v.vkind with
-        | V_return e -> Format.fprintf fmt "ret(%a)" pp_expr e
+        | V_return (e,_) -> Format.fprintf fmt "ret(%a)" pp_expr e
         | _ -> next fmt v
       );
     compare = (fun next v1 v2 ->
         match v1.vkind, v2.vkind with
-        | V_return e1, V_return e2 ->
-          Compare.pair compare_expr compare_range
-            (e1, e1.erange)
-            (e2, e2.erange)
+        | V_return (e1,cc1), V_return (e2,cc2) ->
+          Compare.triple compare_expr compare_range compare_callstack
+            (e1, e1.erange, cc1)
+            (e2, e2.erange, cc2)
         | _ -> next v1 v2
       );
   }
@@ -128,7 +128,7 @@ let () =
 (** Constructor of return variables *)
 let mk_return cs call =
   let uniq_name = Format.asprintf "ret(%a)@@%a" pp_expr call Callstack.pp_callstack_short cs in
-  mkv uniq_name (V_return call) call.etyp
+  mkv uniq_name (V_return (call,cs)) call.etyp
 
 
 
