@@ -278,7 +278,6 @@ let save_preprocessed_file prj output_file =
 let rec parse_program (files: string list) =
   let open Clang_parser in
   let open Clang_to_C in
-  if !opt_save_preprocessed_file <> "" then Clang_to_C.simplify := false;
 
   if files = [] then panic "no input file";
 
