@@ -1011,7 +1011,7 @@ module P = struct
            | Size_Dependent -> ()
          ) a.array_size 
     | AtomicType a -> p ch "atomic(%a)" type_qual a   
-    | AttributedType (a,att) -> p ch "attributed(%a,%a)" attr att type_qual a
+    | AttributedType (a,att) -> p ch "attributed(%a,%a)" (bp_option "" attr) att type_qual a
     | BuiltinType b -> p ch "%s" (builtin_type_name b)
     | ComplexType a -> p ch "complex(%a)" type_qual a 
     | FunctionProtoType f ->

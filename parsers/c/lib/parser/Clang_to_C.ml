@@ -279,9 +279,12 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
 
     | C.AtomicType a -> type_qual range a
 
-    | C.AttributedType (a,att) ->
+    | C.AttributedType (a,Some attr) ->
        let t,q = type_qual range a in
-       T_attributed (t,att), q
+       T_attributed (t,attr), q
+
+    | C.AttributedType (a,None) ->
+       type_qual range a
 
     | C.BuiltinType b ->
        (match b with

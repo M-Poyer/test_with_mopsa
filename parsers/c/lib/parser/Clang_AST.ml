@@ -337,7 +337,7 @@ type name = {
 
    | AtomicType of type_qual
 
-   | AttributedType of type_qual * attr
+   | AttributedType of type_qual * (attr option)
    (** An attributed type is a type to which a type attribute has been applied. *)
 
    | BuiltinType of builtin_type

@@ -891,14 +891,20 @@ CAMLprim value MLTreeBuilderVisitor::TranslateAttr(const Attr *x) {
       switch (x->getSyntax()) {
         GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_GNU);
         GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_CXX11);
+#if CLANG_VERSION_MAJOR >= 18
         GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_C23);
+#endif
         GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Declspec);
         GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Microsoft);
         GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Keyword);
         GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Pragma);
         GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_ContextSensitiveKeyword);
+#if CLANG_VERSION_MAJOR >= 19
         GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_HLSLAnnotation);
+#endif
+#if CLANG_VERSION_MAJOR >= 17
         GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Implicit);
+#endif
       default:
         if (verbose_exn) { std::cout << "unknown syntax of attribute " << s << ": " << static_cast<int>(x->getSyntax()) << std::endl;}
         caml_failwith("mlClangAST: unknown syntax of attribute");
@@ -4243,7 +4249,11 @@ CAMLprim value MLTreeBuilderVisitor::TranslateType(const Type * node) {
 
   GENERATE_NODE_CACHED(cacheType, AttributedType, ret, node, 2, {
       Store_field(ret, 0, TranslateQualType(x->getModifiedType()));
-      Store_field(ret, 1, TranslateAttr(x->getAttr()));
+#if CLANG_VERSION_MAJOR >= 20
+      Store_field_option(ret, 1, 1, TranslateAttr(x->getAttr()));
+#else
+      Store_field(ret, 1, Val_none);
+#endif
     });
 
   GENERATE_NODE_CACHED(cacheType, BuiltinType, ret, node, 1, {
