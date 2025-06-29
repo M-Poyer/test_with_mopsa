@@ -698,6 +698,7 @@ private:
   ASTContext *Context;
   MLLocationTranslator& loc;
   MLCommentTranslator& com;
+  PrintingPolicy ppolicy;
   Cache cacheType;
   Cache cacheTypeQual;
   Cache cacheDecl;
@@ -730,6 +731,7 @@ public:
   CAMLprim value TranslateAccessSpecifier(AccessSpecifier c);
   CAMLprim value TranslateVarDecl(const VarDecl *node);
   CAMLprim value TranslateParmVarDecl(const ParmVarDecl *node);
+  CAMLprim value TranslateAttr(const Attr *x);
   CAMLprim value TranslateFunctionDecl(const FunctionDecl *x);
   CAMLprim value TranslateBlockDecl(const BlockDecl *x);
   CAMLprim value TranslateCapture(const BlockDecl::Capture *x);
@@ -797,7 +799,7 @@ public:
 #endif
 
   explicit MLTreeBuilderVisitor(MLLocationTranslator& loc, ASTContext *Context, SourceManager& src, MLCommentTranslator& com) :
-    src(src), Context(Context), loc(loc), com(com),
+    src(src), Context(Context), loc(loc), com(com), ppolicy(PrintingPolicy(loc.getOpts())),
     cacheType("type"), cacheTypeQual("type_qual"), cacheDecl("decl"), cacheStmt("stmt"),
     cacheExpr("expr"), cacheMisc("misc"), cacheMisc2("misc2"), cacheMisc3("misc3"),
     uid(0)
@@ -854,6 +856,57 @@ CAMLprim value MLTreeBuilderVisitor::TranslateAPFloat(const llvm::APFloat & f) {
 }
 
 
+/* ATTRIBUTES */
+/**************/
+
+enum {
+  MLTAG_AS_GNU,
+  MLTAG_AS_CXX11,
+  MLTAG_AS_C23,
+  MLTAG_AS_Declspec,
+  MLTAG_AS_Microsoft,
+  MLTAG_AS_Keyword,
+  MLTAG_AS_Pragma,
+  MLTAG_AS_ContextSensitiveKeyword,
+  MLTAG_AS_HLSLAnnotation,
+  MLTAG_AS_Implicit,
+};
+
+/* Attr -> attr */
+CAMLprim value MLTreeBuilderVisitor::TranslateAttr(const Attr *x) {
+  CAMLparam0();
+  CAMLlocal1(ret);
+  WITH_CACHE_TUPLE(cacheMisc, ret, x, 4, {
+      auto n = x->getAttrName();
+      Store_field_option(ret, 1, n, caml_copy_string(n->getName().str().c_str()));
+
+      Store_field(ret, 2, caml_copy_string(x->getSpelling()));
+
+      std::string s;
+      llvm::raw_string_ostream o(s);
+      x->printPretty(o, ppolicy);
+      Store_field(ret, 3, caml_copy_string(o.str().c_str()));
+
+      int r = 0;
+      switch (x->getSyntax()) {
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_GNU);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_CXX11);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_C23);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Declspec);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Microsoft);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Keyword);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Pragma);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_ContextSensitiveKeyword);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_HLSLAnnotation);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Implicit);
+      default:
+        if (verbose_exn) { std::cout << "unknown syntax of attribute " << s << ": " << static_cast<int>(x->getSyntax()) << std::endl;}
+        caml_failwith("mlClangAST: unknown syntax of attribute");
+      }
+      Store_field(ret, 0, Val_int(r));
+    });
+  CAMLreturn(ret);
+}
 
 /* DECLARATIONS */
 /****************/
@@ -971,7 +1024,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateDecl(const Decl *node) {
   if (verbose_alloc)
     std::cout << "TranslateDecl " << std::hex << node << std::dec << " " << node->getDeclKindName() << DEBUG_SOURCE_RANGE(node) << std::endl;
 
-  WITH_CACHE_TUPLE(cacheDecl, ret2, node, 4, {
+  WITH_CACHE_TUPLE(cacheDecl, ret2, node, 5, {
 
       ret = Val_int(-1);
 
@@ -1177,6 +1230,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateDecl(const Decl *node) {
       Store_field(ret2, 1, TranslateAccessSpecifier(node->getAccess()));
       Store_field(ret2, 2, loc.TranslateSourceRange(node->getSourceRange()));
       Store_field(ret2, 3, com.TranslateRawCommentOpt(Context->getRawCommentForDeclNoCache(node)));
+      Store_field_list(ret2, 4, node->getAttrs(), TranslateAttr(child));
     });
 
   if (verbose_alloc)
@@ -1744,6 +1798,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateFunctionDecl(const FunctionDecl *o
       Store_field_option(ret, 13, x->isOverloadedOperator(), TranslateOverloadedOperatorKind(x->getOverloadedOperator(), NULL));
       Store_field_option(ret, 14, isa<CXXMethodDecl>(x), TranslateCXXMethodDecl(cast<CXXMethodDecl>(x)));
     });
+
   CAMLreturn(ret);
 }
 
@@ -3629,8 +3684,9 @@ CAMLprim value MLTreeBuilderVisitor::TranslateStmt(const Stmt * node) {
           CAMLexitblock();
         });
 
-      GENERATE_NODE(AttributedStmt, ret, node, 1, {
+      GENERATE_NODE(AttributedStmt, ret, node,  2, {
           Store_field(ret, 0, TranslateStmt(x->getSubStmt()));
+          Store_field_list(ret, 1, x->getAttrs(), TranslateAttr(child));
         });
 
       GENERATE_NODE(BreakStmt, ret, node, 1, {
@@ -4185,9 +4241,9 @@ CAMLprim value MLTreeBuilderVisitor::TranslateType(const Type * node) {
       Store_field(ret, 0, TranslateQualType(x->getValueType()));
     });
 
-  GENERATE_NODE_CACHED(cacheType, AttributedType, ret, node, 1, {
+  GENERATE_NODE_CACHED(cacheType, AttributedType, ret, node, 2, {
       Store_field(ret, 0, TranslateQualType(x->getModifiedType()));
-      // TODO: put attributes
+      Store_field(ret, 1, TranslateAttr(x->getAttr()));
     });
 
   GENERATE_NODE_CACHED(cacheType, BuiltinType, ret, node, 1, {
@@ -4533,12 +4589,13 @@ CAMLprim value MLTreeBuilderVisitor::TranslateEnumConstantDecl(const EnumConstan
   check_null(org, "TranslateEnumConstantDecl");
   const EnumConstantDecl* x = org;
   //x = x->getCanonicalDecl();
-  WITH_CACHE_TUPLE(cacheMisc, ret, x, 5, {
+  WITH_CACHE_TUPLE(cacheMisc, ret, x, 6, {
       Store_uid(ret, 0);
       Store_field(ret, 1, TranslateNamedDecl(x));
       Store_field(ret, 2, TranslateAPSInt(x->getInitVal()));
       Store_field(ret, 3, loc.TranslateSourceRange(org->getSourceRange()));
       Store_field(ret, 4, com.TranslateRawCommentOpt(Context->getRawCommentForDeclNoCache(org)));
+      Store_field_list(ret, 5, x->getAttrs(), TranslateAttr(child));
     });
   CAMLreturn(ret);
 }
@@ -4605,6 +4662,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateFieldDecl(const FieldDecl * org) {
       Store_field_option(ret, 8, x->hasCapturedVLAType(), TranslateExpr(x->getCapturedVLAType()->getSizeExpr()));
       Store_field(ret, 9, loc.TranslateSourceRange(org->getSourceRange()));
       Store_field(ret, 10, com.TranslateRawCommentOpt(Context->getRawCommentForDeclNoCache(org)));
+      Store_field_list(ret, 11, x->getAttrs(), TranslateAttr(child));
     });
   CAMLreturn(ret);
 }

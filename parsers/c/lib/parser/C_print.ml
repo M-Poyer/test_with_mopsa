@@ -215,6 +215,25 @@ let is_comma ((e,_,_):expr) =
 (* comma expressions are special and require extra parentheses in many contexts *)
 
 
+let attr_should_print a =
+  (* TODO asm attribute printing mess up C output, disbling for now *)
+  a.Clang_AST.attr_syntax <> Clang_AST.AS_Implicit &&
+  a.Clang_AST.attr_spelling <> "asm"
+
+let c_buf_attr_inline buf a =
+  if attr_should_print a then
+    bp buf "%s " a.Clang_AST.attr_print
+
+let c_buf_attr indent buf a =
+  if attr_should_print a then
+    bp buf "%s%s\n" indent a.Clang_AST.attr_print
+
+let c_buf_attrs_inline buf =
+  List.iter (c_buf_attr_inline buf)
+
+let c_buf_attrs indent buf =
+  List.iter (c_buf_attr indent buf)
+
 let rec raw_buf_type_qual buf (t,q) =
   bp buf "%s%a" (string_of_qualifier q) raw_buf_type t
 and raw_buf_type buf = function
@@ -234,6 +253,7 @@ and raw_buf_type buf = function
     | T_complex f -> bp buf "%s _Complex" (string_of_float_type f)
     | T_vector v -> bp buf "vector(%a, %i, %i)" raw_buf_type_qual v.vector_type v.vector_size v.vector_kind
     | T_unknown_builtin s -> bp_str buf s
+    | T_attributed (t,a) -> bp buf "attributed(%a, %s)" raw_buf_type t a.attr_print
 (* raw (non-C) representation of a type, somewhat more clear than C sytnax *)
 
 
@@ -265,6 +285,7 @@ and c_buf_type_base buf (t,q) = match t with
   | T_complex f -> bp buf "%s%s _Complex" (string_of_qualifier q) (string_of_float_type f)
   | T_vector v -> bp buf "%a" c_buf_type_base v.vector_type
   | T_unknown_builtin s -> bp_str buf s
+  | T_attributed (tt,a) -> bp buf "%a%a" c_buf_attr_inline a c_buf_type_base (tt,q)
 
 (* prints the rest of the type; inner prints the innermost part of the type *)
 and c_buf_type_suffix buf var indent inptr inner (t,q) = match t with
@@ -300,6 +321,9 @@ and c_buf_type_suffix buf var indent inptr inner (t,q) = match t with
 
     | T_unknown_builtin _ ->
        inner buf var
+
+    | T_attributed (t,_) ->
+       c_buf_type_suffix buf var indent inptr inner (t,q)
 
 (* array length *)
 and len indent buf = function
@@ -599,6 +623,10 @@ and c_buf_statement indent buf ((s,r):statement) =
        (if Array.length a.asm_labels = 0 then "" else ":")
        (bp_array (fun buf c -> bp buf "%s" c) ", ") a.asm_labels
 
+  | S_attributed (s,attrs) ->
+    List.iter (c_buf_attr indent buf) attrs;
+    c_buf_statement indent buf s
+
 and c_buf_com indent buf v =
   if !print_comments
   then List.iter (fun c -> bp buf "%s%s\n" indent c.Clang_AST.com_text) v
@@ -620,12 +648,14 @@ and c_buf_var_decl indent buf v =
   if variable_is_global v.var_kind
   then bp_loc indent buf v.var_range;
   c_buf_com indent buf v.var_com;
+  c_buf_attrs indent buf v.var_attrs;
   bp buf "%s%a;\n" indent (c_buf_var_decl_inner indent) v
 
 and c_buf_var_advance_decl indent buf v =
   if variable_is_global v.var_kind
   then bp_loc indent buf v.var_range;
   c_buf_com indent buf v.var_com;
+  c_buf_attrs indent buf v.var_attrs;
   bp buf "%s%s%a;\n" indent
      (if v.var_kind = Variable_extern then "extern " else "")
      (c_buf_var_decl_inner indent) { v with var_init = None; var_init_org = None; }
@@ -634,6 +664,7 @@ and c_buf_func_decl indent buf f =
   let indent2 = inc_indent indent in
   bp_loc indent buf f.func_range;
   c_buf_com indent buf (List.map fst f.func_com);
+  c_buf_attrs indent buf f.func_attrs;
   let variadic = if f.func_variadic then if f.func_parameters= [||] then "..." else ", ..." else ""
   and param buf v = c_buf_type_qual indent v.var_unique_name buf v.var_type in
   let inner buf var = bp buf "%a(%a%s)" bp_str var (bp_array param ", ") f.func_parameters variadic
@@ -654,12 +685,16 @@ let c_buf_enum_decl indent buf e =
   let indent2 = inc_indent indent in
   let f buf v =
     c_buf_com indent buf v.enum_val_com;
-    bp buf "%s%s = %a,\n" indent2 v.enum_val_unique_name Z.bprint v.enum_val_value
+    bp buf "%s%a%s = %a,\n" indent2
+      c_buf_attrs_inline v.enum_val_attrs
+      v.enum_val_unique_name
+      Z.bprint v.enum_val_value
   in
   bp_loc indent buf e.enum_range;
   c_buf_com indent buf e.enum_com;
   if e.enum_defined then
-    bp buf "%senum %s { /* type: %s */\n%a%s};\n" indent
+    bp buf "%senum %a%s { /* type: %s */\n%a%s};\n" indent
+      c_buf_attrs_inline e.enum_attrs
        e.enum_unique_name
        (match e.enum_integer_type with
         | None -> "None"
@@ -667,35 +702,41 @@ let c_buf_enum_decl indent buf e =
        (bp_list f "") e.enum_values
        indent
   else
-    bp buf "%senum %s;\n" indent e.enum_unique_name
+    bp buf "%senum %a%s;\n" indent
+      c_buf_attrs_inline e.enum_attrs
+      e.enum_unique_name
 
 let c_buf_record_decl indent buf r =
   let indent2 = inc_indent indent in
   let f buf v =
     c_buf_com indent buf v.field_com;
-    bp buf "%s%a;\n" indent2
-       (c_buf_type_qual indent2 v.field_name) v.field_type
+    bp buf "%s%a%a;\n" indent2
+      c_buf_attrs_inline v.field_attrs
+      (c_buf_type_qual indent2 v.field_name) v.field_type
   in
   bp_loc indent buf r.record_range;
   c_buf_com indent buf r.record_com;
   if r.record_defined then
-    bp buf "%s%s %s { /* sizeof: %a, alignof: %a */\n%a%s};\n" indent
+    bp buf "%s%s %a%s { /* sizeof: %a, alignof: %a */\n%a%s};\n" indent
        (string_of_record_kind r.record_kind)
+       c_buf_attrs_inline r.record_attrs
        r.record_unique_name
        Z.bprint r.record_sizeof
        Z.bprint r.record_alignof
        (bp_array f "") r.record_fields
        indent
   else
-    bp buf "%s%s %s;\n" indent
+    bp buf "%s%s %a%s;\n" indent
        (string_of_record_kind r.record_kind)
+       c_buf_attrs_inline r.record_attrs
        r.record_unique_name
 
 let c_buf_typedef indent buf t =
   let indent2 = inc_indent indent in
   bp_loc indent buf t.typedef_range;
   c_buf_com indent buf t.typedef_com;
-  bp buf "%stypedef %a;\n" indent
+  bp buf "%s%atypedef %a;\n" indent
+    c_buf_attrs_inline t.typedef_attrs
      (c_buf_type_qual indent2 t.typedef_unique_name) t.typedef_def
 
 
@@ -764,6 +805,7 @@ let print_types_ordered
       | T_enum _ -> ()
       | T_vector v -> explore (fst v.vector_type)
       | T_unknown_builtin _ -> ()
+      | T_attributed (t,_) -> explore t
     in
     if not (Hashtbl.mem black t.typedef_uid) then (
       if Hashtbl.mem gray t.typedef_uid then invalid_arg "cyclic type dependencies";
@@ -790,6 +832,7 @@ let print_types_ordered
       | T_enum _ -> ()
       | T_vector v -> explore mustdef (fst v.vector_type)
       | T_unknown_builtin _ -> ()
+      | T_attributed (t,_) -> explore mustdef t
     in
     if not (Hashtbl.mem black r.record_uid) then (
       if Hashtbl.mem gray r.record_uid then invalid_arg "cyclic type dependencies";

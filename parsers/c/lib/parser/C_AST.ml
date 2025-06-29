@@ -52,6 +52,8 @@ type character_kind = Clang_AST.character_kind
 
 type target_info = Clang_AST.target_info
 
+type attr = Clang_AST.attr
+
 
 (** {2 Operators} *)
 
@@ -167,6 +169,8 @@ type typ =
   | T_vector of vector_type
   (** GCC vectors *)
 
+  | T_attributed of typ * attr
+
   | T_unknown_builtin of string
   (** unknown builtin *)
 
@@ -181,6 +185,7 @@ and type_qual = typ * qualifier
      mutable typedef_def: type_qual; (** declaration *)
      mutable typedef_range: range; (** declaration location *)
      mutable typedef_com: comment list; (** comments associated to the declaration *)
+     mutable typedef_attrs: attr list; (** attributes *)
    }
 
  and record_type = {
@@ -194,6 +199,7 @@ and type_qual = typ * qualifier
      mutable record_fields: record_field array;
      mutable record_range: range; (** declaration location *)
      mutable record_com: comment list; (** comments associated to the declaration *)
+     mutable record_attrs: attr list; (** attributes *)
    }
  (** Struct or union type. *)
 
@@ -208,6 +214,7 @@ and type_qual = typ * qualifier
      field_record: record_type;
      field_index: int;
      mutable field_com: comment list; (** comments associated to the declaration *)
+     mutable field_attrs: attr list; (** attributes *)
    }
  (** Struct or union field. *)
 
@@ -220,6 +227,7 @@ and type_qual = typ * qualifier
      mutable enum_integer_type: integer_type option;
      mutable enum_range: range; (** declaration location *)
      mutable enum_com: comment list; (** comments associated to the declaration *)
+     mutable enum_attrs: attr list; (** attributes *)
    }
  (** Enumerated type. *)
 
@@ -231,6 +239,7 @@ and type_qual = typ * qualifier
      enum_val_enum: enum_type;
      enum_val_range: range;
      mutable enum_val_com: comment list; (** comments associated to the declaration *)
+     mutable enum_val_attrs: attr list; (** attributes *)
    }
  (** A possible value in an enumerated type. *)
 
@@ -269,6 +278,7 @@ and type_qual = typ * qualifier
      mutable var_range: range;
      mutable var_com: comment list; (** comments associated to the declaration *)
      mutable var_init_org: init option; (** initialisation _before_ simplification, if different from var_init; used for printing *)
+     mutable var_attrs: attr list; (** attributes *)
    }
 
  and variable_kind =
@@ -293,6 +303,7 @@ and type_qual = typ * qualifier
      mutable func_range: range; (** range of the full declaration *)
      mutable func_name_range: range; (** range of the name part of the declaration *)
      mutable func_com: (comment * macro StringMap.t) list; (** comments associated to the declaration *)
+     mutable func_attrs: attr list; (** function attributes *)
    }
 
 
@@ -332,6 +343,9 @@ and type_qual = typ * qualifier
 
    | S_asm of asm_kind
    (** asm statement *)
+
+   | S_attributed of statement * (attr list)
+   (** statement with attributes *)
 
  and jump_kind =
    | S_goto of string * scope_update
@@ -541,6 +555,7 @@ let rec type_is_scalar (t:typ) =
   | T_complex _ -> false
   | T_vector _ -> false
   | T_unknown_builtin _ -> false
+  | T_attributed (t,_) -> type_is_scalar t
 (** Whether a type yields a scalar value. *)
 
 

@@ -35,7 +35,6 @@
    We support C and a subset of C++.
 
    Not necessarily supported:
-   - attributes
    - C++ coroutines
    - C++ structured exception handling
    - Visual C++ specific (#pragma comment, etc.)
@@ -147,6 +146,7 @@ type name = {
      enum_cst_val: Z.t;
      enum_cst_range: range;
      enum_cst_com: comment list;
+     enum_cst_attrs: attr list;
    }
  (** enum constant declaration in an enum. *)
 
@@ -162,6 +162,7 @@ type name = {
      field_variable_length_array: expr option; (** whether this field captures the variable length array type, and the corresponding size expression *)
      field_range: range;
      field_com: comment list;
+     field_attrs: attr list;
    }
  (** field declaration in a struct or union. *)
 
@@ -231,6 +232,7 @@ type name = {
      function_template: function_template_specialization option; (** (C++) template origin *)
      function_overloaded_operator: overloaded_operator option; (** (C++) whether this is an overloaded operator *)
      function_method: cxx_method_decl option; (** (C++) additional information for methods; None if not a method *)
+
    }
  (** Represents a function declaration or definition. *)
 
@@ -302,6 +304,27 @@ type name = {
    }
  (** Type qualifiers. *)
 
+  and attr_syntax =
+    | AS_GNU (** attribute((...)) *)
+    | AS_CXX11 (** [[...]] *)
+    | AS_C23 (** [[...]] *)
+    | AS_Declspec (** __declspec(...) *)
+    | AS_Microsoft (** [uuid("...")] class Foo *)
+    | AS_Keyword (** __ptr16, alignas(...), etc. *)
+    | AS_Pragma (** #pragma ... *)
+    | AS_ContextSensitiveKeyword (** Context-sensitive version of a keyword attribute. *)
+    | AS_HLSLAnnotation (** <vardecl> : <annotation> *)
+    | AS_Implicit (** The attibute has no source code manifestation and is only created implicitly. *)
+ (** The style used to specify an attribute. *)
+
+ and attr = {
+     attr_syntax: attr_syntax;
+     attr_name: string option;
+     attr_spelling: string;
+     attr_print: string; (** how to print the attribute, with its arguments in source code *)
+ }
+ (** Attributes (for types, statments, declarations) *)
+
  and typ =
 
    (* C TYPES *)
@@ -314,8 +337,8 @@ type name = {
 
    | AtomicType of type_qual
 
-   | AttributedType of type_qual
-   (** An attributed type is a type to which a type attribute has been applied. TODO: attribute information. *)
+   | AttributedType of type_qual * attr
+   (** An attributed type is a type to which a type attribute has been applied. *)
 
    | BuiltinType of builtin_type
 
@@ -675,6 +698,7 @@ and type_qual = typ * qual
      decl_access: access_specifier; (** (C++) access specifier *)
      decl_range: range;
      decl_comment: comment list; (** comment associated to the declaration *)
+     decl_attrs: attr list; (** attributes *)
    }
  (** Represents one declaration (or definition), e.g. a variable, typedef, function, struct, etc. *)
 
@@ -1772,8 +1796,8 @@ and expr = {
    | AsmStmt of asm_stmt
    (** Assembly statement *)
 
-   | AttributedStmt of stmt
-   (** Represents an attribute applied to a statement. TODO: attributes *)
+   | AttributedStmt of stmt * (attr list)
+   (** Represents an attribute applied to a statement. *)
 
    | BreakStmt of loc (** destination *)
    (** This represents a break. *)

@@ -271,6 +271,7 @@ let visit_var v range prj func =
       var_com = [];
       var_before_stmts = [];
       var_after_stmts = [];
+      var_attrs = [];
     }
   else
     (* Search for the variable in the parameters of the function or

@@ -656,6 +656,7 @@ and from_stmt ctx ((skind, range): C_AST.statement) : stmt =
     | C_AST.S_target(C_AST.S_default upd) -> S_c_switch_default (from_scope_update ctx upd)
     | C_AST.S_target(C_AST.S_label l) -> Ast.S_c_label l
     | C_AST.S_asm a -> Ast.S_c_asm (C_print.string_of_statement (skind,range))
+    | C_AST.S_attributed (s,_) -> (from_stmt ctx s).skind
   in
   {skind; srange; ssynthetic=false }
 
@@ -946,6 +947,7 @@ and from_unqual_typ ctx (tc: C_AST.typ) : typ =
      let len = Z.div (Z.of_int v.vector_size) (sizeof_type_in_target t !target_info) in
      Ast.T_c_array (t, Ast.C_array_length_cst len)
   | C_AST.T_unknown_builtin s -> Ast.T_c_unknown_builtin s
+  | C_AST.T_attributed (t,_) -> from_unqual_typ ctx t
 
 and from_integer_type : C_AST.integer_type -> Ast.c_integer_type = function
   | C_AST.Char SIGNED -> Ast.C_signed_char

@@ -128,6 +128,7 @@ let rec sizeof_type target t : Z.t =
      Z.of_int (sizeof_int target (match e.enum_integer_type with | Some s -> s | None -> assert false))
   | T_vector v -> v.vector_sizeof
   | T_unknown_builtin _ -> Z.zero
+  | T_attributed (t,_) -> sizeof_type target t
 (** Size (in bytes) of a type. Raises an Invalid_argument if the size is not a constant. *)
 
 
@@ -151,6 +152,7 @@ let sizeof_expr target (range:C.range) (result_type:type_qual) (t:typ) : expr =
     | T_function _ | T_builtin_fn -> invalid_arg "sizeof_expr: size of function"
     | T_typedef t -> doit (fst t.typedef_def)
     | T_unknown_builtin _ -> E_integer_literal (Z.zero), result_type, range
+    | T_attributed (t,_) -> doit t
   in
   doit t
 (** Size (in bytes) of a type, as an expression. Handles variable-length ararys. *)
@@ -176,6 +178,7 @@ let rec alignof_type target t : Z.t =
   | T_vector v ->
      alignof_type target (fst v.vector_type)
   | T_unknown_builtin _ -> Z.zero
+  | T_attributed (t,_) -> alignof_type target t
 (** Alignment (in bytes) of a type. *)
 
 
@@ -192,6 +195,7 @@ let rec type_declarable = function
   | T_enum e -> e.enum_defined
   | T_vector v -> type_declarable (fst v.vector_type)
   | T_unknown_builtin _ -> true
+  | T_attributed (t,_) -> type_declarable t
 
 and type_qual_declarable (t,q) =
   type_declarable t
@@ -250,6 +254,13 @@ let comment_macro_unify (c1:(comment * macro StringMap.t) list) (c2:(comment * m
      (* could be improved, but we expect the lists to have length 1 at most *)
      List.sort_uniq (fun a b -> compare (fst a) (fst b)) (c1@c2)
 
+(** {2 Attibutes} *)
+
+let attrs_unify a1 a2 =
+  List.sort_uniq
+    (fun a b -> compare a.Clang_AST.attr_print b.Clang_AST.attr_print)
+    (a1@a2)
+
 
 (** {2 Type compatibility} *)
 
@@ -273,6 +284,8 @@ type type_cmp = {
     (** if true, the size of vector types is ignored in comparison *)
     cmp_ignore_vector_kind: bool;
     (** if true, the kind of vector types is ignored in comparison *)
+    cmp_ignore_attributes: bool;
+    (** if true, ignore attributes in comparison *)
   }
 (** Comfigures the test equality functions, to allow various relaxation. *)
 
@@ -286,6 +299,7 @@ let cmp_compatible = {
     cmp_ignore_array_size = true;
     cmp_ignore_vector_size = true;
     cmp_ignore_vector_kind = true;
+    cmp_ignore_attributes = true;
   }
 (** Type compatibility. *)
 
@@ -299,6 +313,7 @@ let cmp_unifiable = {
     cmp_ignore_array_size = true;
     cmp_ignore_vector_size = true;
     cmp_ignore_vector_kind = true;
+    cmp_ignore_attributes = true;
   }
 (** Unifiable compatibility. *)
 
@@ -312,6 +327,7 @@ let cmp_equal = {
     cmp_ignore_array_size = false;
     cmp_ignore_vector_size = false;
     cmp_ignore_vector_kind = false;
+    cmp_ignore_attributes = false;
   }
 (** Strict type equality. *)
 
@@ -412,6 +428,15 @@ let rec type_compare cmp gray (target:C.target_info) (t1:typ) (t2:typ) =
 
     | T_unknown_builtin s1, T_unknown_builtin s2 ->
        s1 = s2
+
+    | T_attributed (t1,_), _ when cmp.cmp_ignore_attributes ->
+       type_compare cmp gray target t1 t2
+
+    | _, T_attributed (t2,_) when cmp.cmp_ignore_attributes ->
+       type_compare cmp gray target t1 t2
+
+    | T_attributed (t1,a1), T_attributed (t2,a2) ->
+       (type_compare cmp gray target t1 t2) && (a1 = a2)
 
     | _ -> false
 
@@ -522,6 +547,16 @@ let rec type_unify gray target (t1:typ) (t2:typ) =
     | T_unknown_builtin s1, T_unknown_builtin s2 when s1 = s2 ->
        T_unknown_builtin s1
 
+    | T_attributed (t1,a1), T_attributed (t2,a2) ->
+       (* TODO: merge attributes *)
+       T_attributed (type_unify gray target t1 t2, a1)
+
+    | T_attributed (t1,a), t2 ->
+       T_attributed (type_unify gray target t1 t2, a)
+
+    | t1, T_attributed (t2,a) ->
+       T_attributed (type_unify gray target t1 t2, a)
+
     | _ -> invalid_arg "type_unify: incompatible types"
 
 and type_qual_unify gray target (t1,q1) (t2,q2) =
@@ -530,6 +565,8 @@ and type_qual_unify gray target (t1,q1) (t2,q2) =
 and typedef_unify gray target d1 d2 =
   if d1.typedef_org_name <> d2.typedef_org_name
   then invalid_arg ("typedef_unify: incompatible typedef names: "^ d1.typedef_org_name^" and "^d2.typedef_org_name);
+  d1.typedef_attrs <- attrs_unify d1.typedef_attrs d2.typedef_attrs;
+  d2.typedef_attrs <- d1.typedef_attrs;
   let t = type_qual_unify gray target d1.typedef_def d2.typedef_def in
   d1.typedef_def <- t;
   d2.typedef_def <- t;
@@ -547,6 +584,8 @@ and record_unify gray target r1 r2 =
     then invalid_arg (Printf.sprintf "record_unify: incompatible record names %s and %s" r1.record_org_name r2.record_org_name);
     if r1.record_kind <> r2.record_kind;
     then invalid_arg "record_unify: incompatible record kinds";
+    r1.record_attrs <- attrs_unify r1.record_attrs r2.record_attrs;
+    r2.record_attrs <- r1.record_attrs;
     (match r1.record_defined && r1.record_sizeof <> Z.zero,
            r2.record_defined && r2.record_sizeof <> Z.zero with
      | true, false ->
@@ -597,7 +636,9 @@ and record_unify gray target r1 r2 =
           f2.field_type <- t;
           let c = comment_unify f1.field_com f2.field_com in 
           f1.field_com <- c;
-          f2.field_com <- c
+          f2.field_com <- c;
+          f1.field_attrs <- attrs_unify f1.field_attrs f2.field_attrs;
+          f2.field_attrs <- f1.field_attrs
         done
      | false, false -> ()
     );
@@ -607,6 +648,8 @@ and record_unify gray target r1 r2 =
   )
 
 and enum_unify gray target e1 e2 =
+  e1.enum_attrs <- attrs_unify e1.enum_attrs e2.enum_attrs;
+  e2.enum_attrs <- e1.enum_attrs;
   if e1.enum_org_name <> e2.enum_org_name
   then invalid_arg "enum_unify: incompatible enum names";
   (match e1.enum_defined, e2.enum_defined with
@@ -650,7 +693,9 @@ and enum_unify gray target e1 e2 =
         (fun v1 v2 ->
           let c = comment_unify v1.enum_val_com v2.enum_val_com in 
           v1.enum_val_com <- c;
-          v2.enum_val_com <- c
+          v2.enum_val_com <- c;
+          v1.enum_val_attrs <- attrs_unify v1.enum_val_attrs v2.enum_val_attrs;
+          v2.enum_val_attrs <- v1.enum_val_attrs
         ) e1.enum_values e2.enum_values
    | false, false -> ()
   );
@@ -730,6 +775,7 @@ let rec zero_init range (t:typ) : init =
   | T_enum e -> I_init_expr (expr_integer_cst range (match e.enum_integer_type with | Some s -> s | None -> assert false) Z.zero)
   | T_vector v ->  I_init_list ([], Some (zero_init range (fst v.vector_type)))
   | T_unknown_builtin _ -> I_init_expr (expr_integer_cst range SIGNED_INT Z.zero)
+  | T_attributed (t,_) -> zero_init range t
 
 (** {2 Statement utilities} *)
 
@@ -827,6 +873,7 @@ let resolve_scope (b:block) : block =
        update upd swt cur
 
     | S_asm _ -> ()
+    | S_attributed (s, _) -> stmt ctx s
 
   and block (cur,brk,cnt,swt) b =
     List.fold_left

@@ -60,6 +60,18 @@ let lang_name = function
   | Lang_C -> "C"
   | Lang_CXX -> "C++"
 
+let attr_syntax_name = function
+  | AS_GNU -> "GNU attribute((...))"
+  | AS_CXX11 -> "CXX11 [[...]]"
+  | AS_C23 -> "C23 [[...]]"
+  | AS_Declspec -> "__declspec(...)"
+  | AS_Microsoft -> "[uuid(\"...\")]"
+  | AS_Keyword -> "keyword"
+  | AS_Pragma -> "#pragma"
+  | AS_ContextSensitiveKeyword -> "context-sensitive keyword"
+  | AS_HLSLAnnotation -> "<vardecl> : <annotation>"
+  | AS_Implicit -> "implicit"
+
 let builtin_type_name = function
   | Type_Void -> "void"
   | Type_Bool -> "_Bool"
@@ -686,6 +698,7 @@ module P = struct
     sync ch;
     p ch "%s%s\n" indent (string_of_range d.decl_range);
     List.iter (fun c -> p ch "%s\n" c.com_text) d.decl_comment;
+    List.iter (fun a -> p ch "%a\n" attr a) d.decl_attrs;
     let indent2 = indent^"  " in
     match d.decl_kind with
     | TranslationUnitDecl l -> p ch "%sTranslationUnitDecl\n%a" indent (decl_list indent2) l
@@ -928,7 +941,9 @@ module P = struct
     p ch "%a pbit=%i:nbit=%i:complete=%B %a %a {%a}"
       name e.enum_name e.enum_num_positive_bits e.enum_num_negative_bits e.enum_is_complete
       (bp_option "<none>" type_qual) e.enum_integer_type (bp_option "<none>" type_qual) e.enum_promotion_type
-      (bp_list (fun ch c -> p ch "%a=%s" name c.enum_cst_name (Z.to_string c.enum_cst_val)) ",") e.enum_cst
+      (bp_list enum_cst ",") e.enum_cst
+  and enum_cst ch c =
+    p ch "%a=%s%a" name c.enum_cst_name (Z.to_string c.enum_cst_val) (bp_list attr ":") c.enum_cst_attrs
   and record_decl indent ch e =
     sync ch;
     let indent2 = indent^"  " in
@@ -945,11 +960,12 @@ module P = struct
   and record_decl_name ch e = sync ch; name ch e.record_name
   and field_decl ch c =
     sync ch;
-    p ch "%a:idx=%i:%a:bitwidth=%s:unnamed=%B:valid=%B:offset=%Li:vla=%a"
+    p ch "%a:idx=%i:%a:bitwidth=%s:unnamed=%B:valid=%B:offset=%Li:vla=%a:attrs=%a"
       name c.field_name c.field_index type_qual c.field_type
       (match c.field_bitwidth with None -> "-" | Some x -> string_of_int x)
       c.field_is_unnamed_bitfield c.field_is_in_valid_record c.field_offset
       (bp_option "<none>" expr) c.field_variable_length_array
+      (bp_list attr ";") c.field_attrs;
   and class_template_specialization ch t =
     sync ch;
     p ch "%a(%a)"
@@ -977,6 +993,7 @@ module P = struct
       (if q.qual_is_const then "const " else "")
       (if q.qual_is_restrict then "restrict " else "")
       (if q.qual_is_volatile then "volatile " else "")
+  and attr ch a = p ch "%s" a.attr_print
   and typ ch a =
     sync ch;
     match a with
@@ -994,7 +1011,7 @@ module P = struct
            | Size_Dependent -> ()
          ) a.array_size 
     | AtomicType a -> p ch "atomic(%a)" type_qual a   
-    | AttributedType a -> p ch "attributed(%a)" type_qual a 
+    | AttributedType (a,att) -> p ch "attributed(%a,%a)" attr att type_qual a
     | BuiltinType b -> p ch "%s" (builtin_type_name b)
     | ComplexType a -> p ch "complex(%a)" type_qual a 
     | FunctionProtoType f ->
@@ -1419,8 +1436,8 @@ module P = struct
          ) a.asm_inputs
          (bp_array bp_string ",") a.asm_clobbers
          (bp_array bp_string ",") a.asm_labels
-   | AttributedStmt s ->
-       p ch "%sAttributedStmt %a" indent (stmt indent) s
+   | AttributedStmt (s,a) ->
+       p ch "%sAttributedStmt %a %a" indent (bp_list attr " ") a (stmt indent) s
     | BreakStmt l ->
        p ch "%sBreakStmt\n" indent
     | CompoundStmt s ->
