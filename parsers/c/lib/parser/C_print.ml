@@ -208,9 +208,10 @@ let force_paren prio =
 (* force the arguments of <<, >>, etc., to have parentheses, even when useless,
    but this avoids compiler warnings *)
 
-let is_comma ((e,_,_):expr) =
+let rec is_comma ((e,_,_):expr) =
   match e with
   | E_comma _ -> true
+  | E_cast (e,IMPLICIT) when ignore_implicit_casts -> is_comma e
   | _ -> false
 (* comma expressions are special and require extra parentheses in many contexts *)
 
@@ -493,7 +494,7 @@ and c_buf_string_literal buf s =
   String.iter (c_buf_char_literal buf) s
 
 and c_buf_init compound indent buf i = match i with
-  | I_init_expr e -> c_buf_expr indent buf e
+  | I_init_expr e -> bp_paren (is_comma e) (c_buf_expr indent) buf e
   | I_init_list (l,o) ->
      if compound then bp_list (c_buf_init false indent) ", " buf l
      else bp buf "{ %a }" (bp_list (c_buf_init false indent) ", ") l
@@ -538,6 +539,10 @@ and c_buf_statement indent buf ((s,r):statement) =
 
   | S_block l ->
      bp buf "%s{\n%a%a%s}\n" indent (c_buf_statement_list indent2) l.blk_stmts (c_buf_scope indent2) l indent
+
+  | S_if (e1, { blk_stmts=[] }, { blk_stmts=[] } ) ->
+     bp buf "%sif (%a) { /* empty */ }\n"
+        indent (c_buf_expr_bool indent2) e1
 
   | S_if (e1,b1, { blk_stmts=[] } ) ->
      bp buf "%sif (%a) %a"
