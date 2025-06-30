@@ -111,6 +111,8 @@ type context = {
      *)
     mutable ctx_comments: (comment * macro StringMap.t) list RangeMap.t;
     ctx_macros: (string,macro) Hashtbl.t;
+
+    mutable ctx_opts: (string option) StringMap.t;
   }
 (** Structure used internally during project parsing & linking. *)
 
@@ -140,6 +142,7 @@ let create_context ?(min_uid=0) (project_name:string) (info:C.target_info) =
     ctx_comments = RangeMap.empty;
     ctx_macros = Hashtbl.create 16;
     ctx_file_scope_asm = RangeMap.empty;
+    ctx_opts = StringMap.empty;
   }
 
 let new_uid ctx =
@@ -168,8 +171,21 @@ let has_stub_comment l =
        String.length s >= 3 && s.[2] = '$'
     ) l
 
+(* options with no argument to keep in proj_opts *)
+let opts_noarg =
+  List.map Str.regexp
+    [ "-std=.*"; "ansi";
+      "-f.*";
+      "-mcpu=.*"; "-mtune=.*"; "-march=.*";
+    ]
 
-let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: string list) (coms:comment list) (macros:C.macro list) (keep_static:bool) (forced_stub_list: string list) =
+(* options with argument to keep in proj_opts *)
+let opts_arg =
+  List.map Str.regexp
+    [ "-x"; "-arch"; "-target" ]
+
+
+let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: string list) (coms:comment list) (macros:C.macro list) (keep_static:bool) (forced_stub_list: string list) (opts: string list) =
   (* utilities *)
   (* ********* *)
 
@@ -240,6 +256,24 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
     | Some out -> output_string out (f x)
     | None -> ()
   in
+
+
+  (* handle options *)
+  (* ************** *)
+
+  let rec eat_opts m = function
+    | o::rest when List.exists (fun x -> Str.string_match x o 0) opts_noarg ->
+      if StringMap.mem o m && StringMap.find o m <> None then
+        warning decl.C.decl_range "incompatible option value" (Format.asprintf "option %s had value %s but is redefined with no value" o (match StringMap.find o m with Some x -> x | None -> "<none>"));
+      eat_opts (StringMap.add o None m) rest
+    | o::v::rest when List.exists (fun x -> Str.string_match x o 0) opts_arg ->
+       if StringMap.mem o m && StringMap.find o m <> (Some v) then
+        warning decl.C.decl_range "incompatible option value" (Format.asprintf "option %s had value %s but is redefined with value %s" o (match StringMap.find o m with Some x -> x | None -> "<none>") v);
+     eat_opts (StringMap.add o (Some v) m) rest
+    | _::rest -> eat_opts m rest
+    | [] -> m
+  in
+  ctx.ctx_opts <- eat_opts ctx.ctx_opts opts;
 
 
   (* translate types *)
@@ -1370,6 +1404,15 @@ let link_project ctx =
     Hashtbl.fold
       (fun org_name def map -> StringMap.add (name def) def map) hash StringMap.empty
   in
+  let opts =
+    StringMap.fold
+      (fun k v l -> match v with
+         | None -> k::l
+         | Some v -> k::v::l
+      )
+      ctx.ctx_opts []
+  in
+
   { proj_name = ctx.ctx_name;
     proj_tu = ctx.ctx_tu;
     proj_target = ctx.ctx_target;
@@ -1383,6 +1426,7 @@ let link_project ctx =
     proj_file_scope_asm = ctx.ctx_file_scope_asm;
     proj_comments = ctx.ctx_comments;
     proj_macros = cvt ctx.ctx_macros (fun t -> t.macro_name);
+    proj_opts = opts;
   }
 
 

@@ -498,6 +498,7 @@ and type_qual = typ * qualifier
      proj_files: string list; (** list of parsed files *)
      proj_comments: (comment * macro StringMap.t) list RangeMap.t; (** all comments *)
      proj_macros : macro StringMap.t; (** macros, by name *)
+     proj_opts: string list; (** selected options pased to the compiler we'd like to keep *)
    }
 (** A project is a set of translation units linked together. *)
 

@@ -33,7 +33,7 @@ val create_context: ?min_uid:int -> string -> Clang_AST.target_info -> context
     Returns a context to manipulate the project.
  *)
                                                                           
-val add_translation_unit: context -> string -> Clang_AST.decl -> string list -> Clang_AST.comment list -> Clang_AST.macro list -> bool -> string list -> unit
+val add_translation_unit: context -> string -> Clang_AST.decl -> string list -> Clang_AST.comment list -> Clang_AST.macro list -> bool -> string list -> string list -> unit
 (** [add_translation_unit context name decl files coms macros keep_static forced_stub_list] converts a
    Clang definition of a translation unit with the given name (generally, the
    source C file) into a cAST and accumulates the definition to the projet.
