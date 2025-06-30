@@ -441,7 +441,7 @@ and c_buf_expr indent buf ((e,t,_) as ee:expr) =
          (c_buf_type_qual indent "") t
          (c_buf_init true indent) i
 
-   | E_null_ptr -> bp_str buf "(void *)0"
+   | E_null_ptr -> bp_str buf "((void*)0)"
 
    | E_variable v -> bp_str buf v.var_unique_name
    | E_function f -> bp_str buf f.func_unique_name
