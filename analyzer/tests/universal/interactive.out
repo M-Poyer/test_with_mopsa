@@ -19,9 +19,9 @@
    4  assert(f(5) + f(10) == 5);
 [1;38;5;45m𝕊[0m [1;38;5;45m⟦[0m return (arg + 1); [1;38;5;45m⟧[0m
  int-itv ∪ float-itv ∪ strings : 
-    ret(fun f(5)) ⇀ [6,6],
     arg:interactive.u:1.6-13 ⇀ [5,5],
-    arg:interactive.u:1.6-13 ⇀ [10,10]  
+    arg:interactive.u:1.6-13 ⇀ [10,10],
+    ret(fun f(5)) ⇀ [6,6]  
  int-itv ∪ float-itv ∪ strings : 
     arg : [10,10]  
 [1;38;5;6mmopsa[0m [1;38;5;40m>>[0m 
