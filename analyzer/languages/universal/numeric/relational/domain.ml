@@ -197,7 +197,7 @@ struct
   (** {2 Transfer functions} *)
   (** ********************** *)
 
-  let init prog = top
+  let init prog = top, []
 
   let remove_var (v:var) (a,bnd) =
     let env = Apron.Abstract1.env a in
