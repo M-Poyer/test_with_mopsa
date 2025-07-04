@@ -42,11 +42,11 @@ Limitations
 
    .. warning::
 
-      Mopsa is still an academic tool, under heavy development, and may contain **limitations** and **bugs**.
+      Mopsa is still an academic tool, under development, and may contain **limitations** and **bugs**.
 
-      Features, options, and output format are subject to change and may not be in sync with this documentation.
+      Some analyses are explicitly tagged as prototypes and will display corresponding warnings when being run.
 
-      Please report issues on the `issue tracker <https://gitlab.com/groups/mopsa/-/issues>`_ on the `GitLab project page <https://gitlab.com/mopsa/mopsa-analyzer>`_.
+      While we strive to keep this documentation updated, it may miss features, options, and output formats. Please report `issues <https://gitlab.com/groups/mopsa/-/issues>`_.
 
 
 - On C: no support for recursive functions, concurrency, signals, bit-fields, long jumps, inline assembly, complex numbers, nor multidimensional variable length arrays; incomplete support for the C library; support for only a low-level, :ref:`cell-based memory model <cells-options>`.
@@ -129,6 +129,11 @@ Additional resources
    benchmarks/c
    benchmarks/python
    benchmarks/multilanguage
+
+.. toctree::
+   :caption: Debugging
+
+   debugging/automated-testcase-reduction
 
 .. toctree::
    :caption: Index

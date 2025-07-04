@@ -21,11 +21,12 @@
 
 (** Inlining of anonymous functions defined through lambda *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang
+open Universal.Lang.Ast
 
 
 module Domain =

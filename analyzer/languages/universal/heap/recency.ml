@@ -23,9 +23,9 @@
 (** Abstraction of the heap *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
-open Ast
+open Lang.Ast
 
 module Pool =
   Framework.Lattices.Powerset.Make
@@ -66,9 +66,9 @@ let () =
 
 let name = "universal.heap.recency"
 
-let opt_default_allocation_policy : string ref = ref "range_callstack"
+let opt_default_allocation_policy : string ref = ref "range_control"
 let () = Policies.register_option opt_default_allocation_policy name "-default-alloc-pol" "by default"
-           (fun _ ak -> (Policies.of_string !opt_default_allocation_policy) ak)
+    (fun _ ak -> (Policies.of_string !opt_default_allocation_policy) ak)
 
 let gc_time = ref 0.
 let gc_nb_collections = ref 0
@@ -209,7 +209,11 @@ struct
     | E_alloc_addr(addr_kind, STRONG) ->
       get_env T_cur man flow >>$? fun pool flow ->
 
-      let recent_addr = Policies.mk_addr addr_kind STRONG range (Flow.get_callstack flow) in
+      let recent_addr = Policies.mk_addr addr_kind STRONG range (Flow.get_control_ctx flow) in
+      let () = debug "option = %s@\ncontrol_ctx = %a@\nrecent_addr = %a"
+          !opt_default_allocation_policy
+          ControlCtx.pp_control_ctx (Flow.get_control_ctx flow)
+          pp_addr recent_addr in
 
       if not (Pool.mem recent_addr pool) then
         (* first allocation at this site: just add the address to the pool and return it *)
@@ -217,7 +221,7 @@ struct
         Eval.singleton (mk_addr recent_addr range) flow |>
         OptionExt.return
       else
-        let old_addr = Policies.mk_addr addr_kind WEAK range (Flow.get_callstack flow) in
+        let old_addr = Policies.mk_addr addr_kind WEAK range (Flow.get_control_ctx flow) in
         if not (Pool.mem old_addr pool) then
           (* old address not present: rename the existing recent as old and return the new recent *)
           map_env T_cur (Pool.add old_addr) man flow >>%? fun flow ->
@@ -232,7 +236,7 @@ struct
 
     | E_alloc_addr(addr_kind, WEAK) ->
       get_env T_cur man flow >>$? fun pool flow ->
-      let weak_addr = Policies.mk_addr addr_kind WEAK range (Flow.get_callstack flow) in
+      let weak_addr = Policies.mk_addr addr_kind WEAK range (Flow.get_control_ctx flow) in
 
       let post =
         if Pool.mem weak_addr pool then

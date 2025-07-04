@@ -21,12 +21,12 @@
 
 (** Python data model for arithmetic operators. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
-open Addr
-open Operators
-open Universal.Ast
+open Lang.Ast
+open Lang.Addr
+open Lang.Operators
+open Universal.Lang.Ast
 
 
 module Domain =
@@ -68,10 +68,10 @@ module Domain =
                            let is_same_type = compare_py_object cls1 cls2 = 0 in
                            let typerr flow =
                              let msg = Format.asprintf "unsupported operand type(s) for '%a': '%a' and '%a'" pp_operator op pp_addr_kind (akind @@ fst cls1) pp_addr_kind (akind @@ fst cls2) in
-                             man.exec (Utils.mk_builtin_raise_msg "TypeError" msg range) flow >>%
+                             man.exec (Lang.Utils.mk_builtin_raise_msg "TypeError" msg range) flow >>%
                              Eval.empty in
                            let call_radd man ocondtocheck flow ~felseradd =
-                             let hasradd = Utils.mk_object_hasattr cls2 rop_fun range in
+                             let hasradd = Lang.Utils.mk_object_hasattr cls2 rop_fun range in
                              assume
                                (if ocondtocheck = None then hasradd else (mk_binop ~etyp:(T_py None) hasradd O_py_and (OptionExt.none_to_exn ocondtocheck) range))
                                man flow
@@ -83,14 +83,14 @@ module Domain =
                                          man flow
                                          ~fthen:(typerr)
                                          ~felse:(fun flow ->
-                                           Flow.add_safe_check Alarms.CHK_PY_TYPEERROR r.erange flow |>
+                                           Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR r.erange flow |>
                                            Eval.singleton r)
                                      )
                                )
                                ~felse:felseradd in
 
                            assume
-                             (Utils.mk_object_hasattr cls1 op_fun range)
+                             (Lang.Utils.mk_object_hasattr cls1 op_fun range)
                              man flow
                              ~fthen:(fun flow ->
                                let call_add flow =
@@ -103,7 +103,7 @@ module Domain =
                                            else call_radd man None flow ~felseradd:(typerr)
                                          )
                                          ~felse:(fun flow ->
-                                           Flow.add_safe_check Alarms.CHK_PY_TYPEERROR r.erange flow |>
+                                           Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR r.erange flow |>
                                              Eval.singleton r)
                                      ) in
                                if is_same_type then call_add flow else
@@ -129,14 +129,14 @@ module Domain =
  (fun cls flow ->
                      let cls = object_of_expr cls in
                      assume
-                       (Utils.mk_object_hasattr cls op_fun range)
+                       (Lang.Utils.mk_object_hasattr cls op_fun range)
                        ~fthen:(fun true_flow ->
-                         Flow.add_safe_check Alarms.CHK_PY_TYPEERROR e.erange true_flow |>
+                         Flow.add_safe_check Lang.Alarms.CHK_PY_TYPEERROR e.erange true_flow |>
                          man.eval   (mk_py_call (mk_py_object_attr cls op_fun range) [e] range)
                        )
                        ~felse:(fun false_flow ->
                          let msg = Format.asprintf "bad operand type for unary '%s': '%a'" op_fun pp_addr_kind (akind @@ fst cls) in
-                         man.exec (Utils.mk_builtin_raise_msg "TypeError" msg range) false_flow >>%
+                         man.exec (Lang.Utils.mk_builtin_raise_msg "TypeError" msg range) false_flow >>%
                          Eval.empty
                        )
                        man flow

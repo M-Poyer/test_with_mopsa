@@ -21,7 +21,6 @@
 
 (** Reduced product of simplified (leaf) domains *)
 
-open Mopsa_utils
 open Core.All
 open Common
 open Sig.Reduction.Simplified
@@ -97,7 +96,9 @@ struct
     exec = (fun stmt -> man.exec stmt |> snd);
   }
 
-  let init prog = D1.init prog, D2.init prog
+  let init prog =
+    let p1, a1 = D1.init prog and p2, a2 = D2.init prog in
+    (p1, p2), a1 @ a2
 
   let exec targets =
     let recompose_pair ((a1,a2) as a) r1 r2 =

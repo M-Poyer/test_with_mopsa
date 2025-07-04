@@ -21,7 +21,6 @@
 
 (** Runner - main entry point of the analysis *)
 
-open Mopsa_utils
 open Core.All
 open Params.Options
 
@@ -37,7 +36,7 @@ let () =
     key = "-engine";
     category = "Debugging";
     doc = "selects analysis mode";
-    spec =  ArgExt.Symbol (
+    spec =  Symbol (
          ["automatic"; "interactive"; "dap"],
         (fun s ->
            match s with
@@ -55,13 +54,14 @@ let () =
 let parse_options passed_args f () =
   let files = ref [] in
   let args  = ref None in
-  ArgExt.parse passed_args
-               (Params.Options.get_options ())
+  try
+    Arg.parse_argv passed_args
+    (ArgExt.argext_to_arg_list (Params.Options.get_options ()))
                (fun filename -> files := filename :: !files)
-               (fun rest -> args := Some rest)
-               "Modular Open Platform for Static Analysis"
-               Params.Options.help;
-  f !files !args
+               "Modular Open Platform for Static Analysis";
+    f !files !args
+  with Stdlib.Arg.Bad f ->
+    Params.Options.help (); 2
 
 
 (** {2 Parsing} *)
@@ -109,24 +109,32 @@ let analyze_files (files:string list) (args:string list option) : int =
       )
     in
 
-    let flow = Engine.init prog in
-    let stmt = mk_stmt (S_program (prog, args)) prog.prog_range in
-    let res =
-      try Engine.analyze stmt flow
-      with Toplevel.SysBreak flow ->
-        (* let () = warn "Early termination, hooks will yield partial information only" in  *)
-        let () = Hook.on_finish Engine.man flow in
-        raise (Toplevel.SysBreak flow)
-    in
-    let t = Timing.stop t in
-    Hook.on_finish Engine.man res;
-    Output.Factory.report Engine.man res ~time:t ~files
+    begin try
+      let flow = Engine.init prog in
+      let stmt = mk_stmt (S_program (prog, args)) prog.prog_range in
+      let res =
+        try Engine.analyze stmt flow
+        with Toplevel.SysBreak flow ->
+          let () = Debug.warn "Early termination, hooks will yield partial information only" in
+          let () = Hook.on_finish Engine.man flow in
+          raise (Toplevel.SysBreak flow)
+      in
+      let t = Timing.stop t in
+      Hook.on_finish Engine.man res;
+      Output.Factory.report Engine.man res ~time:t ~files
+    with Exit -> exit 1
+       | e ->
+         let t = try Timing.stop t with _ -> 0. in
+         Output.Factory.panic ~btrace:(Printexc.get_backtrace()) e ~time:t ~files (fun () ->
+             let front = find_language_frontend abstraction.language in 
+             front.on_panic e files t)
+  end
   with
   | Exit ->
     exit 1
   | e ->
     let t = try Timing.stop t with _ -> 0. in
-    Output.Factory.panic ~btrace:(Printexc.get_backtrace()) e ~time:t ~files
+    Output.Factory.panic ~btrace:(Printexc.get_backtrace()) e ~time:t ~files (fun () -> ())
 
 
 let run () =

@@ -22,10 +22,10 @@
 (**
    Python frontend translates the parser's AST into Framework's AST.
 *)
-open Mopsa
+open MopsaLib
 open Lexing
-open Ast
-open Utils
+open Lang.Ast
+open Lang.Utils
 
 let opt_gc_after_functioncall = ref false
 let opt_gc_percent_calls = ref 100
@@ -35,14 +35,14 @@ let () =
       key = "-gc";
       category = "Python";
       doc = " perform abstract garbage collection after function calls";
-      spec = ArgExt.Set opt_gc_after_functioncall;
+      spec = Set opt_gc_after_functioncall;
       default = "";
     };
   register_domain_option "python.frontend" {
       key = "-gc-percent";
       category = "Python";
       doc = Format.asprintf " percent of abstract garbage collection calls (default: %d)" !opt_gc_percent_calls;
-      spec = ArgExt.Set_int opt_gc_percent_calls;
+      spec = Set_int (opt_gc_percent_calls, ArgExt.empty);
       default = "";
     }
 
@@ -63,19 +63,32 @@ let rec parse_program (files: string list) : program =
     let body = cell_vars body in
     Visitor.fold_stmt (fun () e -> VisitParts ()) (fun () s -> (match skind s with
                                                                | S_py_function f ->
-                                                                  debug "%a: cv=%a, fv=%a, locals=%a" pp_var f.py_func_var (Format.pp_print_list pp_var) f.py_func_cellvars (Format.pp_print_list pp_var) f.py_func_freevars Pp.pp_vars f.py_func_locals
+                                                                  debug "%a: cv=%a, fv=%a, locals=%a" pp_var f.py_func_var (Format.pp_print_list pp_var) f.py_func_cellvars (Format.pp_print_list pp_var) f.py_func_freevars Lang.Pp.pp_vars f.py_func_locals
                                                                | _ -> ());
                                                                   VisitParts ()) () body;
     (* debug "detecting closure";
      *    let py_func_cellvars, py_func_body = detect_closures py_func_body in
      *    debug "cellvars of %a: %a; locals: %a, params: %a" pp_var f.py_func_var (Format.pp_print_list pp_var) f.py_func_cellvars (Format.pp_print_list pp_var) f.py_func_locals (Format.pp_print_list pp_var) f.py_func_parameters; *)
-    let body = if Filename.extension filename <> ".pyi" && !opt_gc_after_functioncall then
-                 Universal.Ast.mk_block ([body;mk_stmt Universal.Heap.Recency.S_perform_gc (Location.mk_fresh_range ())]) body.srange
-               else body in
+    let body =
+      if Filename.extension filename <> ".pyi" && !opt_gc_after_functioncall then
+        Universal.Lang.Ast.mk_block ~ssynthetic:false ([body;mk_stmt ~ssynthetic:false Universal.Heap.Recency.S_perform_gc (Location.mk_fresh_range ())]) body.srange
+      else
+        body in
     Hooks.Coverage.Hook.add_file filename body;
     Core.Ast.Var.start_vcounter_at counter;
+
+    (* sanity check: all statements and expressions must be non-syntetic *)
+    Visitor.iter_stmt
+      (fun e ->
+        if e.esynthetic then panic_at e.erange "original expression %a (of kind: %s) marked as synthetic"
+          pp_expr e Obj.Extension_constructor.(of_val e.ekind |> name))
+      (fun s ->
+        if s.ssynthetic then panic_at s.srange "original statement %a (of kind: %s) marked as synthetic"
+          pp_stmt s Obj.Extension_constructor.(of_val s.skind |> name))
+      body;
+
     {
-      prog_kind = Ast.Py_program (filename, globals, body);
+      prog_kind = Lang.Ast.Py_program (filename, globals, body);
       prog_range = mk_program_range [filename];
     }
 
@@ -100,14 +113,14 @@ and from_stmt (stmt: Mopsa_py_parser.Ast.stmt) : stmt =
     | S_assign (x, ({ekind = E_call _} as e)) when !opt_gc_after_functioncall ->
        incr gc_call;
        if !gc_call mod (100 / !opt_gc_percent_calls) = 0 then
-         S_block ([mk_stmt (S_assign (from_exp x, from_exp e)) srange'; mk_stmt Universal.Heap.Recency.S_perform_gc srange'], [])
+         S_block ([mk_stmt ~ssynthetic:false (S_assign (from_exp x, from_exp e)) srange'; mk_stmt ~ssynthetic:false Universal.Heap.Recency.S_perform_gc srange'], [])
        else S_assign (from_exp x, from_exp e)
 
     | S_expression ({ekind = E_call _} as e) when !opt_gc_after_functioncall ->
        incr gc_call;
        if !gc_call mod (100 / !opt_gc_percent_calls) = 0 then
-         S_block ([mk_stmt (Universal.Ast.S_expression (from_exp e)) srange'; mk_stmt Universal.Heap.Recency.S_perform_gc srange'], [])
-       else Universal.Ast.S_expression (from_exp e)
+         S_block ([mk_stmt ~ssynthetic:false (Universal.Lang.Ast.S_expression (from_exp e)) srange'; mk_stmt ~ssynthetic:false Universal.Heap.Recency.S_perform_gc srange'], [])
+       else Universal.Lang.Ast.S_expression (from_exp e)
 
     | S_assign (x, e) ->
       S_assign (from_exp x, from_exp e)
@@ -121,7 +134,7 @@ and from_stmt (stmt: Mopsa_py_parser.Ast.stmt) : stmt =
          S_py_annot (from_exp x, expr)
 
     | S_expression e ->
-      Universal.Ast.S_expression (from_exp e)
+      Universal.Lang.Ast.S_expression (from_exp e)
 
     | S_while (test, body, orelse) ->
       S_py_while (
@@ -131,10 +144,10 @@ and from_stmt (stmt: Mopsa_py_parser.Ast.stmt) : stmt =
       )
 
     | S_break ->
-      Universal.Ast.S_break
+      Universal.Lang.Ast.S_break
 
     | S_continue ->
-      Universal.Ast.S_continue
+      Universal.Lang.Ast.S_continue
 
     | S_block sl ->
       S_block (List.map from_stmt sl, [])
@@ -171,7 +184,7 @@ and from_stmt (stmt: Mopsa_py_parser.Ast.stmt) : stmt =
            py_func_cellvars = [];
            py_func_freevars = []
          } in
-       Ast.S_py_function f
+       Lang.Ast.S_py_function f
 
 
     | S_class cls ->
@@ -194,7 +207,7 @@ and from_stmt (stmt: Mopsa_py_parser.Ast.stmt) : stmt =
       )
 
     | S_return e ->
-      Universal.Ast.S_return (Some (from_exp e))
+      Universal.Lang.Ast.S_return (Some (from_exp e))
 
     | S_raise(e, c)->
       S_py_raise (match e with None -> None | Some e -> Some (from_exp e))
@@ -232,12 +245,12 @@ and from_stmt (stmt: Mopsa_py_parser.Ast.stmt) : stmt =
 
 
   in
-  {skind = skind'; srange = srange'}
+  {skind = skind'; srange = srange'; ssynthetic = false}
 
 (** Translate an optional statement into en eventual empty one *)
 and from_stmt_option : Location.range -> Mopsa_py_parser.Ast.stmt option -> stmt
   = fun none_case_range -> function
-    | None -> {skind = S_block ([],[]); srange = none_case_range}
+    | None -> {skind = S_block ([],[]); srange = none_case_range; ssynthetic=false }
     | Some s -> from_stmt s
 
 and from_exp_option : Mopsa_py_parser.Ast.expr option -> expr option
@@ -270,22 +283,22 @@ and from_exp exp =
       (T_py (Some NotImplemented))
 
     | E_num (Mopsa_py_parser.Cst.Int i) ->
-      E_constant (Universal.Ast.C_int i),
+      E_constant (Universal.Lang.Ast.C_int i),
       (T_py None)
 
     | E_num (Mopsa_py_parser.Cst.Float f) ->
-      E_constant (Universal.Ast.C_float f),
+      E_constant (Universal.Lang.Ast.C_float f),
       (T_py (Some (Float F_DOUBLE)))
 
     | E_num (Mopsa_py_parser.Cst.Imag j) ->
       ignore (Str.string_match (Str.regexp "\\(.*\\)j") j 0);
       let j = Str.matched_group 1 j in
       let j = float_of_string j in
-      E_constant (Ast.C_py_imag j),
+      E_constant (Lang.Ast.C_py_imag j),
       (T_py (Some Complex))
 
     | E_str s ->
-       E_constant (Universal.Ast.C_string s),
+       E_constant (Universal.Lang.Ast.C_string s),
        (T_py None)
 
     | E_attr (obj, attr) ->
@@ -354,7 +367,7 @@ and from_exp exp =
       (T_py None)
 
     | E_list_comp (e, comprhs) ->
-      Ast.E_py_list_comprehension (
+      Lang.Ast.E_py_list_comprehension (
         from_exp e,
         comprhs |> List.map (fun (target, iter, conds) ->
             (from_exp target, from_exp iter, List.map from_exp conds)
@@ -363,7 +376,7 @@ and from_exp exp =
       (T_py None)
 
     | E_dict (keys, values) ->
-      Ast.E_py_dict(
+      Lang.Ast.E_py_dict(
         List.map from_exp keys,
         List.map from_exp values
       ),
@@ -421,7 +434,7 @@ and from_exp exp =
 
 
   in
-  mk_expr ekind ~etyp exp.erange
+  mk_expr ekind ~esynthetic:false ~etyp exp.erange
 
 
 and from_binop : Mopsa_py_parser.Ast.binop -> operator = function
@@ -430,19 +443,19 @@ and from_binop : Mopsa_py_parser.Ast.binop -> operator = function
   | O_bool op -> from_bool_op op
 
 and from_arithmetic_op = function
-  | Add -> Universal.Ast.O_plus
-  | Sub -> Universal.Ast.O_minus
-  | Mult -> Universal.Ast.O_mult
-  | Div -> Universal.Ast.O_div
+  | Add -> Universal.Lang.Ast.O_plus
+  | Sub -> Universal.Lang.Ast.O_minus
+  | Mult -> Universal.Lang.Ast.O_mult
+  | Div -> Universal.Lang.Ast.O_div
   | FloorDiv -> O_py_floor_div
-  | Mod -> Universal.Ast.O_mod
-  | Pow -> Universal.Ast.O_pow
-  | BitOr -> Universal.Ast.O_bit_or
-  | BitXor -> Universal.Ast.O_bit_xor
-  | BitAnd -> Universal.Ast.O_bit_and
+  | Mod -> Universal.Lang.Ast.O_mod
+  | Pow -> Universal.Lang.Ast.O_pow
+  | BitOr -> Universal.Lang.Ast.O_bit_or
+  | BitXor -> Universal.Lang.Ast.O_bit_xor
+  | BitAnd -> Universal.Lang.Ast.O_bit_and
   | MatMult -> O_py_mat_mult
-  | RShift -> Universal.Ast.O_bit_rshift
-  | LShift -> Universal.Ast.O_bit_lshift
+  | RShift -> Universal.Lang.Ast.O_bit_rshift
+  | LShift -> Universal.Lang.Ast.O_bit_lshift
 
 and from_bool_op = function
   | And -> O_py_and
@@ -462,15 +475,15 @@ and from_comparison_op : Mopsa_py_parser.Cst.cmpop -> operator = function
 
 and from_unop = function
   | Not -> O_py_not
-  | USub -> Universal.Ast.O_minus
-  | UAdd -> Universal.Ast.O_plus
-  | Invert -> Universal.Ast.O_bit_invert
+  | USub -> Universal.Lang.Ast.O_minus
+  | UAdd -> Universal.Lang.Ast.O_plus
+  | Invert -> Universal.Lang.Ast.O_bit_invert
 
 and free_vars globals bv s =
   let pp_vars = Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt ", ") pp_var in
   debug "free_vars %a %a" pp_vars bv pp_stmt s;
   let free_vars_expr globals bv e =
-    fst @@ free_vars globals bv {s with skind = Universal.Ast.S_expression e} in
+    fst @@ free_vars globals bv {s with skind = Universal.Lang.Ast.S_expression e} in
   let (fv, _, _), s = Visitor.fold_map_stmt
                      (fun (fv, globs, bv) expr -> match ekind expr with
                           | E_py_list_comprehension (v, comprs) ->
@@ -525,4 +538,5 @@ let () =
   register_frontend {
     lang = "python";
     parse = parse_program;
+    on_panic = fun _ _ _ -> ();
   }

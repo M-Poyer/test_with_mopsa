@@ -29,10 +29,12 @@
  *
  *  For the moment, we don't support modifying the partitioning keys during
  *  lattice operation (join, meet and widening)
+ *
+ *  BEWARE: partitioning during evaluations and reduced product is *NOT SUPPORTED AND UNSOUND*:
+ *   https://gitlab.com/mopsa/mopsa-analyzer/-/merge_requests/130#note_1833582309
  *)
 
 open Core.All
-open Mopsa_utils.Location
 
 module type PARTITIONING =
 sig
@@ -67,14 +69,14 @@ let mem_partitioning name =
       let module D = (val dom : PARTITIONING) in
       compare D.name name = 0
     ) !domains
- 
+
 let partitioning_names () =
   List.map (fun dom ->
       let module D = (val dom : PARTITIONING) in
       D.name
     ) !domains
 
-type ('a, _) query += Q_partition_predicate : range -> ('a, expr) query
+type ('a, _) query += Q_partition_predicate : Location.range -> ('a, expr) query
 
 let () = register_query {
     join = (let doit : type a r. query_pool -> (a, r) query -> r -> r -> r = fun pool query x y ->

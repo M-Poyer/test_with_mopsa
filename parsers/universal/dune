@@ -7,4 +7,6 @@
  (name mopsa_universal_parser)
  (public_name mopsa.mopsa_universal_parser)
  (library_flags -linkall)
- (libraries mopsa_utils))
+ (libraries mopsa_utils)
+ (flags (:standard -open Mopsa_utils.Core -open Mopsa_utils.Containers))
+)

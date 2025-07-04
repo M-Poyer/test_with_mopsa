@@ -21,13 +21,13 @@
  *)
 
 open Instances
+open MopsaLib
 open Sig.Abstraction.Simplified
-open Mopsa
 
 
 (* the next two open are here to force compilation of the instances before the registration of domain options, in order to be sure all domains are registered *)
-open Elinainst
-open Ppliteinst
+(* open Elinainst *)
+(* open Ppliteinst *)
 
 
 let numeric_domain : (module RELATIONAL) ref = ref (module Polyhedra : RELATIONAL)
@@ -37,7 +37,7 @@ let () =
     key = "-numeric";
     category = "Numeric";
     doc = " select the relational numeric domain.";
-    spec = ArgExt.Symbol (
+    spec = Symbol (
         get_instances_names (),
         (fun name ->
            let (module M : RELATIONAL) = List.find

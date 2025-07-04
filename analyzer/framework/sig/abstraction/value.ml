@@ -161,6 +161,7 @@ sig
   val eval_ext : ('v,t) value_man -> expr -> 'v option
   val backward_ext : ('v,t) value_man -> expr -> 'v vexpr -> 'v -> 'v vexpr option
   val compare_ext : ('v,t) value_man -> operator -> bool -> expr -> 'v -> expr -> 'v -> ('v * 'v) option
+  val domain_assumptions : Alarm.assumption_kind list
   val ask : ('v,t) value_man -> ('a,'r) query -> 'r option
   val print: printer -> t -> unit
 end
@@ -178,6 +179,7 @@ struct
   let backward_ext man e ve v = None
   let compare_ext man op b e1 v1 e2 v2 = None
   let avalue avk v = None
+  let domain_assumptions = []
   let ask man q = None
 end
 

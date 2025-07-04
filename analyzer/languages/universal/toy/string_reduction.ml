@@ -19,8 +19,8 @@
 (*                                                                          *)
 (****************************************************************************)
 
-open Mopsa
-open Ast
+open MopsaLib
+open Lang.Ast
 open Sig.Reduction.Eval
 
 module Reduction =

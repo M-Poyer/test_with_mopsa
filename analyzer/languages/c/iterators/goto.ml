@@ -97,9 +97,9 @@
 
 *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
+open Lang.Ast
 open Common.Scope_update
 
 let name = "c.iterators.goto"
@@ -116,7 +116,7 @@ let () =
     key = "-goto-down";
     category = "Goto";
     doc = " perform a down iteration after goto stabilization";
-    spec = ArgExt.Set opt_goto_down;
+    spec = Set opt_goto_down;
     default = "false";
   };
 

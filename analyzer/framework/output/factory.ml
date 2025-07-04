@@ -23,7 +23,6 @@
 
 open Core.All
 open Common
-open Mopsa_utils
 
 
 (* Output engines *)
@@ -48,9 +47,9 @@ let report man flow ~time ~files =
   E.report man flow ~time ~files ~out:!opt_file;
   return_v
 
-let panic ~btrace exn ~time ~files =
+let panic ~btrace exn ~time ~files continuation =
   let module E = (val (get_output_engine ())) in
-  E.panic exn ~btrace ~time ~files ~out:!opt_file;
+  E.panic exn ~btrace ~time ~files ~out:!opt_file continuation;
   2
 
 let help (args:ArgExt.arg list) =

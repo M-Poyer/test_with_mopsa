@@ -64,7 +64,7 @@
     ]}
 *)
 
-open Mopsa_utils.Eq
+open Eq
 
 type ('a,_) ctx_key = ..
 (** Key to access an element in the context *)
@@ -130,5 +130,5 @@ module GenContextKey
     val key : ('a,'a Value.t) ctx_key
   end
 
-val callstack_ctx_key : ('a,Mopsa_utils.Callstack.callstack) ctx_key
-(** Key for storing the callstack *)
+val control_ctx_key : ('a, ControlCtx.control_ctx) ctx_key
+(** Key for storing the control context *)

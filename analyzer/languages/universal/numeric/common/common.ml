@@ -21,8 +21,8 @@
 
 (** Common constructs for numeric abstractions. *)
 
-open Mopsa
-open Ast
+open MopsaLib
+open Lang.Ast
 
 module I = ItvUtils.IntItv
 module C = CongUtils.IntCong
@@ -84,7 +84,7 @@ let () =
   register_shared_option rounding_option_name {
     key = "-float-rounding-mode";
     category = "Numeric";
-    spec = ArgExt.Symbol (
+    spec = Symbol (
         ["near"; "zero"; "up"; "down"; "rnd"],
         (function
           | "near" -> opt_float_rounding := Apron.Texpr1.Near
@@ -120,7 +120,7 @@ let pp_float_interval fmt itv = F.fprint F.dfl_fmt fmt itv
 
 let compare_float_interval itv1 itv2 = F.compare itv1 itv2
 
-let prec : Ast.float_prec -> ItvUtils.FloatItvNan.prec = function
+let prec : Lang.Ast.float_prec -> ItvUtils.FloatItvNan.prec = function
     | F_SINGLE -> `SINGLE
     | F_DOUBLE -> `DOUBLE
     | F_LONG_DOUBLE -> `EXTRA

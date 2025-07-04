@@ -23,7 +23,6 @@
 
 open Core.All
 open Abstraction.Simplified
-open Mopsa_utils
 
 module type SIMPLIFIED_COMBINER =
 sig
@@ -84,7 +83,8 @@ struct
   let widen _ ctx (a,_) (a',_) = D.widen ctx a a'
 
   let init prog man flow =
-    let a' = D.init prog in
+    let a', assumptions = D.init prog in
+    let flow = Core.Utils.warn_assumptions assumptions flow in
     set_env T_cur a' man flow |>
     Option.some
 

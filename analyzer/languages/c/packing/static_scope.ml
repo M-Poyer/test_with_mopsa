@@ -28,10 +28,10 @@
     callee packs.
 *)
 
-open Mopsa
+open MopsaLib
 open Universal.Packing.Static
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Common.Base
 
 
@@ -111,7 +111,7 @@ struct
       key      = "-c-pack";
       category = "Numeric";
       doc      = " create a pack of variables (syntax: var,%function,%function.var,@resource)";
-      spec     = ArgExt.String parse_user_pack;
+      spec     = String (parse_user_pack, ArgExt.empty);
       default  = "";
     }
 
@@ -124,7 +124,7 @@ struct
       key      = "-c-pack-symargs";
       category = "Numeric";
       doc      = " create a user pack for variables related to symbolic arguments. This is equivalent to -c-pack=" ^ symargs_pack_string;
-      spec    = ArgExt.Unit add_symargs_pack;
+      spec    = Unit add_symargs_pack;
       default = "";
 
     }
@@ -135,7 +135,7 @@ struct
       key      = "-c-pack-only-stub-initialization";
       category = "Numeric";
       doc      = " pack only during Mopsa's stub initialization";
-      spec     = ArgExt.Set opt_pack_only_stubs;
+      spec     = Set opt_pack_only_stubs;
       default  = string_of_bool !opt_pack_only_stubs;
     }
 
@@ -145,7 +145,7 @@ struct
       key      = "-c-pack-resources";
       category = "Numeric";
       doc      = " pack variables based on resources (such as dynamically allocated blocks)";
-      spec     = ArgExt.Set opt_pack_resources;
+      spec     = Set opt_pack_resources;
       default  = string_of_bool !opt_pack_resources;
     }
 
@@ -247,7 +247,7 @@ struct
       try let _ = Str.search_forward (Str.regexp_string "share/mopsa/stubs/c/") file 0 in true
       with Not_found -> false in 
     (
-      Callstack.callstack_length cs > 0 &&
+      callstack_length cs > 0 &&
       not (is_range_in_mopsa_stubs @@ (ListExt.last cs).call_range)
       (* not (is_range_in_mopsa_stubs range) *)
     )
@@ -279,7 +279,7 @@ struct
     | Var { vkind = V_cvar {cvar_scope = Variable_parameter f}; vtyp }
       when is_c_scalar_type vtyp
       ->
-      let cs = find_ctx Context.callstack_ctx_key ctx in
+      let cs = find_ctx Context.control_ctx_key ctx |> ControlCtx.extract_callstack in
       if is_empty_callstack cs
       then packs_of_function ~user_only f.c_func_unique_name
       else
@@ -296,7 +296,7 @@ struct
     (*    eval_calls_in_args a *)
     | Var { vkind = V_range_attr(range, "arg"); vtyp }
       when is_c_scalar_type vtyp ->
-      let prog = find_ctx Ast.c_program_ctx ctx in
+      let prog = find_ctx Lang.Ast.c_program_ctx ctx in
       let o_caller = List.find_opt (fun f -> subset_range range f.c_func_range) prog.c_functions in
       OptionExt.apply (fun caller ->
           let o_callee = OptionExt.none_to_exn @@
@@ -323,7 +323,7 @@ struct
 
     (* Return variables are also part of the caller and the callee packs *)
     | Var { vkind = Universal.Iterators.Interproc.Common.V_return call } ->
-      let cs = find_ctx Context.callstack_ctx_key ctx in
+      let cs = find_ctx Context.control_ctx_key ctx |> ControlCtx.extract_callstack in
       let r = if is_empty_callstack cs
       then []
       else
@@ -343,7 +343,7 @@ struct
             | [] -> assert false 
           in
           process (List.rev cs) in
-        let () = debug "cs = %a@.fname = %s@.f1 = %a@.f2 = %a" Callstack.pp_callstack_short cs fname  (OptionExt.print (fun fmt x -> Format.pp_print_string fmt x.call_fun_uniq_name)) f1 (OptionExt.print (fun fmt x -> Format.pp_print_string fmt x.call_fun_uniq_name)) f2 in
+        let () = debug "cs = %a@.fname = %s@.f1 = %a@.f2 = %a" pp_callstack_short cs fname  (OptionExt.print (fun fmt x -> Format.pp_print_string fmt x.call_fun_uniq_name)) f1 (OptionExt.print (fun fmt x -> Format.pp_print_string fmt x.call_fun_uniq_name)) f2 in
         match f2, f1 with
         | None, None -> []
         | Some _, None -> assert false
@@ -408,7 +408,7 @@ struct
 
     | Addr { addr_kind = Stubs.Ast.A_stub_resource r;
              addr_partitioning = Universal.Heap.Policies.G_stack_range (cs, range) } when !opt_pack_resources ->
-      let prog = find_ctx Ast.c_program_ctx ctx in
+      let prog = find_ctx Lang.Ast.c_program_ctx ctx in
       let is_c_stub func =
         not (List.exists (fun c -> c.c_func_unique_name = func && c.c_func_stub = None) prog.c_functions) in
       let _path_contains p1 p2 =
@@ -441,7 +441,7 @@ struct
 
   (** Packing function returning packs of a variable *)
   let rec packs_of_var ctx v =
-    if !opt_pack_only_stubs && is_outside_stub_init (find_ctx callstack_ctx_key ctx) then
+    if !opt_pack_only_stubs && is_outside_stub_init (find_ctx control_ctx_key ctx |> ControlCtx.extract_callstack) then
       let () = debug "packs_of_var %a, globals due to pack_only_stubs" pp_var v in [Globals]
     else
     let () = debug "packs_of_var %a" pp_var v in

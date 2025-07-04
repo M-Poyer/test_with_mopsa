@@ -21,11 +21,11 @@
 
 (** Machine representation of C integers and floats *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
-open Ast
+open Lang.Ast
 open Common.Alarms
 module IntItv = Universal.Numeric.Values.Intervals.Integer.Value
 module FltItv = Universal.Numeric.Values.Intervals.Float.I
@@ -54,6 +54,15 @@ struct
 
   (** Command-line options *)
   (** ==================== *)
+  let opt_signed_arithmetic_overflow_wraparound = ref true
+  let () =
+    register_shared_option name {
+      key = "-c-signed-arithmetic-overflow-wraparound-semantics";
+      category = "C";
+      doc = " If true, signed overflows are represented through a wraparound semantics. If false, traces are cut after a signed overflow, as they are undefined behavior in the C standard.";
+      spec = Bool (fun b -> opt_signed_arithmetic_overflow_wraparound := b);
+      default = string_of_bool !opt_signed_arithmetic_overflow_wraparound;
+    }
 
   let opt_signed_arithmetic_overflow = ref true
   let () =
@@ -61,7 +70,7 @@ struct
       key = "-c-check-signed-arithmetic-overflow";
       category = "C";
       doc = " check overflows in signed integer arithmetic";
-      spec = ArgExt.Bool (fun b -> opt_signed_arithmetic_overflow := b);
+      spec = Bool (fun b -> opt_signed_arithmetic_overflow := b);
       default = "true";
     }
 
@@ -71,7 +80,7 @@ struct
       key = "-c-check-unsigned-arithmetic-overflow";
       category = "C";
       doc = " check overflows in unsigned integer arithmetic";
-      spec = ArgExt.Bool (fun b -> opt_unsigned_arithmetic_overflow := b);
+      spec = Bool (fun b -> opt_unsigned_arithmetic_overflow := b);
       default = "false";
     }
 
@@ -81,7 +90,7 @@ struct
       key = "-c-check-signed-implicit-cast-overflow";
       category = "C";
       doc = " check overflows in implicit casts to signed integer";
-      spec = ArgExt.Bool (fun b -> opt_signed_implicit_cast_overflow := b);
+      spec = Bool (fun b -> opt_signed_implicit_cast_overflow := b);
       default = "true";
     }
 
@@ -91,7 +100,7 @@ struct
       key = "-c-check-unsigned-implicit-cast-overflow";
       category = "C";
       doc = " check overflows in implicit casts to unsigned integer";
-      spec = ArgExt.Bool (fun b -> opt_unsigned_implicit_cast_overflow := b);
+      spec = Bool (fun b -> opt_unsigned_implicit_cast_overflow := b);
       default = "true";
     }
 
@@ -102,7 +111,7 @@ struct
       key = "-c-check-explicit-cast-overflow";
       category = "C";
       doc = " check overflows in explicit casts";
-      spec = ArgExt.Bool (fun b -> opt_explicit_cast_overflow := b);
+      spec = Bool (fun b -> opt_explicit_cast_overflow := b);
       default = "false";
     }
 
@@ -113,7 +122,7 @@ struct
       key = "-c-check-float-invalid-operation";
       category = "C";
       doc = " invalid float operations generate errors instead of silent NaN";
-      spec = ArgExt.Bool (fun b -> opt_float_invalid_operation := b);
+      spec = Bool (fun b -> opt_float_invalid_operation := b);
       default = "false";
     }
 
@@ -123,7 +132,7 @@ struct
       key = "-c-check-float-division-by-zero";
       category = "C";
       doc = " float divisions by 0 generate errors instead of infinities";
-      spec = ArgExt.Bool (fun b -> opt_float_division_by_zero := b);
+      spec = Bool (fun b -> opt_float_division_by_zero := b);
       default = "false";
     }
 
@@ -133,18 +142,18 @@ struct
       key = "-c-check-float-overflow";
       category = "C";
       doc = " float overflows generate errors";
-      spec = ArgExt.Bool (fun b -> opt_float_overflow := b);
+      spec = Bool (fun b -> opt_float_overflow := b);
       default = "false";
     }
 
-  let opt_mnum_fast_query = ref true
+  let opt_mnum_rela_query = ref false
   let () =
     register_domain_option name {
       key = "-c-check-overflows-with-relational";
       category = "C";
       doc = " check for overflows using the relational abstract domains too (more expensive but can be more precise)";
-      spec = ArgExt.Clear opt_mnum_fast_query;
-      default = string_of_bool !opt_mnum_fast_query;
+      spec = Set opt_mnum_rela_query;
+      default = string_of_bool !opt_mnum_rela_query;
     }
 
 
@@ -252,10 +261,10 @@ struct
         Eval.add_translation "Universal" nexp
       else
         let itv =
-          if not !opt_mnum_fast_query then
+          if !opt_mnum_rela_query then
             ask_and_reduce man.ask (Universal.Numeric.Common.mk_int_interval_query ~fast:false nexp) flow
-          else itv in 
-        if not !opt_mnum_fast_query && IntItv.subset itv ritv then
+          else itv in
+        if !opt_mnum_rela_query && IntItv.subset itv ritv then
           safe_c_integer_overflow_check range man flow |>
           Eval.singleton cexp |>
           Eval.add_translation "Universal" nexp
@@ -270,8 +279,13 @@ struct
                 raise_c_integer_overflow_alarm ~warning:true exp nexp typ range man flow flow
             else flow
           in
-          Eval.singleton cexp flow' |>
-          Eval.add_translation "Universal" nexp'
+          if is_c_signed_int_type typ && (not !opt_signed_arithmetic_overflow_wraparound) then
+            (* do not take into account the wraparound semantics *)
+            Eval.singleton cexp flow' |>
+            Eval.add_translation "Universal" nexp
+          else
+            Eval.singleton cexp flow' |>
+            Eval.add_translation "Universal" nexp'
     in
     match ekind cexp with
     (* Arithmetics on signed integers may overflow *)

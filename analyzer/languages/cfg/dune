@@ -1,5 +1,0 @@
-(library
- (name cfg)
- (public_name mopsa.mopsa_analyzer.cfg)
- (library_flags -linkall)
- (libraries mopsa framework universal))

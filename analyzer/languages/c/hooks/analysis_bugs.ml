@@ -27,9 +27,9 @@
     transfer function.
 *)
 
-open Mopsa
+open MopsaLib
 open Format
-open Ast
+open Lang.Ast
 open Stubs.Ast
 
 
@@ -71,7 +71,7 @@ struct
   let () = register_language_option "C" {
       key = "-c-analysis-bugs-whitelist";
       doc = "whitelist of non-terminating functions";
-      spec = ArgExt.Set_string_list opt_whitelist;
+      spec = String (ArgExt.set_string_list_lifter opt_whitelist, ArgExt.empty);
       category = "C Hooks";
       default = "";
     }
@@ -215,8 +215,16 @@ struct
       ->
       add_call_bug exp (Flow.get_callstack flow)
 
+    | E_binop(op, e1, e2) when
+        is_c_num_type exp.etyp &&
+        not (is_cur_bottom_in_flow man flow) &&
+        is_comparison_op op &&
+        not (Cases.exists_result (fun _ _ -> true) evl)
+      ->
+      add_call_bug exp (Flow.get_callstack flow)
+
     | _ -> ()
-    
+
 
   let on_finish man flow =
     let () = remove_redundant_bugs () in

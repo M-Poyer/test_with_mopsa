@@ -21,8 +21,8 @@
 
 (** Interval abstraction of integer values. *)
 
-open Mopsa
-open Ast
+open MopsaLib
+open Lang.Ast
 open Bot
 open Sig.Abstraction.Simplified_value
 open Common
@@ -46,6 +46,8 @@ struct
   let accept_type = function
     | T_int | T_bool -> true
     | _ -> false
+
+  let domain_assumptions = []
 
   let bottom = BOT
 

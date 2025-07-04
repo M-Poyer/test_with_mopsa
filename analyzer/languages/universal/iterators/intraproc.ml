@@ -21,9 +21,9 @@
 
 (** Intra-procedural iterator for blocks, assignments and tests *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
+open Lang.Ast
 open Numeric.Common
 
 (******************)
@@ -49,10 +49,11 @@ let () = register_marker {
         | _ ->
           next m1 m2
       );
-    marker_name = (fun next -> function
+    marker_print_name = (fun next -> function
         | M_if _ -> "if"
         | m -> next m
       );
+    marker_name = "if";
   }
 
 (**********************)

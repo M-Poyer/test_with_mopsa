@@ -24,12 +24,12 @@
    Borrows the syntax and semantics from universal.
 *)
 
-open Mopsa
+open MopsaLib
 open Mopsa_universal_parser
 open Sig.Abstraction.Stateless
 open Lexing
-open Universal.Ast
-open Universal.Frontend
+open Universal.Lang.Ast
+open Universal.Lang.Frontend
 open Debug
 
 
@@ -332,4 +332,5 @@ let () =
   register_frontend {
     lang = "repl";
     parse = parse_program;
+    on_panic = fun _ _ _ -> ();
   }

@@ -21,12 +21,13 @@
 
 (** Python standard library. *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Addr
-open Ast
-open Universal.Ast
+open Lang.Addr
+open Lang.Ast
+open Universal.Lang.Ast
 open MapExt
+open Lang
 
 module Domain =
 struct
@@ -38,7 +39,7 @@ struct
   let checks = []
 
   type stub_signature = {in_args: string list;
-                         out_type: Mopsa.typ}
+                         out_type: typ}
   type stub_db = stub_signature StringMap.t
 
   let add_signature funname in_args out_type db =

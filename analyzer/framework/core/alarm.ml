@@ -23,6 +23,7 @@ open Mopsa_utils
 open Lattice
 open Location
 open Callstack
+open ControlCtx
 open Format
 
 
@@ -325,6 +326,8 @@ type assumption_kind = ..
 
 type assumption_kind += A_ignore_unsupported_stmt of Ast.Stmt.stmt
 type assumption_kind += A_ignore_unsupported_expr of Ast.Expr.expr
+type assumption_kind += A_prototype_domain of string
+type assumption_kind += A_no_guaranteed_termination_domain of string
 
 type assumption = {
   assumption_scope : assumption_scope;
@@ -341,6 +344,12 @@ let assumption_compare_chain : assumption_kind TypeExt.compare_chain =
        | A_ignore_unsupported_expr e1, A_ignore_unsupported_expr e2 ->
          Ast.Expr.compare_expr e1 e2
 
+       | A_prototype_domain s1, A_prototype_domain s2 ->
+         compare s1 s2
+
+       | A_no_guaranteed_termination_domain s1, A_no_guaranteed_termination_domain s2 ->
+         compare s1 s2
+
        | _ -> compare a1 a2
     )
 
@@ -355,6 +364,12 @@ let assumption_print_chain : assumption_kind TypeExt.print_chain =
        | A_ignore_unsupported_expr e ->
          Format.fprintf fmt "ignoring unsupported expression '%a'"
            (Debug.bold Ast.Expr.pp_expr) e
+
+       | A_prototype_domain s ->
+         Format.fprintf fmt "domain '%s' is a prototype, it may contain bugs!" s
+
+       | A_no_guaranteed_termination_domain s ->
+         Format.fprintf fmt "domain '%s' is not guaranteed to terminate!" s
 
        | _ -> Exceptions.panic "Print of unregistered assumption"
     )

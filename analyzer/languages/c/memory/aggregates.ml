@@ -27,10 +27,10 @@
     abstractions to handle the full C language.
 *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 open Stubs.Ast
 open Common.Base
 open Common.Points_to
@@ -61,7 +61,7 @@ struct
   let () = register_domain_option name {
       key  = "-c-init-memset-threshold";
       doc  = " Size threshold (in bytes) for using memset to initialize memory blocks instead of a sequence of assignments";
-      spec = ArgExt.Set_int opt_init_memset_threshold;
+      spec = Set_int (opt_init_memset_threshold, ArgExt.empty);
       category = "C";
       default = string_of_int !opt_init_memset_threshold;
     }
@@ -120,7 +120,7 @@ struct
     if is_c_record_type typ then flatten_record_init init offset typ range flow
     else panic_at ~loc:__LOC__ range
         "init %a of type %a not supported"
-        (OptionExt.print Pp.pp_c_init) init pp_typ typ
+        (OptionExt.print Lang.Pp.pp_c_init) init pp_typ typ
 
   and flatten_scalar_init init offset typ range flow =
     match init with
@@ -128,7 +128,7 @@ struct
     | Some (C_init_expr e) -> [(e,offset, typ)],[]
     (* a scalar initializer can be optionnaly enclosed in braces *)
     | Some (C_init_list ([C_init_expr e], _)) -> [(e,offset, typ)],[]
-    | Some init -> panic_at range "unsupported scalar initializer %a for type %a" Pp.pp_c_init init pp_typ typ;
+    | Some init -> panic_at range "unsupported scalar initializer %a for type %a" Lang.Pp.pp_c_init init pp_typ typ;
 
   and flatten_array_init init offset typ range flow =
     if is_c_no_length_array_type typ
@@ -178,7 +178,7 @@ struct
               aux i [C_init_list (l, None)] acc1 acc2
 
             | Some x ->
-              panic_at range "initialization filler %a not supported" Pp.pp_c_init x
+              panic_at range "initialization filler %a not supported" Lang.Pp.pp_c_init x
       in
       let l1,l2 = aux 0 l [] [] in
       List.rev l1, List.rev l2
@@ -201,7 +201,7 @@ struct
       List.rev l1, List.rev l2
 
     (* wide strings *)
-    | Some (Ast.C_init_expr {ekind = E_constant(C_c_string (s, _)); etyp = t; erange}) ->
+    | Some (Lang.Ast.C_init_expr {ekind = E_constant(C_c_string (s, _)); etyp = t; erange}) ->
       let char_size = sizeof_type under_typ flow in
       let nchar_size = Z.to_int char_size in
       let len = String.length s / nchar_size in
@@ -221,7 +221,7 @@ struct
       let l1,l2 = aux 0 [] [] in
       List.rev l1, List.rev l2
 
-    | Some (Ast.C_init_expr e) ->
+    | Some (Lang.Ast.C_init_expr e) ->
       let rec aux i acc1 acc2 =
         let o = Z.add offset (Z.mul (Z.of_int i) (sizeof_type under_typ flow)) in
         if Z.equal (Z.of_int i) n
@@ -236,7 +236,7 @@ struct
 
     | _ -> panic_at range ~loc:__LOC__
              "flatten_array_init: %a is not supported"
-             Pp.pp_c_init (OptionExt.none_to_exn init)
+             Lang.Pp.pp_c_init (OptionExt.none_to_exn init)
 
 
   and flatten_record_init init offset typ range flow =
@@ -303,7 +303,7 @@ struct
 
 
     | _ -> panic_at ~loc:__LOC__ range "initialization %a is not supported"
-             Pp.pp_c_init (OptionExt.none_to_exn init)
+             Lang.Pp.pp_c_init (OptionExt.none_to_exn init)
 
   let mk_typed_zero typ range =
     if is_c_int_type typ then

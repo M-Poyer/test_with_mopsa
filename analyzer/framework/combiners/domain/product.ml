@@ -22,7 +22,6 @@
 (** Reduced product combiner with n-ary reduction rules *)
 
 
-open Mopsa_utils
 open Core.All
 open Sig.Reduction.Exec
 open Sig.Reduction.Eval

@@ -40,6 +40,7 @@ open Mopsa_utils
 open Lattice
 open Context
 open Location
+open ControlCtx
 open Callstack
 open Format
 
@@ -215,6 +216,8 @@ type assumption_kind = ..
     unsupported statements/expressions *)
 type assumption_kind += A_ignore_unsupported_stmt of Ast.Stmt.stmt
 type assumption_kind += A_ignore_unsupported_expr of Ast.Expr.expr
+type assumption_kind += A_prototype_domain of string
+type assumption_kind += A_no_guaranteed_termination_domain of string
 
 type assumption = {
   assumption_scope : assumption_scope;

@@ -21,11 +21,11 @@
 
 (** Abstraction of C function calls *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Domain
-open Universal.Ast
+open Universal.Lang.Ast
 open Stubs.Ast
-open Ast
+open Lang.Ast
 open Common
 open Common.Points_to
 open Common.Scope_update
@@ -41,7 +41,7 @@ let () =
     key="-error-is-builtin";
     category = "C";
     doc = "assume error function corresponds to the builtin";
-    spec = ArgExt.Bool (fun b -> opt_error_builtin := b);
+    spec = Bool (fun b -> opt_error_builtin := b);
     default = "true"
   }
 
@@ -124,7 +124,7 @@ struct
   let is_recursive_call f range flow =
     let f_orig = f.c_func_org_name in
     let f_uniq = f.c_func_unique_name in
-    let cs = Callstack.push_callstack f_orig ~uniq:f_uniq range (Flow.get_callstack flow) in
+    let cs = push_callstack f_orig ~uniq:f_uniq range (Flow.get_callstack flow) in
     Universal.Iterators.Interproc.Common.check_recursion f_orig f_uniq range cs
 
   let is_local_scope = function
@@ -367,7 +367,7 @@ struct
 
   (** Eval a function call *)
   let eval_call fundec args range man flow =
-    let fundec_has_been_modified = ref false in 
+    let fundec_has_been_modified = ref false in
     if List.length args > 0 && List.length fundec.c_func_parameters > 0 then
       debug "%s %a %a" fundec.c_func_org_name pp_typ (List.hd fundec.c_func_parameters).vtyp pp_typ (List.hd args).etyp;
     if fundec.c_func_org_name = "__builtin_alloca" then
@@ -400,7 +400,7 @@ struct
        * all paritions, since we can't keep a relation between the partitions
        * before calling the function and the paritions after the return *)
       let caller_alloca_addrs = Cases.reduce_result
-          (fun addrs _ -> addrs) caller_alloca_addrs 
+          (fun addrs _ -> addrs) caller_alloca_addrs
           ~join:AddrSet.join
           ~meet:AddrSet.meet
           ~bottom:(fun () -> AddrSet.bottom)
@@ -426,11 +426,11 @@ struct
         )
         else
          let is_modified, fundec = rename_variables_in_fundec (Flow.get_callstack flow) fundec in
-         let () = fundec_has_been_modified := is_modified in 
+         let () = fundec_has_been_modified := is_modified in
          let flow =
-           if !fundec_has_been_modified then 
+           if !fundec_has_been_modified then
            (* after fundec renaming, we save the updated program in the context for the interactive engine *)
-             let old_c_program = get_c_program flow in 
+             let old_c_program = get_c_program flow in
              let new_c_program =
                {old_c_program with
                 c_functions = fundec :: old_c_program.c_functions } in
@@ -438,14 +438,14 @@ struct
            else flow in
          match fundec with
          | {c_func_body = Some body; c_func_stub = None; c_func_variadic = false} ->
-           let open Universal.Ast in
+           let open Universal.Lang.Ast in
            let body' =
              if exists_stmt
                  (fun e -> false)
                  (fun s -> match skind s with S_c_goto _ -> true | _ -> false)
                  body
              then
-               {skind = S_c_goto_stab (body); srange = tag_range (srange body) "goto-stabilization"}
+               {skind = S_c_goto_stab (body); srange = tag_range (srange body) "goto-stabilization"; ssynthetic=true }
              else body
            in
            let fundec' = {
@@ -532,7 +532,7 @@ struct
         man.eval (mk_top (under_type p.etyp) range) flow
 
     | P_null ->
-      Common.Alarms.raise_c_null_deref_alarm p man flow |> Eval.empty 
+      Common.Alarms.raise_c_null_deref_alarm p man flow |> Eval.empty
 
     | _ ->
       panic_at range

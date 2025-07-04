@@ -21,11 +21,11 @@
 
 (** Inter-procedural iterator by inlining.  *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Ast
+open Lang.Ast
 open Common
-
+open ControlCtx
 
 (** {2 Domain definition} *)
 (** ===================== *)
@@ -57,7 +57,7 @@ struct
   let init prog man (flow: 'a flow) =
     Flow.set_ctx (
       Flow.get_ctx flow |>
-      add_ctx Context.callstack_ctx_key empty_callstack
+      add_ctx Context.control_ctx_key empty_control_ctx
     ) flow |>
     Post.return |>
     Option.some

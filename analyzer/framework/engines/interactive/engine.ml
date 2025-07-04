@@ -21,12 +21,12 @@
 
 (** Engine for interactive analysis sessions *)
 
-open Mopsa_utils
 open Core.All
 open Toplevel
 open Format
 open Location
 open Callstack
+open ControlCtx
 open Breakpoint
 open Query
 module I = Interface

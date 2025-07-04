@@ -25,8 +25,6 @@ open Core.All
 open Sig.Abstraction.Value
 open Sig.Reduction.Value
 open Common
-open Mopsa_utils
-
 
 
 module MakeValuePair(V1:VALUE)(V2:VALUE) : VALUE with type t = V1.t * V2.t =
@@ -119,6 +117,7 @@ struct
       (V1.ask (v1_man man) query)
       (V2.ask (v2_man man) query)
 
+  let domain_assumptions = V1.domain_assumptions @ V2.domain_assumptions
 end
 
 module Make(V:VALUE)(R:sig val rules: (module VALUE_REDUCTION) list end) : VALUE with type t = V.t =

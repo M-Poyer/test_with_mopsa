@@ -21,11 +21,12 @@
 
 (** Desugaring loops into a usual case *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Addr
-open Universal.Ast
-open Ast
+open Lang.Addr
+open Lang.Ast
+open Lang
+open Universal.Lang.Ast
 
 let opt_desugar_for_range = ref true
 let opt_desugar_for_tuple = ref true
@@ -35,14 +36,14 @@ let () =
       key = "-py-disable-desugar-for-range";
       category = "Loops";
       doc = " disable the special desugaring on for-range-based loops (desugaring not worth it when no numerical domains are available)";
-      spec = ArgExt.Clear opt_desugar_for_range;
+      spec = Clear opt_desugar_for_range;
       default = "enabled";
     };
   register_language_option "python" {
       key = "-py-disable-desugar-for-tuple";
       category = "Loops";
       doc = " disable the special desugaring on for ... in (...) loops";
-      spec = ArgExt.Clear opt_desugar_for_tuple;
+      spec = Clear opt_desugar_for_tuple;
       default = "enabled";
     }
 

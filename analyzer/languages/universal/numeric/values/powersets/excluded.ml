@@ -21,9 +21,9 @@
 
 (** Finite sets of possibly included or definitely excluded integer constants *)
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Simplified_value
-open Ast
+open Lang.Ast
 open Common
 
 
@@ -96,7 +96,7 @@ struct
       key = "-max-excluded-set-size";
       category = "Numeric";
       doc = " maximum size of integer sets for the excluded powerset";
-      spec = ArgExt.Set_int opt_max_intset;
+      spec = Set_int (opt_max_intset,ArgExt.empty);
       default = string_of_int !opt_max_intset;
     }
 
@@ -360,6 +360,8 @@ struct
     with Z.Overflow -> top
 
   include DefaultValueFunctions
+
+  let domain_assumptions = [A_prototype_domain name]
 
   let avalue : type r. r avalue_kind -> t -> r option =
     fun aval a ->

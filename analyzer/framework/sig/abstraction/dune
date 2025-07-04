@@ -1,5 +1,0 @@
-(library
- (name abstraction)
- (public_name mopsa.mopsa_analyzer.framework.sig.abstraction)
- (library_flags -linkall)
- (libraries core))

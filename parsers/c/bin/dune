@@ -2,4 +2,6 @@
  (name build_wrapper)
  (public_name build_wrapper.exe)
  (package mopsa)
- (libraries mopsa_build_db mopsa_utils unix))
+ (libraries mopsa_build_db mopsa_utils unix)
+ (flags (:standard -open Mopsa_utils.Core -open Mopsa_utils.Containers))
+)

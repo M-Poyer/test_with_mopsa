@@ -1,0 +1,76 @@
+(****************************************************************************)
+(*                                                                          *)
+(* This file is part of MOPSA, a Modular Open Platform for Static Analysis. *)
+(*                                                                          *)
+(* Copyright (C) 2017-2019 The MOPSA Project.                               *)
+(*                                                                          *)
+(* This program is free software: you can redistribute it and/or modify     *)
+(* it under the terms of the GNU Lesser General Public License as published *)
+(* by the Free Software Foundation, either version 3 of the License, or     *)
+(* (at your option) any later version.                                      *)
+(*                                                                          *)
+(* This program is distributed in the hope that it will be useful,          *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of           *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *)
+(* GNU Lesser General Public License for more details.                      *)
+(*                                                                          *)
+(* You should have received a copy of the GNU Lesser General Public License *)
+(* along with this program.  If not, see <http://www.gnu.org/licenses/>.    *)
+(*                                                                          *)
+(****************************************************************************)
+
+(** Control context - representation of the call stack and loop analysis positino of a program analysis *)
+
+open Location
+open Callstack
+
+(** {1 Loop sites} *)
+(** ************** *)
+
+type loop_info =
+  | Unrolling of int
+  | Fixpoint_iteration
+
+type loopsite = {
+  loop_range: range;
+  loop_info: loop_info;
+}
+
+(** {2 Control context} *)
+(** *************** *)
+
+type control_info =
+  | Call of callsite
+  | Loop of loopsite
+
+type control_ctx = control_info list
+
+val extract_callstack : control_ctx -> callstack
+
+val within_enriched_loop_ctx : control_ctx -> loopsite -> (control_ctx -> 'a) -> 'a
+
+val push_callstack : string -> ?uniq:string -> range -> control_ctx -> control_ctx
+(** [push_callstack orig ~uniq range cs] adds the call to function
+    [orig] at location [range] at the top of the call stack [cs].
+    The default unique function name of the function is its original name. *)
+
+exception Bad_control_ctx
+(** Exception raised when a Call is expected at the top of the control context and a Loop is found (or conversely) *)
+
+val pop_callstack : control_ctx -> callsite * control_ctx
+(** [pop_callstack cc] returns the last call site in [cc] and the remaining control context
+    Raises [Empty_callstack] if the call stack is empty.
+    Raises [Bad_control_ctx] if the control context starts with Loop info.
+*)
+
+val pp_control_ctx : Format.formatter -> control_ctx -> unit
+(** Print control context *)
+
+val compare_control_ctx : control_ctx -> control_ctx -> int
+(** Compare control context *)
+
+val empty_control_ctx : control_ctx
+(** Empty control context *)
+
+val is_empty_control_ctx : control_ctx -> bool
+(** Check that a control context is empty *)

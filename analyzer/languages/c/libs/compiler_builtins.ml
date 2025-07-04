@@ -23,10 +23,10 @@
 (** Evaluation of compiler's builtin functions *)
 
 
-open Mopsa
+open MopsaLib
 open Sig.Abstraction.Stateless
-open Universal.Ast
-open Ast
+open Universal.Lang.Ast
+open Lang.Ast
 
 
 module Domain =
