@@ -38,18 +38,20 @@
    11    int x = 42;
 [1;38;5;45m𝕊[0m [1;38;5;45m⟦[0m return b; [1;38;5;45m⟧[0m
  float-itv ∪ int-itv : 
-    offset⦃s⦄ : [0,0],
-    x : [3,3] ,
+    x : [3,3],
+    offset⦃s⦄ : [0,0] ,
  pointers : 
     s : {  ""  }  
+    s:interactive.c:10.2-16 : { NULL },
+    s:interactive.c:4.2-14 : { "" }  
  float-itv ∪ int-itv : 
     x : [42,42]  
  float-itv ∪ int-itv : 
     x : [3,3]  
  float-itv ∪ int-itv : 
-    offset⦃s⦄ : [0,0],
     x : [3,3],
-    x : [42,42] ,
+    x : [42,42],
+    offset⦃s⦄ : [0,0] ,
  pointers : 
     s : {  ""  },
     s : {  NULL  }  
@@ -59,19 +61,17 @@
     offset⦃s⦄ : [0,0] ,
  pointers : 
     s : {  ""  }  
-Raised by primitive operation at Interactive__Terminal.Make.pp_output_command in file "analyzer/framework/engines/interactive/terminal.ml", line 618, characters 47-83
-Called from Interactive__Terminal.Make.read_command in file "analyzer/framework/engines/interactive/terminal.ml", line 855, characters 6-54
-Called from Interactive__Engine.Make.interact in file "analyzer/framework/engines/interactive/engine.ml", line 228, characters 14-78
-Called from Interactive__Engine.Make.interact_or_apply_action in file "analyzer/framework/engines/interactive/engine.ml", line 286, characters 10-30
-Called from Core__Post.bind.(fun) in file "analyzer/framework/core/post.ml", line 53, characters 37-45
-Called from Core__Post.bind in file "analyzer/framework/core/post.ml", line 53, characters 2-46
+Raised by primitive operation at Mopsa_analyzer__Framework__Engines__Interactive__Terminal.Make.pp_output_command in file "analyzer/framework/engines/interactive/terminal.ml", line 617, characters 47-83
+Called from Mopsa_analyzer__Framework__Engines__Interactive__Terminal.Make.read_command in file "analyzer/framework/engines/interactive/terminal.ml", line 854, characters 6-54
+Called from Mopsa_analyzer__Framework__Engines__Interactive__Engine.Make.interact in file "analyzer/framework/engines/interactive/engine.ml", line 228, characters 14-78
+Called from Mopsa_analyzer__Framework__Engines__Interactive__Engine.Make.interact_or_apply_action in file "analyzer/framework/engines/interactive/engine.ml", line 286, characters 10-30
+Called from Mopsa_analyzer__Framework__Core__Post.bind.(fun) in file "analyzer/framework/core/post.ml", line 53, characters 37-45
+Called from Mopsa_analyzer__Framework__Core__Post.bind in file "analyzer/framework/core/post.ml", line 53, characters 2-46
 Called from Stdlib__List.fold_left in file "list.ml", line 121, characters 24-34
-Called from Universal_iterators__Intraproc.Domain.exec in file "analyzer/languages/universal/iterators/intraproc.ml", line 163, characters 19-98
-Called from Combiners_common__Common.cascade_stateless_call.(fun) in file "analyzer/framework/combiners/common/common.ml", line 230, characters 13-29
-Called from Combiners_common__Common.cascade_stateless_call.(fun) in file "analyzer/framework/combiners/common/common.ml", line 230, characters 13-29
-Called from Combiners_common__Common.cascade_call.(fun) in file "analyzer/framework/combiners/common/common.ml", line 187, characters 13-44
-Called from Combiners_common__Common.cascade_call.(fun) in file "analyzer/framework/combiners/common/common.ml", line 187, characters 13-44
-Called from Core__Cache.Make.exec in file "analyzer/framework/core/cache.ml", line 131, characters 19-34
-Called from Toplevel.Make.exec.(fun) in file "analyzer/framework/toplevel/toplevel.ml", line 235, characters 16-52
-Called from Interactive__Engine.Make.apply_action in file "analyzer/framework/engines/interactive/engine.ml", line 217, characters 16-50
-Called from Interactive__Engine.Make.interact_or_apply_action in file "analyzer/framework/engines/interactive/engine.ml", line 288, characters 10-34
+Called from Mopsa_analyzer__Languages__Universal__Iterators__Intraproc.Domain.exec in file "analyzer/languages/universal/iterators/intraproc.ml", line 164, characters 19-98
+Called from Mopsa_analyzer__Framework__Combiners__Common.cascade_stateless_call.(fun) in file "analyzer/framework/combiners/common/common.ml", line 228, characters 13-29
+Called from Mopsa_analyzer__Framework__Combiners__Common.cascade_stateless_call.(fun) in file "analyzer/framework/combiners/common/common.ml", line 228, characters 13-29
+Called from Mopsa_analyzer__Framework__Combiners__Common.cascade_call.(fun) in file "analyzer/framework/combiners/common/common.ml", line 185, characters 13-44
+Called from Mopsa_analyzer__Framework__Combiners__Common.cascade_call.(fun) in file "analyzer/framework/combiners/common/common.ml", line 185, characters 13-44
+Called from Mopsa_analyzer__Framework__Core__Cache.Make.exec in file "analyzer/framework/core/cache.ml", line 131, characters 19-34
+Called from Mopsa_analyzer__Framework__Toplevel.Make.exec.(fun) in file "analyzer/framework/toplevel/toplevel.ml", line 234, characters 16-52
