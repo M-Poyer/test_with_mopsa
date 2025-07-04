@@ -72,6 +72,7 @@ struct
     | F_DOUBLE -> I.double_special
     | F_LONG_DOUBLE -> I.extra
     | F_FLOAT128 -> I.extra
+    | F_FLOAT16 -> I.extra (* TODO: fix half-float precision *)
     | F_REAL -> I.real
 
   (* Relative precision of float types.
@@ -79,6 +80,7 @@ struct
      that t2 can, and there is no rounding error.
    *)
   let prec_level = function
+    | F_FLOAT16 -> 0
     | F_SINGLE -> 1
     | F_DOUBLE -> 2
     | F_LONG_DOUBLE -> 3

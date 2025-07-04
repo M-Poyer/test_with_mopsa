@@ -35,7 +35,6 @@
    We support C and a subset of C++.
 
    Not necessarily supported:
-   - attributes
    - C++ coroutines
    - C++ structured exception handling
    - Visual C++ specific (#pragma comment, etc.)
@@ -147,6 +146,7 @@ type name = {
      enum_cst_val: Z.t;
      enum_cst_range: range;
      enum_cst_com: comment list;
+     enum_cst_attrs: attr list;
    }
  (** enum constant declaration in an enum. *)
 
@@ -162,6 +162,7 @@ type name = {
      field_variable_length_array: expr option; (** whether this field captures the variable length array type, and the corresponding size expression *)
      field_range: range;
      field_com: comment list;
+     field_attrs: attr list;
    }
  (** field declaration in a struct or union. *)
 
@@ -231,6 +232,7 @@ type name = {
      function_template: function_template_specialization option; (** (C++) template origin *)
      function_overloaded_operator: overloaded_operator option; (** (C++) whether this is an overloaded operator *)
      function_method: cxx_method_decl option; (** (C++) additional information for methods; None if not a method *)
+
    }
  (** Represents a function declaration or definition. *)
 
@@ -302,6 +304,27 @@ type name = {
    }
  (** Type qualifiers. *)
 
+  and attr_syntax =
+    | AS_GNU (** attribute((...)) *)
+    | AS_CXX11 (** [[...]] *)
+    | AS_C23 (** [[...]] *)
+    | AS_Declspec (** __declspec(...) *)
+    | AS_Microsoft (** [uuid("...")] class Foo *)
+    | AS_Keyword (** __ptr16, alignas(...), etc. *)
+    | AS_Pragma (** #pragma ... *)
+    | AS_ContextSensitiveKeyword (** Context-sensitive version of a keyword attribute. *)
+    | AS_HLSLAnnotation (** <vardecl> : <annotation> *)
+    | AS_Implicit (** The attibute has no source code manifestation and is only created implicitly. *)
+ (** The style used to specify an attribute. *)
+
+ and attr = {
+     attr_syntax: attr_syntax;
+     attr_name: string option;
+     attr_spelling: string;
+     attr_print: string; (** how to print the attribute, with its arguments in source code *)
+ }
+ (** Attributes (for types, statments, declarations) *)
+
  and typ =
 
    (* C TYPES *)
@@ -314,8 +337,8 @@ type name = {
 
    | AtomicType of type_qual
 
-   | AttributedType of type_qual
-   (** An attributed type is a type to which a type attribute has been applied. TODO: attribute information. *)
+   | AttributedType of type_qual * (attr option)
+   (** An attributed type is a type to which a type attribute has been applied. *)
 
    | BuiltinType of builtin_type
 
@@ -444,7 +467,7 @@ type name = {
    | Type_Double (** double *)
    | Type_LongDouble (** long double *)
    | Type_Float128 (** __float128  *)
-   | Type_NullPtr (** (C++0x) nullptr *)
+   | Type_NullPtr (** nullptr *)
    | Type_ObjCId (** primitive ObjC id *)
    | Type_ObjCClass (** pimitive ObjC Class *)
    | Type_ObjCSel (** primitive ObjC SEL *)
@@ -461,6 +484,8 @@ type name = {
    | Type_BuiltinFn (** *)
    | Type_ARCUnbridgedCast (** case which in ARC would normally requier a __bridge *)
    | Type_OMPArraySection (** placeholder type for OpenMP array sections *)
+   | Type_Float16 (** _Float16 *)
+   | Type_BFloat16  (** __bf16 *)
    | Type_unknown_builtin of string
  (** Builtin types *)
 
@@ -673,6 +698,7 @@ and type_qual = typ * qual
      decl_access: access_specifier; (** (C++) access specifier *)
      decl_range: range;
      decl_comment: comment list; (** comment associated to the declaration *)
+     decl_attrs: attr list; (** attributes *)
    }
  (** Represents one declaration (or definition), e.g. a variable, typedef, function, struct, etc. *)
 
@@ -1035,6 +1061,7 @@ and atomic_expr = {
    | CXXReinterpretCast (** (C++) A C++ reinterpret_cast *)
    | CXXStaticCast (** (C++) A C++ static_cast *)
    | ImplicitCast (** Implicit type conversions, which have no direct representation in the original source code *)
+   | BuiltinBitCast (** C++2a __builtin_bit_cast(T, v), used to implement std::bit_cast  *)
  (** Different categories of type conversion *)
 
  and character_kind =
@@ -1317,9 +1344,13 @@ and atomic_expr = {
 
  and expr_with_cleanups = {
      cleanup_expr: expr;
-     cleanup_cleanups: block_decl array;
+     cleanup_cleanups: cleanup_object array;
    }
  (** (C++) Represents an expression – generally a full-expression – that introduces cleanups to be run at the end of the sub-expression's evaluation.The most common source of expression-introduced cleanups is temporary objects in C++, but several other kinds of expressions can create cleanups, including basically every call in ARC that returns an Objective-C pointer. This expression also tracks whether the sub-expression contains a potentially-evaluated block literal. The lifetime of a block literal is the extent of the enclosing scope. *)
+
+ and cleanup_object =
+  | Cleanup_block_decl of block_decl
+  | Cleanup_compound_literal_expr of expr
 
  and block_decl = {
      block_body: stmt option; (** if this represents a declaration for a body of code, such as a function or method definition, this is the top-level stmt of the body; otherwise None *)
@@ -1765,8 +1796,8 @@ and expr = {
    | AsmStmt of asm_stmt
    (** Assembly statement *)
 
-   | AttributedStmt of stmt
-   (** Represents an attribute applied to a statement. TODO: attributes *)
+   | AttributedStmt of stmt * (attr list)
+   (** Represents an attribute applied to a statement. *)
 
    | BreakStmt of loc (** destination *)
    (** This represents a break. *)

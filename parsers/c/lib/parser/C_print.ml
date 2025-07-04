@@ -121,12 +121,14 @@ let integer_suffix = function
   | UNSIGNED_LONG_LONG | UNSIGNED_INT128 -> "ULL"
 
 let string_of_float_type = function
+  | FLOAT16 -> "_Float16"
   | FLOAT -> "float"
   | DOUBLE -> "double"
   | LONG_DOUBLE -> "long double"
   | FLOAT128 -> "__float128"
 
 let float_suffix = function
+  | FLOAT16 -> "f16"
   | FLOAT -> "F"
   | DOUBLE -> ""
   | LONG_DOUBLE -> "L"
@@ -194,7 +196,7 @@ let rec prio_expr ((e,_,_):expr) =
   | E_unary _ | E_increment (_,PRE,_) | E_cast _ | E_address_of _ | E_deref _ -> 13
   | E_increment (_,POST,_) | E_array_subscript _ | E_member_access _ | E_arrow_access _ | E_call _ -> 14
   | E_character_literal _ | E_integer_literal _ | E_float_literal _
-  | E_string_literal _ | E_compound_literal _
+  | E_string_literal _ | E_compound_literal _ | E_null_ptr
   | E_variable _ | E_function _ | E_predefined _ | E_statement _
   | E_var_args _ | E_atomic _
   | E_convert_vector _ | E_vector_element _ | E_shuffle_vector _
@@ -206,12 +208,32 @@ let force_paren prio =
 (* force the arguments of <<, >>, etc., to have parentheses, even when useless,
    but this avoids compiler warnings *)
 
-let is_comma ((e,_,_):expr) =
+let rec is_comma ((e,_,_):expr) =
   match e with
   | E_comma _ -> true
+  | E_cast (e,IMPLICIT) when ignore_implicit_casts -> is_comma e
   | _ -> false
 (* comma expressions are special and require extra parentheses in many contexts *)
 
+
+let attr_should_print a =
+  (* TODO asm attribute printing mess up C output, disbling for now *)
+  a.Clang_AST.attr_syntax <> Clang_AST.AS_Implicit &&
+  a.Clang_AST.attr_spelling <> "asm"
+
+let c_buf_attr_inline buf a =
+  if attr_should_print a then
+    bp buf "%s " a.Clang_AST.attr_print
+
+let c_buf_attr indent buf a =
+  if attr_should_print a then
+    bp buf "%s%s\n" indent a.Clang_AST.attr_print
+
+let c_buf_attrs_inline buf =
+  List.iter (c_buf_attr_inline buf)
+
+let c_buf_attrs indent buf =
+  List.iter (c_buf_attr indent buf)
 
 let rec raw_buf_type_qual buf (t,q) =
   bp buf "%s%a" (string_of_qualifier q) raw_buf_type t
@@ -232,6 +254,7 @@ and raw_buf_type buf = function
     | T_complex f -> bp buf "%s _Complex" (string_of_float_type f)
     | T_vector v -> bp buf "vector(%a, %i, %i)" raw_buf_type_qual v.vector_type v.vector_size v.vector_kind
     | T_unknown_builtin s -> bp_str buf s
+    | T_attributed (t,a) -> bp buf "attributed(%a, %s)" raw_buf_type t a.attr_print
 (* raw (non-C) representation of a type, somewhat more clear than C sytnax *)
 
 
@@ -263,6 +286,7 @@ and c_buf_type_base buf (t,q) = match t with
   | T_complex f -> bp buf "%s%s _Complex" (string_of_qualifier q) (string_of_float_type f)
   | T_vector v -> bp buf "%a" c_buf_type_base v.vector_type
   | T_unknown_builtin s -> bp_str buf s
+  | T_attributed (tt,a) -> bp buf "%a%a" c_buf_attr_inline a c_buf_type_base (tt,q)
 
 (* prints the rest of the type; inner prints the innermost part of the type *)
 and c_buf_type_suffix buf var indent inptr inner (t,q) = match t with
@@ -293,10 +317,14 @@ and c_buf_type_suffix buf var indent inptr inner (t,q) = match t with
        inner buf var
 
     | T_vector v ->
-       bp buf "__attribute__((__vector_size__(%i)))" v.vector_size
+       (* TODO: print real size and alignment attributes *)
+       bp buf "%s __attribute__((__vector_size__(%a)))" var Z.bprint v.vector_sizeof
 
     | T_unknown_builtin _ ->
        inner buf var
+
+    | T_attributed (t,_) ->
+       c_buf_type_suffix buf var indent inptr inner (t,q)
 
 (* array length *)
 and len indent buf = function
@@ -377,6 +405,11 @@ and c_buf_expr indent buf ((e,t,_) as ee:expr) =
    | E_cast (e1,IMPLICIT) when ignore_implicit_casts ->
       c_buf_expr indent buf e1
 
+   | E_cast (e1,BITCAST) ->
+      bp buf "__builtin_bit_cast(%a, %a)"
+        (c_buf_type_qual indent "") t
+        (c_buf_expr indent) e1
+
    | E_cast (e1,ex) ->
       bp buf "(%a)%a"
          (c_buf_type_qual indent "") t
@@ -406,7 +439,9 @@ and c_buf_expr indent buf ((e,t,_) as ee:expr) =
    | E_compound_literal i ->
       bp buf "(%a){ %a }"
          (c_buf_type_qual indent "") t
-         (c_buf_init indent) i
+         (c_buf_init true indent) i
+
+   | E_null_ptr -> bp_str buf "((void*)0)"
 
    | E_variable v -> bp_str buf v.var_unique_name
    | E_function f -> bp_str buf f.func_unique_name
@@ -458,10 +493,11 @@ and c_buf_char_literal buf c =
 and c_buf_string_literal buf s =
   String.iter (c_buf_char_literal buf) s
 
-and c_buf_init indent buf i = match i with
-  | I_init_expr e -> c_buf_expr indent buf e
+and c_buf_init compound indent buf i = match i with
+  | I_init_expr e -> bp_paren (is_comma e) (c_buf_expr indent) buf e
   | I_init_list (l,o) ->
-     bp buf "{ %a }" (bp_list (c_buf_init indent) ", ") l
+     if compound then bp_list (c_buf_init false indent) ", " buf l
+     else bp buf "{ %a }" (bp_list (c_buf_init false indent) ", ") l
   | I_init_implicit tq ->
      bp_str buf "/*implicit*/"
 
@@ -503,6 +539,10 @@ and c_buf_statement indent buf ((s,r):statement) =
 
   | S_block l ->
      bp buf "%s{\n%a%a%s}\n" indent (c_buf_statement_list indent2) l.blk_stmts (c_buf_scope indent2) l indent
+
+  | S_if (e1, { blk_stmts=[] }, { blk_stmts=[] } ) ->
+     bp buf "%sif (%a) { /* empty */ }\n"
+        indent (c_buf_expr_bool indent2) e1
 
   | S_if (e1,b1, { blk_stmts=[] } ) ->
      bp buf "%sif (%a) %a"
@@ -588,6 +628,10 @@ and c_buf_statement indent buf ((s,r):statement) =
        (if Array.length a.asm_labels = 0 then "" else ":")
        (bp_array (fun buf c -> bp buf "%s" c) ", ") a.asm_labels
 
+  | S_attributed (s,attrs) ->
+    List.iter (c_buf_attr indent buf) attrs;
+    c_buf_statement indent buf s
+
 and c_buf_com indent buf v =
   if !print_comments
   then List.iter (fun c -> bp buf "%s%s\n" indent c.Clang_AST.com_text) v
@@ -597,29 +641,35 @@ and c_buf_var_decl_inner indent buf v =
   bp buf "%s%a"
      (if variable_is_static v.var_kind then "static " else "")
      (c_buf_type_qual indent2 v.var_unique_name) v.var_type;
-  (match v.var_init with
-   | None -> ()
-   | Some i -> bp buf " = %a" (c_buf_init indent2) i
+  (match v.var_init_org with
+   | Some i -> bp buf " = %a" (c_buf_init false indent2) i
+   | None ->
+     match v.var_init with
+     | Some i -> bp buf " = %a" (c_buf_init false indent2) i
+     | None -> ()
   )
 
 and c_buf_var_decl indent buf v =
   if variable_is_global v.var_kind
   then bp_loc indent buf v.var_range;
   c_buf_com indent buf v.var_com;
+  c_buf_attrs indent buf v.var_attrs;
   bp buf "%s%a;\n" indent (c_buf_var_decl_inner indent) v
 
 and c_buf_var_advance_decl indent buf v =
   if variable_is_global v.var_kind
   then bp_loc indent buf v.var_range;
   c_buf_com indent buf v.var_com;
+  c_buf_attrs indent buf v.var_attrs;
   bp buf "%s%s%a;\n" indent
      (if v.var_kind = Variable_extern then "extern " else "")
-     (c_buf_var_decl_inner indent) { v with var_init = None; }
+     (c_buf_var_decl_inner indent) { v with var_init = None; var_init_org = None; }
 
 and c_buf_func_decl indent buf f =
   let indent2 = inc_indent indent in
   bp_loc indent buf f.func_range;
   c_buf_com indent buf (List.map fst f.func_com);
+  c_buf_attrs indent buf f.func_attrs;
   let variadic = if f.func_variadic then if f.func_parameters= [||] then "..." else ", ..." else ""
   and param buf v = c_buf_type_qual indent v.var_unique_name buf v.var_type in
   let inner buf var = bp buf "%a(%a%s)" bp_str var (bp_array param ", ") f.func_parameters variadic
@@ -640,12 +690,16 @@ let c_buf_enum_decl indent buf e =
   let indent2 = inc_indent indent in
   let f buf v =
     c_buf_com indent buf v.enum_val_com;
-    bp buf "%s%s = %a,\n" indent2 v.enum_val_unique_name Z.bprint v.enum_val_value
+    bp buf "%s%a%s = %a,\n" indent2
+      c_buf_attrs_inline v.enum_val_attrs
+      v.enum_val_unique_name
+      Z.bprint v.enum_val_value
   in
   bp_loc indent buf e.enum_range;
   c_buf_com indent buf e.enum_com;
   if e.enum_defined then
-    bp buf "%senum %s { /* type: %s */\n%a%s};\n" indent
+    bp buf "%senum %a%s { /* type: %s */\n%a%s};\n" indent
+      c_buf_attrs_inline e.enum_attrs
        e.enum_unique_name
        (match e.enum_integer_type with
         | None -> "None"
@@ -653,35 +707,41 @@ let c_buf_enum_decl indent buf e =
        (bp_list f "") e.enum_values
        indent
   else
-    bp buf "%senum %s;\n" indent e.enum_unique_name
+    bp buf "%senum %a%s;\n" indent
+      c_buf_attrs_inline e.enum_attrs
+      e.enum_unique_name
 
 let c_buf_record_decl indent buf r =
   let indent2 = inc_indent indent in
   let f buf v =
     c_buf_com indent buf v.field_com;
-    bp buf "%s%a;\n" indent2
-       (c_buf_type_qual indent2 v.field_name) v.field_type
+    bp buf "%s%a%a;\n" indent2
+      c_buf_attrs_inline v.field_attrs
+      (c_buf_type_qual indent2 v.field_name) v.field_type
   in
   bp_loc indent buf r.record_range;
   c_buf_com indent buf r.record_com;
   if r.record_defined then
-    bp buf "%s%s %s { /* sizeof: %a, alignof: %a */\n%a%s};\n" indent
+    bp buf "%s%s %a%s { /* sizeof: %a, alignof: %a */\n%a%s};\n" indent
        (string_of_record_kind r.record_kind)
+       c_buf_attrs_inline r.record_attrs
        r.record_unique_name
        Z.bprint r.record_sizeof
        Z.bprint r.record_alignof
        (bp_array f "") r.record_fields
        indent
   else
-    bp buf "%s%s %s;\n" indent
+    bp buf "%s%s %a%s;\n" indent
        (string_of_record_kind r.record_kind)
+       c_buf_attrs_inline r.record_attrs
        r.record_unique_name
 
 let c_buf_typedef indent buf t =
   let indent2 = inc_indent indent in
   bp_loc indent buf t.typedef_range;
   c_buf_com indent buf t.typedef_com;
-  bp buf "%stypedef %a;\n" indent
+  bp buf "%s%atypedef %a;\n" indent
+    c_buf_attrs_inline t.typedef_attrs
      (c_buf_type_qual indent2 t.typedef_unique_name) t.typedef_def
 
 
@@ -708,14 +768,14 @@ let builtin_typedef =
 (* some built-in typedef we should not print *)
 
 let builtin_funcs =
-  ["__builtin_va_start"; "__builtin_va_end"; "__builtin_va_copy"; "__sigsetjmp";
-   "_gl_verify_function2"; "_gl_verify_function3"; "_gl_verify_function4";
-   "_gl_verify_function5"; "_gl_verify_function6"; "_gl_verify_function7";
-   "_gl_verify_function8"; "_gl_verify_function9"; "_gl_verify_function10";
-   "_gl_verify_function11"; "_gl_verify_function12"; "_gl_verify_function13";
-   "_gl_verify_function14";
-   "__builtin_mul_overflow";
-   "__atomic_is_lock_free";
+  List.map Str.regexp
+    ["__builtin_.*";
+     "__sigsetjmp";
+     "_gl_verify_.*";
+     "__builtin_mul_overflow";
+     "__atomic_is_lock_free";
+     "__builtin_elementwise_.*";
+     "__builtin_ia32_.*";
   ]
 (* some built-in functions, the declaration of which we should omit when printing *)
 
@@ -750,6 +810,7 @@ let print_types_ordered
       | T_enum _ -> ()
       | T_vector v -> explore (fst v.vector_type)
       | T_unknown_builtin _ -> ()
+      | T_attributed (t,_) -> explore t
     in
     if not (Hashtbl.mem black t.typedef_uid) then (
       if Hashtbl.mem gray t.typedef_uid then invalid_arg "cyclic type dependencies";
@@ -776,6 +837,7 @@ let print_types_ordered
       | T_enum _ -> ()
       | T_vector v -> explore mustdef (fst v.vector_type)
       | T_unknown_builtin _ -> ()
+      | T_attributed (t,_) -> explore mustdef t
     in
     if not (Hashtbl.mem black r.record_uid) then (
       if Hashtbl.mem gray r.record_uid then invalid_arg "cyclic type dependencies";
@@ -821,12 +883,18 @@ let print_project ?(verbose = true) (ch:out_channel) (p:project) =
   StringMap.iter (pr string_of_var_advance_decl) vars;
 
   output_string ch "\n/* function declarations */\n\n";
-  let funcs = StringMap.filter (fun _ f -> not (List.mem f.func_org_name builtin_funcs)) p.proj_funcs in
+  let funcs = StringMap.filter
+      (fun _ f ->
+         not (List.exists
+                (fun x -> Str.string_match x f.func_org_name 0)
+                builtin_funcs)
+      ) p.proj_funcs
+  in
   StringMap.iter (pr string_of_func_proto) funcs;
 
   (* variable with initializer and functions with bodies *)
   output_string ch "\n/* global variable definitions */\n\n";
-  let vars = StringMap.filter (fun _ v -> v.var_init <> None) vars in
+  let vars = StringMap.filter (fun _ v -> v.var_init <> None || v.var_init_org <> None) vars in
   StringMap.iter (pr string_of_var_decl) vars;
 
   output_string ch "\n/* functions definitions */\n\n";

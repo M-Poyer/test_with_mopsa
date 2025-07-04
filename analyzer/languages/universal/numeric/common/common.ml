@@ -125,6 +125,7 @@ let prec : Lang.Ast.float_prec -> ItvUtils.FloatItvNan.prec = function
     | F_DOUBLE -> `DOUBLE
     | F_LONG_DOUBLE -> `EXTRA
     | F_FLOAT128 -> `EXTRA
+    | F_FLOAT16 -> `EXTRA (* TODO: fix half-float precision *)
     | F_REAL -> `REAL
 
 let round () : ItvUtils.FloatItvNan.round =
@@ -261,6 +262,7 @@ let () =
                 | F_DOUBLE -> F.double_special
                 | F_LONG_DOUBLE -> F.extra
                 | F_FLOAT128 -> F.extra
+                | F_FLOAT16 -> F.extra (* TODO: fix half-float precision *)
                 | F_REAL -> F.real
             end
           | _ -> next.pool_top avk

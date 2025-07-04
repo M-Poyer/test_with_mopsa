@@ -80,7 +80,7 @@ let parse_file
       Clang_to_C.add_translation_unit
         ctx (Filename.basename file)
         r.parse_decl r.parse_files r.parse_comments r.parse_macros
-        keep_static forced_stub_list
+        keep_static forced_stub_list opts
   )
   else
     let errors =

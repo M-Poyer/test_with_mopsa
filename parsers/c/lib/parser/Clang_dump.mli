@@ -29,6 +29,7 @@ open Clang_AST
 (** {2 Names for constant variants} *)
 
 val lang_name : lang -> string
+val attr_syntax_name : attr_syntax -> string
 val builtin_type_name : builtin_type -> string
 val binary_operator_name : binary_operator -> string
 val compound_assign_operator_name : compound_assign_operator -> string
