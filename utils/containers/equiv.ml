@@ -72,9 +72,57 @@ struct
   let empty =
     {lr = LR.empty ; rl = RL.empty}
 
-  let fold (f : L.t * R.t -> 'a -> 'a) (e : t) (a : 'a) =
+  let fold_lr (f : L.t * R.t -> 'a -> 'a) (e : t) (a : 'a) =
     LR.fold (fun k v acc -> f (k,v) acc) e.lr a
 
+  let fold_rl (f : L.t * R.t -> 'a -> 'a) (e : t) (a : 'a) =
+    RL.fold (fun k v acc -> f (v,k) acc) e.rl a
+
+  let fold = fold_lr
+
+  let print fmt e =
+    Format.fprintf fmt "LR=%a@.RL=%a"
+      LR.fprint e.lr
+      RL.fprint e.rl
+
+  let mem_l (l : L.t) (e: t) =
+    LR.mem l e.lr
+
+  let mem_r (r : R.t) (e: t) =
+    RL.mem r e.rl
+
+  let find_l l e =
+    LR.find l e.lr
+
+  let find_r l e =
+    RL.find l e.rl
+
+  let check_consistency (e : t) =
+    let check (l, r) =
+      let conds = [
+        not @@ mem_r r e;
+        not @@ mem_l l e;
+        not @@ mem_r (find_l l e) e;
+        not @@ mem_l (find_r r e) e;
+        L.compare (find_r r e) l <> 0;
+        R.compare (find_l l e) r <> 0;
+        L.compare l (find_r (find_l l e) e) <> 0;
+        R.compare (find_l (find_r r e) e) r <> 0;
+      ] in
+      if List.exists Fun.id conds then
+        let () = Core.Debug.debug ~channel:"binding" "%a@.%a@.%a@.%a@.%a@.%a@.%a@.%a"
+            print e
+            L.print l
+            R.print r
+            L.print (find_r r e)
+            R.print (find_l l e)
+            L.print (find_r (find_l l e) e)
+            R.print (find_l (find_r r e) e)
+            (Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt " ") Format.pp_print_bool) conds in
+        failwith "Inconsistent Equiv" in
+    fold_lr (fun (l, r) () -> check (l, r)) e ();
+    fold_rl (fun (l, r) () -> check (l, r)) e ();
+    e
   let iter (f : L.t * R.t -> unit) (e: t) : unit =
     fold (fun p acc -> f p) e ()
 
@@ -126,18 +174,6 @@ struct
       rl = RL.merge (patch R.print L.print L.compare) e1.rl e2.rl;
     }
 
-  let mem_l (l : L.t) (e: t) =
-    LR.mem l e.lr
-
-  let mem_r (r : R.t) (e: t) =
-    RL.mem r e.rl
-
-  let find_l l e =
-    LR.find l e.lr
-
-  let find_r l e =
-    RL.find l e.rl
-
   let find_l_opt (l : L.t) (e : t) : R.t option =
     try
       Some (LR.find l e.lr)
@@ -171,10 +207,5 @@ struct
       true
     with
     | FoundNot -> false
-
-  let print fmt e =
-    Format.fprintf fmt "%a@.%a"
-      LR.fprint e.lr
-      RL.fprint e.rl
 
 end
