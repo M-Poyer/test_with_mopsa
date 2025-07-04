@@ -61,4 +61,4 @@ post-messages: [
 If you want to enable **bash completion features**, please:
 1. Install bash-completion, if you do not have it already
 2. echo \"source $OPAM_SWITCH_PREFIX/share/bash_completion/completions/mopsa-completion\" >> ~/.bash_completion
-"]
+" {success} ]
