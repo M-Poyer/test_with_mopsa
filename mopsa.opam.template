@@ -30,7 +30,7 @@ depexts: [
     {os-distribution = "ubuntu" & os-version = "20.10"}
   ["clang" "libclang-12-dev" "libclang-cpp12-dev" "llvm-12-dev"]
     {os-distribution = "ubuntu" & os-version = "20.04"}
-  ["clang" "libclang-16-dev" "libclang-cpp16-dev" "llvm-16-dev"]
+  ["clang" "libclang-dev" "libclang-cpp-dev" "llvm-dev"]
     {os-distribution = "debian" & os-version >= "13"}
   ["clang" "libclang-14-dev" "libclang-cpp14-dev" "llvm-14-dev"]
     {os-distribution = "debian" & os-version = "12"}
