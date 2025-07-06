@@ -107,6 +107,7 @@ struct
     | Float C_double         -> pp_print_string fmt "d"
     | Float C_long_double    -> pp_print_string fmt "ld"
     | Float C_float128       -> pp_print_string fmt "q"
+    | Float C_float16        -> pp_print_string fmt "f16"
     | Ptr                    -> pp_print_string fmt "ptr"
 
   let pp_smash fmt s =

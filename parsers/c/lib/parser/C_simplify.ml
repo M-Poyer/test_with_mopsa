@@ -57,10 +57,12 @@ let make_temp ctx range ?(com:comment list=[]) (f:func option) (t:type_qual) : v
       );
       var_type = t;
       var_init = None;
+      var_init_org = None;
       var_range = range;
       var_com = com;
       var_before_stmts = [];
       var_after_stmts = [];
+      var_attrs = [];
     }
   in
   (match f with
@@ -342,6 +344,7 @@ let rec simplify_expr ctx f (call:bool) ((e,t,r):expr)
    | E_integer_literal _
    | E_float_literal _
    | E_string_literal _
+   | E_null_ptr
    | E_variable _
    | E_function _
    | E_predefined _
@@ -444,6 +447,7 @@ let rec simplify_expr ctx f (call:bool) ((e,t,r):expr)
    | E_integer_literal _
    | E_float_literal _
    | E_string_literal _
+   | E_null_ptr
    | E_variable _
    | E_function _
    | E_predefined _
@@ -540,6 +544,10 @@ let rec simplify_expr ctx f (call:bool) ((e,t,r):expr)
     | S_jump _ | S_target _ | S_asm _ ->
        [s,r]
 
+    | S_attributed (s,a) ->
+       (match simplify_stmt ctx f call s with
+       | ss::t -> (S_attributed (ss,a), r)::t
+       | [] -> [])
 
   and simplify_block ctx f (call:bool) (b:block) : block =
     make_block (List.concat (List.map (simplify_stmt ctx f call) b.blk_stmts))

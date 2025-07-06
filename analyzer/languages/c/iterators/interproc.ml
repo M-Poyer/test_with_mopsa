@@ -31,6 +31,7 @@ open Common.Points_to
 open Common.Scope_update
 open Common.Builtins
 open Universal.Iterators.Interproc.Common
+open Common.Alarms
 
 
 
@@ -68,7 +69,7 @@ struct
       let name = "c.iterators.interproc"
     end)
 
-  let checks = []
+  let checks = [CHK_C_INCORRECT_NUMBER_OF_ARGUMENTS]
 
 
   (** {2 Lattice operators} *)
@@ -338,7 +339,7 @@ struct
 
 
   (** Evaluate arguments containing function calls *)
-  let rec eval_calls_in_args args man flow =
+  let rec eval_calls_in_args fundec arg_number args man flow =
     match args with
     | [] -> Cases.singleton [] flow
     | arg::tl ->
@@ -349,13 +350,13 @@ struct
         (* Evaluating arguments may result in disjunctions.
            To avoid calling the function several times, we assign the call
            to a temporary variable *)
-        let tmp = mk_range_attr_var arg.erange "arg" arg.etyp in
+        let tmp = mk_range_attr_var arg.erange (Format.asprintf "arg_%s_#%d_%d_%d" fundec arg_number (Hashtbl.hash arg) (Hashtbl.hash @@ Flow.get_callstack flow)) arg.etyp in
         man.exec (mk_add_var tmp arg.erange) flow >>%
         man.exec (mk_assign (mk_var tmp arg.erange) arg arg.erange) >>%
-        eval_calls_in_args tl man >>$ fun tl flow ->
+        eval_calls_in_args fundec (arg_number+1) tl man >>$ fun tl flow ->
         Cases.singleton (mk_var tmp arg.erange :: tl) ~cleaners:[mk_remove_var tmp arg.erange] flow
       else
-        eval_calls_in_args tl man flow >>$ fun tl flow ->
+        eval_calls_in_args fundec (arg_number+1) tl man flow >>$ fun tl flow ->
         Cases.singleton (arg::tl) flow
 
   let is_c_fun_boolean_predicate fundec args man flow =
@@ -394,6 +395,32 @@ struct
       let exp' = mk_expr (E_c_builtin_call(fundec.c_func_org_name, args)) ~etyp:fundec.c_func_return range in
       man.eval exp' flow
     else
+    (* Check the number of arguments *)
+    if List.length args < List.length fundec.c_func_parameters ||
+      (List.length args > List.length fundec.c_func_parameters && not fundec.c_func_variadic)
+    then
+      raise_c_incorrect_number_of_arguments_alarm fundec args range man flow |>
+      Eval.empty
+    else
+    let flow = safe_c_incorrect_number_of_arguments_check range man flow in
+    (* Add casts around arguments to match the types of the parameters. Ignore unnamed arguments. *)
+    let args =
+      let rec iter args params =
+        match args, params with
+        | _, [] -> args (* Unnamed (extra) arguments are ignored *)
+        | [], _ -> assert false (* Not possible because of the previous check *)
+        | arg :: args', param :: params' ->
+          (* Cast argument to parameter type if needed *)
+          let arg =
+            if compare_typ (remove_typedef_qual arg.etyp) (remove_typedef_qual param.vtyp) = 0 then
+              arg
+            else
+              mk_c_cast arg param.vtyp arg.erange
+          in
+          arg :: iter args' params'
+      in
+      iter args fundec.c_func_parameters
+    in
       (* in the case f(cond) where cond is a boolean, f is not too difficult,
          we rewrite it into if(cond) f(1) else f(0) to gain precision *)
     if is_c_fun_boolean_predicate fundec args man flow && not @@ is_c_constant @@ List.hd args then
@@ -425,7 +452,7 @@ struct
       let flow = set_env_flow T_cur empty man flow in
       let ret, is_recursive =
         (* Process arguments by evaluating function calls *)
-        let args_eval = eval_calls_in_args args man flow in
+        let args_eval = eval_calls_in_args fundec.c_func_org_name 0 args man flow in
         if is_recursive_call fundec range (Cases.get_callstack args_eval) then (
           warn_at range "recursive call on %s, returning top" fundec.c_func_org_name;
           args_eval >>$ fun _ flow ->

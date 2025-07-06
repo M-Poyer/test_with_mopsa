@@ -698,6 +698,7 @@ private:
   ASTContext *Context;
   MLLocationTranslator& loc;
   MLCommentTranslator& com;
+  PrintingPolicy ppolicy;
   Cache cacheType;
   Cache cacheTypeQual;
   Cache cacheDecl;
@@ -730,6 +731,7 @@ public:
   CAMLprim value TranslateAccessSpecifier(AccessSpecifier c);
   CAMLprim value TranslateVarDecl(const VarDecl *node);
   CAMLprim value TranslateParmVarDecl(const ParmVarDecl *node);
+  CAMLprim value TranslateAttr(const Attr *x);
   CAMLprim value TranslateFunctionDecl(const FunctionDecl *x);
   CAMLprim value TranslateBlockDecl(const BlockDecl *x);
   CAMLprim value TranslateCapture(const BlockDecl::Capture *x);
@@ -790,9 +792,14 @@ public:
   CAMLprim value TranslateTemplateTypeParmType(const TemplateTypeParmType* x);
   CAMLprim value TranslateTemplateTypeParmDecl(const TemplateTypeParmDecl* x);
   CAMLprim value TranslateNamedDecl(const NamedDecl *x);
+#if CLANG_VERSION_MAJOR >= 11
+  CAMLprim value TranslateCleanupObject(const ExprWithCleanups::CleanupObject x);
+#else
+  CAMLprim value TranslateCleanupObject(const BlockDecl* x);
+#endif
 
   explicit MLTreeBuilderVisitor(MLLocationTranslator& loc, ASTContext *Context, SourceManager& src, MLCommentTranslator& com) :
-    src(src), Context(Context), loc(loc), com(com),
+    src(src), Context(Context), loc(loc), com(com), ppolicy(PrintingPolicy(loc.getOpts())),
     cacheType("type"), cacheTypeQual("type_qual"), cacheDecl("decl"), cacheStmt("stmt"),
     cacheExpr("expr"), cacheMisc("misc"), cacheMisc2("misc2"), cacheMisc3("misc3"),
     uid(0)
@@ -849,6 +856,63 @@ CAMLprim value MLTreeBuilderVisitor::TranslateAPFloat(const llvm::APFloat & f) {
 }
 
 
+/* ATTRIBUTES */
+/**************/
+
+enum {
+  MLTAG_AS_GNU,
+  MLTAG_AS_CXX11,
+  MLTAG_AS_C23,
+  MLTAG_AS_Declspec,
+  MLTAG_AS_Microsoft,
+  MLTAG_AS_Keyword,
+  MLTAG_AS_Pragma,
+  MLTAG_AS_ContextSensitiveKeyword,
+  MLTAG_AS_HLSLAnnotation,
+  MLTAG_AS_Implicit,
+};
+
+/* Attr -> attr */
+CAMLprim value MLTreeBuilderVisitor::TranslateAttr(const Attr *x) {
+  CAMLparam0();
+  CAMLlocal1(ret);
+  WITH_CACHE_TUPLE(cacheMisc, ret, x, 4, {
+      auto n = x->getAttrName();
+      Store_field_option(ret, 1, n, caml_copy_string(n->getName().str().c_str()));
+
+      Store_field(ret, 2, caml_copy_string(x->getSpelling()));
+
+      std::string s;
+      llvm::raw_string_ostream o(s);
+      x->printPretty(o, ppolicy);
+      Store_field(ret, 3, caml_copy_string(o.str().c_str()));
+
+      int r = 0;
+      switch (x->getSyntax()) {
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_GNU);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_CXX11);
+#if CLANG_VERSION_MAJOR >= 18
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_C23);
+#endif
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Declspec);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Microsoft);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Keyword);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Pragma);
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_ContextSensitiveKeyword);
+#if CLANG_VERSION_MAJOR >= 19
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_HLSLAnnotation);
+#endif
+#if CLANG_VERSION_MAJOR >= 17
+        GENERATE_CASE_PREFIX(r, AttributeCommonInfo::,, AS_Implicit);
+#endif
+      default:
+        if (verbose_exn) { std::cout << "unknown syntax of attribute " << s << ": " << static_cast<int>(x->getSyntax()) << std::endl;}
+        caml_failwith("mlClangAST: unknown syntax of attribute");
+      }
+      Store_field(ret, 0, Val_int(r));
+    });
+  CAMLreturn(ret);
+}
 
 /* DECLARATIONS */
 /****************/
@@ -966,7 +1030,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateDecl(const Decl *node) {
   if (verbose_alloc)
     std::cout << "TranslateDecl " << std::hex << node << std::dec << " " << node->getDeclKindName() << DEBUG_SOURCE_RANGE(node) << std::endl;
 
-  WITH_CACHE_TUPLE(cacheDecl, ret2, node, 4, {
+  WITH_CACHE_TUPLE(cacheDecl, ret2, node, 5, {
 
       ret = Val_int(-1);
 
@@ -1172,6 +1236,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateDecl(const Decl *node) {
       Store_field(ret2, 1, TranslateAccessSpecifier(node->getAccess()));
       Store_field(ret2, 2, loc.TranslateSourceRange(node->getSourceRange()));
       Store_field(ret2, 3, com.TranslateRawCommentOpt(Context->getRawCommentForDeclNoCache(node)));
+      Store_field_list(ret2, 4, node->getAttrs(), TranslateAttr(child));
     });
 
   if (verbose_alloc)
@@ -1566,6 +1631,41 @@ CAMLprim value MLTreeBuilderVisitor::TranslateBlockDecl(const BlockDecl *x) {
   CAMLreturn(ret);
 }
 
+
+enum {
+  MLTAG_Cleanup_block_decl,
+  MLTAG_Cleanup_compound_literal_expr,
+};
+
+#if CLANG_VERSION_MAJOR >= 11
+/* CleanupObject -> cleanup_object */
+CAMLprim value MLTreeBuilderVisitor::TranslateCleanupObject(const ExprWithCleanups::CleanupObject x) {
+  CAMLparam0();
+  CAMLlocal1(ret);
+
+  if (isa<BlockDecl*>(x)) {
+    ret = caml_alloc(1, MLTAG_Cleanup_block_decl);
+    Store_field(ret, 0, TranslateBlockDecl(cast<BlockDecl*>(x)));
+  }
+  else {
+    ret = caml_alloc(1, MLTAG_Cleanup_compound_literal_expr);
+  }
+
+  CAMLreturn(ret);
+}
+#else
+/* BlockDecl -> cleanup_object */
+CAMLprim value MLTreeBuilderVisitor::TranslateCleanupObject(const BlockDecl* x) {
+  CAMLparam0();
+  CAMLlocal1(ret);
+
+  ret = caml_alloc(1, MLTAG_Cleanup_block_decl);
+  Store_field(ret, 0, TranslateBlockDecl(x));
+
+  CAMLreturn(ret);
+}
+#endif
+
 /* BlockDecl::Capture -> capture */
 CAMLprim value MLTreeBuilderVisitor::TranslateCapture(const BlockDecl::Capture *x) {
   CAMLparam0();
@@ -1704,6 +1804,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateFunctionDecl(const FunctionDecl *o
       Store_field_option(ret, 13, x->isOverloadedOperator(), TranslateOverloadedOperatorKind(x->getOverloadedOperator(), NULL));
       Store_field_option(ret, 14, isa<CXXMethodDecl>(x), TranslateCXXMethodDecl(cast<CXXMethodDecl>(x)));
     });
+
   CAMLreturn(ret);
 }
 
@@ -2194,6 +2295,7 @@ enum {
   MLTAG_CXXReinterpretCast,
   MLTAG_CXXStaticCast,
   MLTAG_ImplicitCast,
+  MLTAG_BuiltinBitCast,
 };
 
 /* character_kind */
@@ -2336,6 +2438,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateExpr(const Expr * node) {
           else if (isa<CXXReinterpretCastExpr>(x)) r = MLTAG_CXXReinterpretCast;
           else if (isa<CXXStaticCastExpr>(x))      r = MLTAG_CXXStaticCast;
           else if (isa<ImplicitCastExpr>(x))       r = MLTAG_ImplicitCast;
+          else if (isa<BuiltinBitCastExpr>(x))     r = MLTAG_BuiltinBitCast;
           else {
             if (verbose_exn) node->dump();
             caml_failwith("mlClangAST: unknown kind of cast");
@@ -2736,12 +2839,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateExpr(const Expr * node) {
 
       GENERATE_NODE_INDIRECT(ExprWithCleanups, ret, node, 2, {
           Store_field(ret, 0, TranslateExpr(x->getSubExpr()));
-#if CLANG_VERSION_MAJOR < 11
-          Store_field_array(ret, 1, x->getNumObjects(), TranslateBlockDecl(x->getObject(i)));
-#else
-          // TODO: API for cleanup has changed for recent Clang; we need to support CleanupObject
-          caml_failwith("mlCLangAST: ExprWithCleanups not supported");
-#endif
+          Store_field_array(ret, 1, x->getNumObjects(), TranslateCleanupObject(x->getObject(i)));
         });
 
       GENERATE_NODE(FunctionParmPackExpr, ret, node, 2, {
@@ -3592,8 +3690,9 @@ CAMLprim value MLTreeBuilderVisitor::TranslateStmt(const Stmt * node) {
           CAMLexitblock();
         });
 
-      GENERATE_NODE(AttributedStmt, ret, node, 1, {
+      GENERATE_NODE(AttributedStmt, ret, node,  2, {
           Store_field(ret, 0, TranslateStmt(x->getSubStmt()));
+          Store_field_list(ret, 1, x->getAttrs(), TranslateAttr(child));
         });
 
       GENERATE_NODE(BreakStmt, ret, node, 1, {
@@ -3810,6 +3909,8 @@ enum {
   MLTAG_Type_BuiltinFn,
   MLTAG_Type_ARCUnbridgedCast,
   MLTAG_Type_OMPArraySection,
+  MLTAG_Type_Float16,
+  MLTAG_Type_BFloat16,
 };
 
 enum {
@@ -3876,6 +3977,8 @@ CAMLprim value MLTreeBuilderVisitor::TranslateBuiltinType(const BuiltinType * no
 #if CLANG_VERSION_MAJOR < 19
     GENERATE_CASE_PREFIX(r, BuiltinType::, Type_, OMPArraySection);
 #endif
+    GENERATE_CASE_PREFIX(r, BuiltinType::, Type_, Float16);
+    GENERATE_CASE_PREFIX(r, BuiltinType::, Type_, BFloat16);
     // unknown
   default:
     // new version: generate a "unknown builtin" AST node that OCaml can use
@@ -4144,9 +4247,13 @@ CAMLprim value MLTreeBuilderVisitor::TranslateType(const Type * node) {
       Store_field(ret, 0, TranslateQualType(x->getValueType()));
     });
 
-  GENERATE_NODE_CACHED(cacheType, AttributedType, ret, node, 1, {
+  GENERATE_NODE_CACHED(cacheType, AttributedType, ret, node, 2, {
       Store_field(ret, 0, TranslateQualType(x->getModifiedType()));
-      // TODO: put attributes
+#if CLANG_VERSION_MAJOR >= 20
+      Store_field_option(ret, 1, 1, TranslateAttr(x->getAttr()));
+#else
+      Store_field(ret, 1, Val_none);
+#endif
     });
 
   GENERATE_NODE_CACHED(cacheType, BuiltinType, ret, node, 1, {
@@ -4492,12 +4599,13 @@ CAMLprim value MLTreeBuilderVisitor::TranslateEnumConstantDecl(const EnumConstan
   check_null(org, "TranslateEnumConstantDecl");
   const EnumConstantDecl* x = org;
   //x = x->getCanonicalDecl();
-  WITH_CACHE_TUPLE(cacheMisc, ret, x, 5, {
+  WITH_CACHE_TUPLE(cacheMisc, ret, x, 6, {
       Store_uid(ret, 0);
       Store_field(ret, 1, TranslateNamedDecl(x));
       Store_field(ret, 2, TranslateAPSInt(x->getInitVal()));
       Store_field(ret, 3, loc.TranslateSourceRange(org->getSourceRange()));
       Store_field(ret, 4, com.TranslateRawCommentOpt(Context->getRawCommentForDeclNoCache(org)));
+      Store_field_list(ret, 5, x->getAttrs(), TranslateAttr(child));
     });
   CAMLreturn(ret);
 }
@@ -4564,6 +4672,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateFieldDecl(const FieldDecl * org) {
       Store_field_option(ret, 8, x->hasCapturedVLAType(), TranslateExpr(x->getCapturedVLAType()->getSizeExpr()));
       Store_field(ret, 9, loc.TranslateSourceRange(org->getSourceRange()));
       Store_field(ret, 10, com.TranslateRawCommentOpt(Context->getRawCommentForDeclNoCache(org)));
+      Store_field_list(ret, 11, x->getAttrs(), TranslateAttr(child));
     });
   CAMLreturn(ret);
 }

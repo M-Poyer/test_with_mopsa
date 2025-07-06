@@ -98,7 +98,7 @@ and c_integer_type =
   | C_unsigned_int128
   (** Integer types. *)
 
-and c_float_type = C_float | C_double | C_long_double | C_float128
+and c_float_type = C_float | C_double | C_long_double | C_float128 | C_float16
 (** Floating-point types. *)
 
 
@@ -477,6 +477,7 @@ let to_clang_float_type : c_float_type -> C_AST.float_type = function
   | C_double -> C_AST.DOUBLE
   | C_long_double -> C_AST.LONG_DOUBLE
   | C_float128 -> C_AST.FLOAT128
+  | C_float16 -> C_AST.FLOAT16
 
 let from_clang_int_type : C_AST.integer_type -> c_integer_type = function
   | C_AST.(Char SIGNED) -> C_signed_char
@@ -499,6 +500,7 @@ let from_clang_float_type : C_AST.float_type -> c_float_type = function
   | C_AST.DOUBLE -> C_double
   | C_AST.LONG_DOUBLE -> C_long_double
   | C_AST.FLOAT128 -> C_float128
+  | C_AST.FLOAT16 -> C_float16
 
 
 (***********************)
@@ -706,6 +708,7 @@ let get_c_float_precision t =
   | C_double -> F_DOUBLE
   | C_long_double -> F_LONG_DOUBLE
   | C_float128 -> F_FLOAT128
+  | C_float16 -> F_FLOAT16
 
 let is_c_bitfield typ = match typ with
   | T_c_bitfield _ -> true
@@ -929,11 +932,11 @@ let mk_c_call_stmt f args range =
   let exp = mk_c_call f args range in
   mk_stmt (S_expression exp) range
 
-let mk_c_cast e t range =
-  mk_expr (E_c_cast(e, true)) ~etyp:t range
+let mk_c_cast ?esynthetic e t range =
+  mk_expr ?esynthetic (E_c_cast(e, true)) ~etyp:t range
 
-let mk_c_null range =
-  mk_c_cast (mk_zero ~typ:u8 range) (pointer_type void) range
+let mk_c_null ?esynthetic range =
+  mk_c_cast ?esynthetic (mk_zero ?esynthetic ~typ:u8 range) (pointer_type void) range
 
 let mk_c_declaration v init scope range =
   mk_stmt (S_c_declaration (v, init, scope)) range
@@ -942,6 +945,10 @@ let is_c_global_scope = function
   | Variable_global | Variable_extern | Variable_file_static _ -> true
   | Variable_func_static _ | Variable_local _ | Variable_parameter _ -> false
 
+let find_c_record_field i typ =
+  match remove_typedef_qual typ with
+  | T_c_record r -> List.nth r.c_record_fields i
+  | _ -> assert false
 
 let () =
   register_typ_compare (fun next t1 t2 ->

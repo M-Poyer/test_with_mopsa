@@ -111,6 +111,8 @@ type context = {
      *)
     mutable ctx_comments: (comment * macro StringMap.t) list RangeMap.t;
     ctx_macros: (string,macro) Hashtbl.t;
+
+    mutable ctx_opts: (string option) StringMap.t;
   }
 (** Structure used internally during project parsing & linking. *)
 
@@ -140,6 +142,7 @@ let create_context ?(min_uid=0) (project_name:string) (info:C.target_info) =
     ctx_comments = RangeMap.empty;
     ctx_macros = Hashtbl.create 16;
     ctx_file_scope_asm = RangeMap.empty;
+    ctx_opts = StringMap.empty;
   }
 
 let new_uid ctx =
@@ -168,8 +171,21 @@ let has_stub_comment l =
        String.length s >= 3 && s.[2] = '$'
     ) l
 
+(* options with no argument to keep in proj_opts *)
+let opts_noarg =
+  List.map Str.regexp
+    [ "-std=.*"; "ansi";
+      "-f.*";
+      "-mcpu=.*"; "-mtune=.*"; "-march=.*";
+    ]
 
-let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: string list) (coms:comment list) (macros:C.macro list) (keep_static:bool) (forced_stub_list: string list) =
+(* options with argument to keep in proj_opts *)
+let opts_arg =
+  List.map Str.regexp
+    [ "-x"; "-arch"; "-target" ]
+
+
+let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: string list) (coms:comment list) (macros:C.macro list) (keep_static:bool) (forced_stub_list: string list) (opts: string list) =
   (* utilities *)
   (* ********* *)
 
@@ -242,6 +258,24 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
   in
 
 
+  (* handle options *)
+  (* ************** *)
+
+  let rec eat_opts m = function
+    | o::rest when List.exists (fun x -> Str.string_match x o 0) opts_noarg ->
+      if StringMap.mem o m && StringMap.find o m <> None then
+        warning decl.C.decl_range "incompatible option value" (Format.asprintf "option %s had value %s but is redefined with no value" o (match StringMap.find o m with Some x -> x | None -> "<none>"));
+      eat_opts (StringMap.add o None m) rest
+    | o::v::rest when List.exists (fun x -> Str.string_match x o 0) opts_arg ->
+       if StringMap.mem o m && StringMap.find o m <> (Some v) then
+        warning decl.C.decl_range "incompatible option value" (Format.asprintf "option %s had value %s but is redefined with value %s" o (match StringMap.find o m with Some x -> x | None -> "<none>") v);
+     eat_opts (StringMap.add o (Some v) m) rest
+    | _::rest -> eat_opts m rest
+    | [] -> m
+  in
+  ctx.ctx_opts <- eat_opts ctx.ctx_opts opts;
+
+
   (* translate types *)
   (* *************** *)
 
@@ -279,7 +313,12 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
 
     | C.AtomicType a -> type_qual range a
 
-    | C.AttributedType a -> type_qual range a
+    | C.AttributedType (a,Some attr) ->
+       let t,q = type_qual range a in
+       T_attributed (t,attr), q
+
+    | C.AttributedType (a,None) ->
+       type_qual range a
 
     | C.BuiltinType b ->
        (match b with
@@ -304,7 +343,10 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
         | C.Type_LongDouble -> T_float LONG_DOUBLE, no_qual
         | C.Type_Float128 -> T_float FLOAT128, no_qual
         | C.Type_BuiltinFn -> T_builtin_fn, no_qual
+        | C.Type_Float16 -> T_float FLOAT16, no_qual
+        | C.Type_BFloat16 -> T_float FLOAT16, no_qual (* TODO: distinguish float16 and bfloat16 *)
         | C.Type_unknown_builtin s -> T_unknown_builtin s, no_qual
+        | C.Type_NullPtr -> void_ptr_type
         | _ -> error range "unhandled builtin type" (C.string_of_type t)
        )
 
@@ -323,16 +365,23 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
     | C.FunctionNoProtoType f -> T_function None, no_qual
     | C.ParenType tq -> type_qual range tq
     | C.PointerType tq -> T_pointer (type_qual range tq), no_qual
-    | C.EnumType e -> T_enum (enum_decl e), no_qual
-    | C.RecordType r -> T_record (record_decl r), no_qual
-    | C.TypedefType t -> T_typedef (typedef_decl t), no_qual
+    | C.EnumType e -> T_enum (enum_decl e []), no_qual
+    | C.RecordType r -> T_record (record_decl r []), no_qual
+    | C.TypedefType t -> T_typedef (typedef_decl t []), no_qual
     | C.ElaboratedType t -> type_qual range t
     | C.UnaryTransformType t -> type_qual range t.C.unary_underlying_type
     | C.TypeOfExprType { C.expr_type = Some t; } -> type_qual range t
     | C.TypeOfType t -> type_qual range t
     | C.VectorType (t,s,k) ->
-       T_vector { vector_type = type_qual range t; vector_size = s; vector_kind = k; },
-       no_qual
+        let et = type_qual range t in
+        let sz = Z.mul (Z.of_int s) (sizeof_type ctx.ctx_target (fst et)) in
+          T_vector {
+          vector_type = type_qual range t;
+          vector_size = s;
+          vector_kind = k;
+          vector_sizeof = sz;
+        },
+        no_qual
     | _ -> error range "unhandled type" (C.string_of_type t)
 
 
@@ -344,7 +393,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
 
   (* enums *)
 
-  and enum_decl e =
+  and enum_decl e attrs =
     if Hashtbl.mem ctx.ctx_tu_enums e.C.enum_uid then
       (* already in translation unit *)
       Hashtbl.find ctx.ctx_tu_enums e.C.enum_uid
@@ -378,6 +427,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
           enum_integer_type = itype;
           enum_defined = e.C.enum_cst <> [];
           enum_com = e.C.enum_com;
+          enum_attrs = attrs;
         }
       in
       (* fill in enumerator constants *)
@@ -393,6 +443,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
                 enum_val_enum = enum;
                 enum_val_range = e.C.enum_cst_range;
                 enum_val_com = e.C.enum_cst_com;
+                enum_val_attrs = e.C.enum_cst_attrs;
               }
             in
             Hashtbl.add ctx.ctx_enum_vals org_name v;
@@ -437,7 +488,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
 
   (* struct, unions *)
 
-  and record_decl e =
+  and record_decl e attrs =
     if Hashtbl.mem ctx.ctx_tu_records e.C.record_uid then
       (* already in translation unit *)
       Hashtbl.find ctx.ctx_tu_records e.C.record_uid
@@ -468,6 +519,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
           record_kind = kind;
           record_defined = false;
           record_com = e.C.record_com;
+          record_attrs = attrs;
         }
       in
       (* add empty record to context to handle recursive types *)
@@ -496,6 +548,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
               field_range = f.C.field_range;
               field_type = typ;
               field_com = f.C.field_com;
+              field_attrs = f.C.field_attrs;
             }
           ) (Array.of_list e.C.record_fields);
       record.record_defined <- record.record_fields <> [||];
@@ -532,7 +585,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
 
   (* typedef *)
 
-  and typedef_decl t =
+  and typedef_decl t attrs =
     if Hashtbl.mem ctx.ctx_tu_typedefs t.C.typedef_uid then
       (* already in translation unit *)
       Hashtbl.find ctx.ctx_tu_typedefs t.C.typedef_uid
@@ -546,6 +599,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
           typedef_def = (T_void, no_qual);
           typedef_range = range;
           typedef_com = t.C.typedef_com;
+          typedef_attrs = attrs;
         }
       in
       (* define *)
@@ -574,7 +628,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
   (* translate variable declarations *)
   (* ******************************* *)
 
-  and var_decl (func:func option) v =
+  and var_decl (func:func option) v attrs =
     if Hashtbl.mem ctx.ctx_tu_vars v.C.var_uid then
       (* already in translation unit *)
       Hashtbl.find ctx.ctx_tu_vars v.C.var_uid
@@ -630,15 +684,18 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
             var_type = typ;
             var_kind = kind;
             var_init = None;
+            var_init_org = None;
             var_range = range;
             var_com = !c;
             var_before_stmts = [];
             var_after_stmts = [];
+            var_attrs = attrs;
           }
       in
       if variable_is_global kind && prev = None then Hashtbl.add ctx.ctx_vars org_name var;
       Hashtbl.add ctx.ctx_tu_vars v.C.var_uid var;
       if variable_is_file_static kind then Hashtbl.add ctx.ctx_tu_static_vars org_name var;
+      var.var_attrs <- attrs_unify var.var_attrs attrs;
       (* init *)
       if var.var_kind = Variable_extern && (kind = Variable_global || var.var_init <> None)
       then var.var_kind <- Variable_global;
@@ -648,11 +705,13 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
           if var.var_init <> None
           then warning range "variable is defined twice with initializers" org_name;
           let init = init func i in
-          if variable_is_global kind && !simplify then
+          if variable_is_global kind && !simplify then (
+            var.var_init_org <- Some init;
             let before, init, after = simplify_global_init ctx.ctx_simplify init in
             var.var_init <- Some init;
             var.var_before_stmts <- before;
             var.var_after_stmts <- after
+          )
           else
             var.var_init <- Some init;
           var.var_range <- range
@@ -663,7 +722,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
   (* translate function declarations *)
   (* ******************************* *)
 
-  and func_decl f =
+  and func_decl f attrs =
     if Hashtbl.mem ctx.ctx_tu_funcs f.C.function_uid then
       (* already in translation unit *)
       Hashtbl.find ctx.ctx_tu_funcs f.C.function_uid
@@ -707,6 +766,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
              func_name_range = name_range;
              func_variadic = f.C.function_is_variadic;
              func_com = [];
+             func_attrs = [];
            }
       in
       if static then Hashtbl.replace ctx.ctx_tu_static_funcs org_name func
@@ -725,10 +785,12 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
                 var_type = typ;
                 var_kind = Variable_parameter func;
                 var_init = None;
+                var_init_org = None;
                 var_range = p.C.var_range;
                 var_com = p.C.var_com;
                 var_before_stmts = [];
                 var_after_stmts = [];
+                var_attrs = [];
               }
             in
             Hashtbl.add ctx.ctx_tu_vars p.C.var_uid var;
@@ -790,6 +852,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
           func.func_name_range <- name_range
       );
       if !simplify then simplify_func ctx.ctx_simplify func;
+      func.func_attrs <- attrs_unify func.func_attrs attrs;
       func
 
 
@@ -800,7 +863,11 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
     let range = s.C.stmt_range in
     match s.C.stmt_kind with
 
-    | C.AttributedStmt s -> stmt func s
+    | C.AttributedStmt (s,attrs) ->
+       (* put attribute on first statement *)
+       (match stmt func s with
+       | [] -> []
+       | ss::t -> (S_attributed (ss,attrs),range)::t)
 
     | C.CompoundStmt l -> [S_block (deblock (ListExt.map_merge (stmt func) l)), range]
 
@@ -871,12 +938,12 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
            let range = d.C.decl_range in
            match d.C.decl_kind with
            | C.EmptyDecl -> []
-           | C.EnumDecl e -> ignore (enum_decl e); []
-           | C.RecordDecl r -> ignore (record_decl r); []
-           | C.TypedefDecl d -> ignore (typedef_decl d); []
-           | C.FunctionDecl f -> ignore (func_decl f); []
+           | C.EnumDecl e -> ignore (enum_decl e d.decl_attrs); []
+           | C.RecordDecl r -> ignore (record_decl r d.decl_attrs); []
+           | C.TypedefDecl t -> ignore (typedef_decl t d.decl_attrs); []
+           | C.FunctionDecl f -> ignore (func_decl f d.decl_attrs); []
            | C.VarDecl v ->
-              let var = var_decl func v in
+              let var = var_decl func v d.decl_attrs in
               (match var.var_kind with
                | Variable_func_static f -> f.func_static_vars <- var::f.func_static_vars
                | Variable_local f -> f.func_local_vars <- var::f.func_local_vars
@@ -1067,6 +1134,7 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
       let o = match k with
         | C.CStyleCast -> EXPLICIT
         | C.ImplicitCast -> IMPLICIT
+        | C.BuiltinBitCast -> BITCAST
         | _ -> error range "unhandled cast kind" (C.cast_kind_name k)
       in
       E_cast (e, o), typ, range
@@ -1083,9 +1151,9 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
 
    | C.DeclRefExpr d ->
       (match d.C.decl_kind with
-       | C.VarDecl v -> E_variable (var_decl func v)
+       | C.VarDecl v -> E_variable (var_decl func v d.decl_attrs)
        | C.FunctionDecl f ->
-          let decl = func_decl f in
+          let decl = func_decl f [] in
           add_func_ref func decl;
           E_function decl
        | C.EnumConstantDecl e -> E_integer_literal e.C.enum_cst_val
@@ -1166,7 +1234,21 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
    | ShuffleVectorExpr ea ->
       E_shuffle_vector (Array.map (expr func) ea), typ, range
 
-   | e -> error range "unhandled expression" (C.expr_kind_name e)
+   | CXXBoolLiteralExpr b ->
+      E_integer_literal (if b then Z.one else Z.zero), typ, range
+
+   | CXXNullPtrLiteralExpr ->
+      E_null_ptr, void_ptr_type, range
+
+   | ExprWithCleanups e ->
+     if Array.length e.cleanup_cleanups > 0 then
+         warning range "unsupported expression" "expression_with_cleanups has non-empty cleanup list; cleanups ignored";
+      expr func e.cleanup_expr
+
+   | MaterializeTemporaryExpr e ->
+      expr func e.materialize_tmp_expr
+
+   | k -> error range "unhandled expression" ((C.expr_kind_name k)^": "^(C.string_of_expr e))
 
 
   (* translate initializers *)
@@ -1206,24 +1288,24 @@ let add_translation_unit (ctx:context) (tu_name:string) (decl:C.decl) (files: st
 
     (* types *)
     | C.EnumDecl e ->
-       let d = enum_decl e in
+       let d = enum_decl e decl.decl_attrs in
        debug string_of_enum_decl d
 
     | C.RecordDecl r ->
-       let d = record_decl r in
+       let d = record_decl r decl.decl_attrs in
        debug string_of_record_decl d
 
     | C.TypedefDecl d ->
-       let d = typedef_decl d in
+       let d = typedef_decl d decl.decl_attrs in
        debug string_of_typedef d
 
     (* declarations *)
     | C.VarDecl v ->
-       let d = var_decl None v in
+       let d = var_decl None v decl.decl_attrs in
        debug string_of_var_decl d
 
     | C.FunctionDecl f ->
-       let d = func_decl f in
+       let d = func_decl f decl.decl_attrs in
        debug string_of_func_decl d
 
     | C.EmptyDecl -> ()
@@ -1322,6 +1404,15 @@ let link_project ctx =
     Hashtbl.fold
       (fun org_name def map -> StringMap.add (name def) def map) hash StringMap.empty
   in
+  let opts =
+    StringMap.fold
+      (fun k v l -> match v with
+         | None -> k::l
+         | Some v -> k::v::l
+      )
+      ctx.ctx_opts []
+  in
+
   { proj_name = ctx.ctx_name;
     proj_tu = ctx.ctx_tu;
     proj_target = ctx.ctx_target;
@@ -1335,6 +1426,7 @@ let link_project ctx =
     proj_file_scope_asm = ctx.ctx_file_scope_asm;
     proj_comments = ctx.ctx_comments;
     proj_macros = cvt ctx.ctx_macros (fun t -> t.macro_name);
+    proj_opts = opts;
   }
 
 

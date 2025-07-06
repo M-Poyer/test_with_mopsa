@@ -960,3 +960,48 @@ let safe_c_negative_array_size_check range man flow =
 
 let unreachable_c_negative_array_size_check range man flow =
   Flow.add_unreachable_check CHK_C_NEGATIVE_ARRAY_SIZE range flow
+
+(**************************************)
+(** {2 Incorrect number of arguments} *)
+(**************************************)
+
+type check      += CHK_C_INCORRECT_NUMBER_OF_ARGUMENTS
+type alarm_kind += A_c_incorrect_number_of_arguments of c_fundec (* called function *) *
+                                                        expr list (** arguments *)
+
+let () =
+  register_check (fun next fmt -> function
+      | CHK_C_INCORRECT_NUMBER_OF_ARGUMENTS -> fprintf fmt "Incorrect number of arguments"
+      | a -> next fmt a
+    )
+
+let () =
+  register_alarm {
+    check = (fun next -> function
+        | A_c_incorrect_number_of_arguments _ -> CHK_C_INCORRECT_NUMBER_OF_ARGUMENTS
+        | a -> next a
+      );
+    compare = (fun next a1 a2 ->
+        match a1, a2 with
+        | A_c_incorrect_number_of_arguments (f1,a1), A_c_incorrect_number_of_arguments (f2,a2) ->
+          Compare.pair compare_c_fundec (Compare.list compare_expr) (f1,a1) (f2,a2)
+        | _ -> next a1 a2
+      );
+    print = (fun next fmt -> function
+        | A_c_incorrect_number_of_arguments (f, args) ->
+          fprintf fmt "Incorrect number of arguments in call to '%a': %d given, %d expected"
+            (Debug.bold Format.pp_print_string) f.c_func_org_name
+            (List.length args)
+            (List.length f.c_func_parameters)
+        | a -> next fmt a
+      );
+    join = (fun next -> next);
+  }
+
+let raise_c_incorrect_number_of_arguments_alarm f args range man flow =
+  let cs = Flow.get_callstack flow in
+  let alarm = mk_alarm (A_c_incorrect_number_of_arguments(f, args)) cs range in
+  Flow.raise_alarm alarm ~bottom:true man.lattice flow
+
+let safe_c_incorrect_number_of_arguments_check range man flow =
+  Flow.add_safe_check CHK_C_INCORRECT_NUMBER_OF_ARGUMENTS range flow

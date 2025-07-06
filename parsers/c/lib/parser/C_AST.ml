@@ -52,6 +52,8 @@ type character_kind = Clang_AST.character_kind
 
 type target_info = Clang_AST.target_info
 
+type attr = Clang_AST.attr
+
 
 (** {2 Operators} *)
 
@@ -90,6 +92,7 @@ type unary_operator =
 type explicitness =
   | EXPLICIT
   | IMPLICIT
+  | BITCAST
 (** Whether a cast is explicit (in the source) or implicit (added for implicit conversions *)
 
 type inc_location =
@@ -119,7 +122,7 @@ type integer_type =
   | SIGNED_INT128 | UNSIGNED_INT128
 (** Integer types. *)
 
-type float_type = FLOAT | DOUBLE | LONG_DOUBLE | FLOAT128
+type float_type = FLOAT | DOUBLE | LONG_DOUBLE | FLOAT128 | FLOAT16
 (** Floating-point types. *)
 
 type record_kind = STRUCT | UNION
@@ -166,6 +169,8 @@ type typ =
   | T_vector of vector_type
   (** GCC vectors *)
 
+  | T_attributed of typ * attr
+
   | T_unknown_builtin of string
   (** unknown builtin *)
 
@@ -180,6 +185,7 @@ and type_qual = typ * qualifier
      mutable typedef_def: type_qual; (** declaration *)
      mutable typedef_range: range; (** declaration location *)
      mutable typedef_com: comment list; (** comments associated to the declaration *)
+     mutable typedef_attrs: attr list; (** attributes *)
    }
 
  and record_type = {
@@ -193,6 +199,7 @@ and type_qual = typ * qualifier
      mutable record_fields: record_field array;
      mutable record_range: range; (** declaration location *)
      mutable record_com: comment list; (** comments associated to the declaration *)
+     mutable record_attrs: attr list; (** attributes *)
    }
  (** Struct or union type. *)
 
@@ -207,6 +214,7 @@ and type_qual = typ * qualifier
      field_record: record_type;
      field_index: int;
      mutable field_com: comment list; (** comments associated to the declaration *)
+     mutable field_attrs: attr list; (** attributes *)
    }
  (** Struct or union field. *)
 
@@ -219,6 +227,7 @@ and type_qual = typ * qualifier
      mutable enum_integer_type: integer_type option;
      mutable enum_range: range; (** declaration location *)
      mutable enum_com: comment list; (** comments associated to the declaration *)
+     mutable enum_attrs: attr list; (** attributes *)
    }
  (** Enumerated type. *)
 
@@ -230,6 +239,7 @@ and type_qual = typ * qualifier
      enum_val_enum: enum_type;
      enum_val_range: range;
      mutable enum_val_com: comment list; (** comments associated to the declaration *)
+     mutable enum_val_attrs: attr list; (** attributes *)
    }
  (** A possible value in an enumerated type. *)
 
@@ -247,9 +257,10 @@ and type_qual = typ * qualifier
  (** Type of functions and prototypes. *)
 
  and vector_type = {
-     vector_type: type_qual;
-     vector_size: int;
+     vector_type: type_qual; (** element type *)
+     vector_size: int; (** size, in elements *)
      vector_kind: int;
+     vector_sizeof: Z.t; (** size, in bytes *)
    }
  (** GCC vector types. *)
 
@@ -266,6 +277,8 @@ and type_qual = typ * qualifier
      mutable var_after_stmts: statement list; (** statements executed after the declaration of the variable *)
      mutable var_range: range;
      mutable var_com: comment list; (** comments associated to the declaration *)
+     mutable var_init_org: init option; (** initialisation _before_ simplification, if different from var_init; used for printing *)
+     mutable var_attrs: attr list; (** attributes *)
    }
 
  and variable_kind =
@@ -290,6 +303,7 @@ and type_qual = typ * qualifier
      mutable func_range: range; (** range of the full declaration *)
      mutable func_name_range: range; (** range of the name part of the declaration *)
      mutable func_com: (comment * macro StringMap.t) list; (** comments associated to the declaration *)
+     mutable func_attrs: attr list; (** function attributes *)
    }
 
 
@@ -329,6 +343,9 @@ and type_qual = typ * qualifier
 
    | S_asm of asm_kind
    (** asm statement *)
+
+   | S_attributed of statement * (attr list)
+   (** statement with attributes *)
 
  and jump_kind =
    | S_goto of string * scope_update
@@ -433,6 +450,7 @@ and type_qual = typ * qualifier
    | E_integer_literal of Z.t (** literal integer *)
    | E_float_literal of string (** literal float, in binary string notation *)
    | E_string_literal of string * character_kind
+   | E_null_ptr
 
    | E_compound_literal of init
 
@@ -480,6 +498,7 @@ and type_qual = typ * qualifier
      proj_files: string list; (** list of parsed files *)
      proj_comments: (comment * macro StringMap.t) list RangeMap.t; (** all comments *)
      proj_macros : macro StringMap.t; (** macros, by name *)
+     proj_opts: string list; (** selected options pased to the compiler we'd like to keep *)
    }
 (** A project is a set of translation units linked together. *)
 
@@ -537,6 +556,7 @@ let rec type_is_scalar (t:typ) =
   | T_complex _ -> false
   | T_vector _ -> false
   | T_unknown_builtin _ -> false
+  | T_attributed (t,_) -> type_is_scalar t
 (** Whether a type yields a scalar value. *)
 
 

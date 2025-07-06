@@ -145,6 +145,7 @@ let parse_directive_comment
       func_range = range;
       func_name_range = range;
       func_com = com;
+      func_attrs = [];
     }
   in
   parse_function_comment func ~selector:is_directive_comment prj enums predicates stubs

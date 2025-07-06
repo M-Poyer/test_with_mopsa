@@ -255,6 +255,7 @@ let visit_var v range prj func =
       var_kind = Variable_local func;
       var_type = visit_qual_typ v.vtyp prj func;
       var_init = None;
+      var_init_org = None;
       var_range = Clang_AST.{
           range_begin = {
             loc_file = get_range_start v.vrange |> get_pos_file;
@@ -270,6 +271,7 @@ let visit_var v range prj func =
       var_com = [];
       var_before_stmts = [];
       var_after_stmts = [];
+      var_attrs = [];
     }
   else
     (* Search for the variable in the parameters of the function or
@@ -313,10 +315,11 @@ let make_unsigned =
 let rank_float =
   let open C_AST in
   function
-  | FLOAT -> 0
-  | DOUBLE -> 1
-  | LONG_DOUBLE -> 2
-  | FLOAT128 -> 3
+  | FLOAT16 -> 0
+  | FLOAT -> 1
+  | DOUBLE -> 2
+  | LONG_DOUBLE -> 3
+  | FLOAT128 -> 4
 
 let is_int_binop = function
   | EQ | NEQ | LT | LE | GT | GE | LAND | LOR -> true
