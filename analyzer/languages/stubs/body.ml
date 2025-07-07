@@ -648,7 +648,13 @@ struct
       let return =
         match stub.stub_func_return_type with
         | None   -> None
-        | Some t -> Some (Universal.Iterators.Interproc.Common.mk_return exp)
+        | Some t ->
+          let cs = Callstack.push_callstack
+            stub.stub_func_name
+            exp.erange
+            (Flow.get_callstack flow)
+          in
+          Some (Universal.Iterators.Interproc.Common.mk_return cs exp)
       in
       eval_stub_call stub args return exp.erange man flow |>
       OptionExt.return

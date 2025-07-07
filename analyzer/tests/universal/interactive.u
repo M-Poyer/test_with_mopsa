@@ -1,0 +1,4 @@
+int f(int arg) {
+	return arg+1;
+}
+assert(f(5) + f(10) == 5);
