@@ -183,7 +183,7 @@ test-pyty:
   stage: test
   dependencies: [build_job]
   variables:
-    PY_FILES: 'int_tests.py misc_tests.py exception_tests.py'
+    PY_FILES: 'int_tests.py misc_tests.py'
   script:
     - eval `opam config env`
     - |
@@ -192,6 +192,7 @@ test-pyty:
           echo $PY_FILE
           ./bin/mopsa-python-types -unittest analyzer/tests/python/types/$PY_FILE
         done
+    - ./bin/mopsa-python-types -unittest -silent exception_tests.py
 
 test-py:
   stage: test
@@ -256,8 +257,8 @@ test-typpete:
 test-cpython 1/1:
   variables:
     CPY_FILE: 'basic_tests.py'
-    NB_CHECKS: '141'
-    NB_SAFE: '140'
+    NB_CHECKS: '142'
+    NB_SAFE: '141'
   extends: .test-cpython
 
 ###########################
