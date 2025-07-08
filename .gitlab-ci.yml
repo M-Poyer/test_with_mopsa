@@ -192,13 +192,13 @@ test-pyty:
           echo $PY_FILE
           ./bin/mopsa-python-types -unittest analyzer/tests/python/types/$PY_FILE
         done
-    - ./bin/mopsa-python-types -unittest -silent exception_tests.py
+    - ./bin/mopsa-python-types -unittest -silent analyzer/tests/python/types/exception_tests.py
 
 test-py:
   stage: test
   dependencies: [build_job]
   variables:
-    PY_FILES: 'bool_tests.py builtins_tests.py class_tests.py dict_tests.py exception_tests.py float_tests.py function_tests.py generator_tests.py int_tests.py iter_assign_tests.py loop_tests.py misc_tests.py operator_tests.py str_tests.py with_tests.py'
+    PY_FILES: 'bool_tests.py builtins_tests.py class_tests.py dict_tests.py float_tests.py function_tests.py generator_tests.py int_tests.py iter_assign_tests.py loop_tests.py misc_tests.py operator_tests.py str_tests.py with_tests.py'
   script:
     - eval `opam config env`
     - |
@@ -207,6 +207,7 @@ test-py:
           echo $PY_FILE
           ./bin/mopsa-python -unittest analyzer/tests/python/$PY_FILE
         done
+    - ./bin/mopsa-python -unittest -silent analyzer/tests/python/exception_tests.py
 
 
 test-py-no-unittest:

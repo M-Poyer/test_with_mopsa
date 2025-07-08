@@ -55,3 +55,12 @@ def test_delete_as():
     mopsa.massert(isinstance(e2, TypeError))
     z = e
     mopsa.assert_exception(NameError)
+
+def test_catch_random():
+    b = mopsa.random_bool()
+    x = ValueError if b else TypeError
+    try:
+        raise x
+    except ValueError:
+        pass
+    mopsa.assert_exception_exists(TypeError)
