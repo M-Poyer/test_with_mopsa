@@ -3982,7 +3982,9 @@ CAMLprim value MLTreeBuilderVisitor::TranslateBuiltinType(const BuiltinType * no
     GENERATE_CASE_PREFIX(r, BuiltinType::, Type_, OMPArraySection);
 #endif
     GENERATE_CASE_PREFIX(r, BuiltinType::, Type_, Float16);
+#if CLANG_VERSION_MAJOR >= 15
     GENERATE_CASE_PREFIX(r, BuiltinType::, Type_, BFloat16);
+#endif
     // unknown
   default:
     // new version: generate a "unknown builtin" AST node that OCaml can use
