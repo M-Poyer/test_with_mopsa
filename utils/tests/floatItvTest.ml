@@ -97,10 +97,15 @@ let sample_f_in prec round (i : IN.t) : F.t QCheck2.Gen.t =
     | _ -> oneofl special_values
 
 let generator_i prec round =
-  sample_f_i prec round I.minf_inf >>= fun x ->
-  sample_f_i prec round I.minf_inf >>= fun y ->
-  let lo, hi = min x y, max x y in
-  return (I.of_float lo hi)
+  fix
+    (fun self () ->
+      sample_f_i prec round I.minf_inf >>= fun x ->
+      sample_f_i prec round I.minf_inf >>= fun y ->
+      let lo, hi = min x y, max x y in
+      if F.is_finite x && F.is_finite y then
+        return (I.of_float lo hi)
+      else self ()
+    ) ()
 
 let generator_fi prec round =
   fix (fun self () ->
