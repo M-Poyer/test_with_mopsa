@@ -226,7 +226,7 @@ module Domain =
                         (mk_py_isinstance exn except range)
                         man
                         ~fthen:(fun flow ->
-                          Cases.singleton (Caught [])
+                            Cases.singleton (Caught [exc_name])
                             (Flow.add_safe_check Alarms.CHK_PY_TYPEERROR exn.erange flow |>
                                man.exec (mk_assign (mk_var except_var range) exn range) |> post_to_flow man))
                         ~felse:(fun flow ->
@@ -263,7 +263,10 @@ module Domain =
                         ~join:(fun (c, u) (c', u') -> Flow.join man.lattice c c', Flow.join man.lattice u u')
                         ~meet:(fun (c, u) (c', u') -> Flow.meet man.lattice c c', Flow.meet man.lattice u u')
                         ~bottom:(fun () -> Flow.bottom_from flow, Flow.bottom_from flow) flow' in
-                    c, exc_name :: excs, u
+                    Flow.join man.lattice caught c,
+                    exc_name :: excs,
+                    Flow.join man.lattice uncaught u
+
                  | _ -> (caught, excs, uncaught))
                (flow0, [], flow0) flow in
            Cases.join

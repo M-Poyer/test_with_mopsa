@@ -49,8 +49,8 @@
  float-itv ∪ int-itv : 
     x : [3,3]  
  float-itv ∪ int-itv : 
-    x : [3,3],
     x : [42,42],
+    x : [3,3],
     offset⦃s⦄ : [0,0] ,
  pointers : 
     s : {  ""  },

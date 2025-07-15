@@ -105,30 +105,30 @@ let () =
 
 
 (** Return variable of a function call *)
-type var_kind += V_return of expr (* call expression *)
+type var_kind += V_return of expr (* call expression *) * callstack
 
 (** Registration of the kind of return variables *)
 let () =
   register_var {
     print = (fun next fmt v ->
         match v.vkind with
-        | V_return e -> Format.fprintf fmt "ret(%a)" pp_expr e
+        | V_return (e,_) -> Format.fprintf fmt "ret(%a)" pp_expr e
         | _ -> next fmt v
       );
     compare = (fun next v1 v2 ->
         match v1.vkind, v2.vkind with
-        | V_return e1, V_return e2 ->
-          Compare.pair compare_expr compare_range
-            (e1, e1.erange)
-            (e2, e2.erange)
+        | V_return (e1,cc1), V_return (e2,cc2) ->
+          Compare.triple compare_expr compare_range compare_callstack
+            (e1, e1.erange, cc1)
+            (e2, e2.erange, cc2)
         | _ -> next v1 v2
       );
   }
 
 (** Constructor of return variables *)
-let mk_return call =
-  let uniq_name = Format.asprintf "ret(%a)@@%a" pp_expr call pp_range call.erange in
-  mkv uniq_name (V_return call) call.etyp
+let mk_return cs call =
+  let uniq_name = Format.asprintf "ret(%a)@@%a" pp_expr call Callstack.pp_callstack_short cs in
+  mkv uniq_name (V_return (call,cs)) call.etyp
 
 
 
@@ -208,59 +208,78 @@ let init_fun_params f args range man flow =
   if f.fun_parameters = [] then
     [], f.fun_locvars, f.fun_body, Post.return flow
   else
-  if !opt_rename_local_variables_on_recursive_call &&
-     check_nested_calls f.fun_uniq_name (Flow.get_callstack flow)
-  then
-    begin
-      debug "nested calls detected on %s, performing parameters and locvar renaming" f.fun_orig_name;
-      (* Add parameters and local variables to the environment *)
-      let add_range = (fun p -> mk_attr_var p (Format.asprintf "%a" pp_range range) p.vtyp) in
+  if !opt_rename_local_variables_on_recursive_call then
+    let add_range v = mk_stack_var (Flow.get_callstack flow) v in
 
-      let function_vars = f.fun_parameters @ f.fun_locvars in
-      let fun_parameters = List.map add_range f.fun_parameters in
-      let fun_locvars = List.map add_range f.fun_locvars in
+    (* Parameters must always be renamed because the function may
+       be called several times in the same expression (see MR #247).
+       On the other hand locals are out of scope when the function
+       call returns so they don't need to be renamed except if the
+       function is called recursively, in this case they need to be
+       renamed to distinguish among different instances of the same
+       variable in different scopes.
+     *)
+    let to_rename,fun_locvars =
+      if check_nested_calls f.fun_uniq_name (Flow.get_callstack flow) then begin
+        debug "nested calls detected on %s, performing parameters and locvar renaming" f.fun_orig_name;
+        f.fun_parameters @ f.fun_locvars,
+        f.fun_locvars
+      end else
+        f.fun_parameters,
+        List.map add_range f.fun_locvars
+    in
+    let fun_parameters = List.map add_range f.fun_parameters in
 
-      (* TODO: do this transformation only if we detect f in the callstack? That could work? *)
-      let new_body = Visitor.map_stmt (fun e -> match ekind e with
-          | E_var (v, m) when List.exists (fun v' -> compare_var v v' = 0) function_vars ->
-            Keep {e with ekind = E_var(add_range v, m)}
-          | _ -> VisitParts e) (fun s -> VisitParts s) f.fun_body in
-      debug "moved body from:%a@\nto %a@\n" pp_stmt f.fun_body pp_stmt new_body;
+    (* TODO: do this transformation only if we detect f in the callstack? That could work? *)
+    let fun_body = Visitor.map_stmt (fun e -> match ekind e with
+        | E_var (v, m) when List.exists (fun v' -> compare_var v v' = 0) to_rename ->
+          Keep {e with ekind = E_var(add_range v, m)}
+        | _ -> VisitParts e) (fun s -> VisitParts s) f.fun_body in
+    debug "moved body from:%a@\nto %a@\n" pp_stmt f.fun_body pp_stmt fun_body;
 
-      (* Assign arguments to parameters *)
-      (* FIXME: the sub-expressions of arg have a range in the caller
-         body. Since we have updated the callstack, we should be now
-         in the callee body. We need a way to rewrite the ranges in
-         arg! *)
-      let parameters_assign = List.rev @@ List.fold_left (fun acc (param, arg) ->
-          mk_assign (mk_var param init_range) arg init_range ::
-          mk_add_var param init_range :: acc
-        ) [] (List.combine fun_parameters args) in
+    (* Assign arguments to parameters *)
+    (* FIXME: the sub-expressions of arg have a range in the caller
+       body. Since we have updated the callstack, we should be now
+       in the callee body. We need a way to rewrite the ranges in
+       arg! *)
+    let parameters_assign = List.rev @@ List.fold_left (fun acc (param, arg) ->
+        mk_assign (mk_var param init_range) arg init_range ::
+        mk_add_var param init_range :: acc
+      ) [] (List.combine fun_parameters args) in
 
-      let init_block = mk_block parameters_assign init_range in
+    let init_block = mk_block parameters_assign init_range in
 
+    (* If Universal update the function declaration *)
+    let flow = try
+      let fundec = { f with fun_body; fun_parameters; fun_locvars } in
+      let old_u_program = get_u_program flow in
+      let new_u_program = {old_u_program with
+      universal_fundecs = fundec :: old_u_program.universal_fundecs} in
+      set_u_program new_u_program flow
+    with Not_found ->
+      debug "FIXME: not analyzing an Universal program but renaming is \
+        enabled, please implement renaming in the language-specific \
+        inter-proc iterator to avoid breaking the interactive engine";
+      flow
+    in
 
-      (* Execute body *)
-      fun_parameters, fun_locvars, new_body, man.exec init_block flow
-
-    end
+    (* Execute body *)
+    fun_parameters, fun_locvars, fun_body, man.exec init_block flow
   else
-    begin
-      (* Assign arguments to parameters *)
-      (* FIXME: the sub-expressions of arg have a range in the caller
-         body. Since we have updated the callstack, we should be now
-         in the callee body. We need a way to rewrite the ranges in
-         arg! *)
-      let parameters_assign = List.rev @@ List.fold_left (fun acc (param, arg) ->
-          mk_assign (mk_var param init_range) arg init_range ::
-          mk_add_var param init_range :: acc
-        ) [] (List.combine f.fun_parameters args) in
+    (* Assign arguments to parameters *)
+    (* FIXME: the sub-expressions of arg have a range in the caller
+       body. Since we have updated the callstack, we should be now
+       in the callee body. We need a way to rewrite the ranges in
+       arg! *)
+    let parameters_assign = List.rev @@ List.fold_left (fun acc (param, arg) ->
+        mk_assign (mk_var param init_range) arg init_range ::
+        mk_add_var param init_range :: acc
+      ) [] (List.combine f.fun_parameters args) in
 
-      let init_block = mk_block parameters_assign init_range in
+    let init_block = mk_block parameters_assign init_range in
 
-      (* Execute body *)
-      f.fun_parameters, f.fun_locvars, f.fun_body, man.exec init_block flow
-    end
+    (* Execute body *)
+    f.fun_parameters, f.fun_locvars, f.fun_body, man.exec init_block flow
 
 
 (** Execute function body and save the return value *)
@@ -352,7 +371,14 @@ let inline f params locals body ret range man flow =
           mk_remove_var v range
         ) locals) range)
   in
-  post >>% fun flow ->
+  (try
+    (* we updated the program before analyzing the renamed function, we can now get rid of it *)
+    let u_program = find_ctx u_program_ctx (Cases.get_ctx post) in
+    let u_program = {u_program with universal_fundecs = List.tl u_program.universal_fundecs} in
+    Cases.set_ctx (Cases.get_ctx post |> add_ctx u_program_ctx u_program) post
+  with Not_found -> post)
+  >>% fun flow ->
+
   match ret with
   | None ->
     Eval.singleton (mk_unit range) flow ~cleaners:(

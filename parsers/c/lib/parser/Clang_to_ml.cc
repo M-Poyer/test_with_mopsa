@@ -1643,6 +1643,7 @@ CAMLprim value MLTreeBuilderVisitor::TranslateCleanupObject(const ExprWithCleanu
   CAMLparam0();
   CAMLlocal1(ret);
 
+#if CLANG_VERSION_MAJOR >= 15
   if (isa<BlockDecl*>(x)) {
     ret = caml_alloc(1, MLTAG_Cleanup_block_decl);
     Store_field(ret, 0, TranslateBlockDecl(cast<BlockDecl*>(x)));
@@ -1650,6 +1651,9 @@ CAMLprim value MLTreeBuilderVisitor::TranslateCleanupObject(const ExprWithCleanu
   else {
     ret = caml_alloc(1, MLTAG_Cleanup_compound_literal_expr);
   }
+#else
+    ret = caml_alloc(1, MLTAG_Cleanup_compound_literal_expr);
+#endif
 
   CAMLreturn(ret);
 }
@@ -3978,7 +3982,9 @@ CAMLprim value MLTreeBuilderVisitor::TranslateBuiltinType(const BuiltinType * no
     GENERATE_CASE_PREFIX(r, BuiltinType::, Type_, OMPArraySection);
 #endif
     GENERATE_CASE_PREFIX(r, BuiltinType::, Type_, Float16);
+#if CLANG_VERSION_MAJOR >= 15
     GENERATE_CASE_PREFIX(r, BuiltinType::, Type_, BFloat16);
+#endif
     // unknown
   default:
     // new version: generate a "unknown builtin" AST node that OCaml can use

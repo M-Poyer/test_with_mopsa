@@ -122,10 +122,10 @@ struct
   (** ============================= *)
 
   (** Check if there is a recursive call to a function *)
-  let is_recursive_call f range flow =
+  let is_recursive_call f range cs =
     let f_orig = f.c_func_org_name in
     let f_uniq = f.c_func_unique_name in
-    let cs = push_callstack f_orig ~uniq:f_uniq range (Flow.get_callstack flow) in
+    let cs = push_callstack f_orig ~uniq:f_uniq range cs in
     Universal.Iterators.Interproc.Common.check_recursion f_orig f_uniq range cs
 
   let is_local_scope = function
@@ -135,7 +135,13 @@ struct
       false
 
   (** Rename the variables of a function's body by attaching the callstack to them *)
-  let rename_variables_in_function_body cs body =
+  let rename_variables_in_function_body to_rename cs body =
+    let mk_renamed_var v =
+      if List.exists (fun v' -> compare_var v v' = 0) to_rename then
+        mk_stack_var cs v
+      else
+        v
+    in
     let rec visit_expr e =
       map_expr
         (fun e ->
@@ -143,7 +149,7 @@ struct
            | E_var(v, mode) ->
              begin match vkind v with
                | V_cvar cv when is_local_scope cv.cvar_scope ->
-                 let v' = mk_stack_var cs v in
+                 let v' = mk_renamed_var v in
                  let e' = { e with ekind = E_var(v', mode) } in
                  Keep e'
                | _ ->
@@ -165,13 +171,13 @@ struct
         (fun s ->
            match skind s with
            | S_c_declaration(v, init, scope) when is_local_scope scope ->
-             let v' = mk_stack_var cs v in
+             let v' = mk_renamed_var v in
              let init' = OptionExt.lift visit_init init in
              let s' = { s with skind = S_c_declaration(v', init', scope) } in
              Keep s'
            | S_block(block, vars) ->
              let block' = List.map visit_stmt block in
-             let vars' = List.map (mk_stack_var cs) vars in
+             let vars' = List.map (mk_renamed_var) vars in
              let s' = { s with skind = S_block(block', vars') } in
              Keep s'
            | S_c_return(e, upd) ->
@@ -211,13 +217,19 @@ struct
       | C_init_implicit t ->
         C_init_implicit t
     and visit_scope_update upd =
-      { c_scope_var_added = List.map (mk_stack_var cs) upd.c_scope_var_added;
-        c_scope_var_removed = List.map (mk_stack_var cs) upd.c_scope_var_removed; }
+      { c_scope_var_added = List.map (mk_renamed_var) upd.c_scope_var_added;
+        c_scope_var_removed = List.map (mk_renamed_var) upd.c_scope_var_removed; }
     in
     visit_stmt body
 
-  (** Renamve local variables in a stub body by attaching the callstack to them *)
-  let rename_variables_in_stub cs stub =
+  (** Rename local variables in a stub body by attaching the callstack to them *)
+  let rename_variables_in_stub to_rename cs stub =
+    let mk_renamed_var v =
+      if List.exists (fun v' -> compare_var v v' = 0) to_rename then
+        mk_stack_var cs v
+      else
+        v
+    in
     let with_range f x =
       bind_range x f
     in
@@ -238,7 +250,7 @@ struct
       | S_free free         -> S_free (with_range visit_expr free)
       | S_message _ as x    -> x
     and visit_local local =
-      { lvar = mk_stack_var cs local.lvar;
+      { lvar = mk_renamed_var local.lvar;
         lval = visit_local_value local.lval; }
     and visit_local_value = function
       | L_new _ as x -> x
@@ -256,7 +268,7 @@ struct
            | E_var(v, mode) ->
              begin match vkind v with
                | V_cvar cv when is_local_scope cv.cvar_scope ->
-                 let v' = mk_stack_var cs v in
+                 let v' = mk_renamed_var v in
                  let e' = { e with ekind = E_var(v', mode) } in
                  Keep e'
                | _ ->
@@ -272,8 +284,8 @@ struct
           | F_expr e            -> F_expr (visit_expr e)
           | F_binop(op, f1, f2) -> F_binop(op, visit_formula f1, visit_formula f2)
           | F_not f             -> F_not (visit_formula f)
-          | F_forall(v, s, f)   -> F_forall(mk_stack_var cs v, visit_set s, visit_formula f)
-          | F_exists(v, s, f)   -> F_exists(mk_stack_var cs v, visit_set s, visit_formula f)
+          | F_forall(v, s, f)   -> F_forall(mk_renamed_var v, visit_set s, visit_formula f)
+          | F_exists(v, s, f)   -> F_exists(mk_renamed_var v, visit_set s, visit_formula f)
           | F_in(e, s)          -> F_in(visit_expr e, visit_set s)
           | F_otherwise(f, e)   -> F_otherwise(visit_formula f, visit_expr e)
           | F_if(f1, f2, f3)    -> F_if(visit_formula f1, visit_formula f2, visit_formula f3)
@@ -284,26 +296,29 @@ struct
     in
     { stub with
       stub_func_body = List.map visit_section stub.stub_func_body;
-      stub_func_params = List.map (mk_stack_var cs) stub.stub_func_params;
+      stub_func_params = List.map (mk_renamed_var) stub.stub_func_params;
       stub_func_locals = List.map (with_range visit_local) stub.stub_func_locals;
       stub_func_assigns = List.map (with_range visit_assigns) stub.stub_func_assigns; }
 
   (** Rename the variables of a function by attaching the callstack to them *)
   let rename_variables_in_fundec cs fundec =
-    (* No renaming the function is not in the callstack *)
+    (* No renaming of locals if the function is not in the callstack,
+       but parameters are always renamed, see !237 *)
     let first_call =
-      cs |> List.for_all
+      List.tl cs |> List.for_all
         (fun c -> c.call_fun_uniq_name <> fundec.c_func_unique_name)
     in
-    if first_call then
-      false, fundec
+    let to_rename = if first_call then
+      fundec.c_func_parameters
     else
-      true, { fundec with
-        c_func_parameters = List.map (mk_stack_var cs) fundec.c_func_parameters;
-        c_func_local_vars = List.map (mk_stack_var cs) fundec.c_func_local_vars;
-        c_func_body = OptionExt.lift (rename_variables_in_function_body cs) fundec.c_func_body;
-        c_func_stub = OptionExt.lift (rename_variables_in_stub cs) fundec.c_func_stub;
-      }
+      fundec.c_func_parameters @ fundec.c_func_local_vars
+    in
+    { fundec with
+      c_func_parameters = List.map (mk_stack_var cs) fundec.c_func_parameters;
+      c_func_local_vars = if first_call then fundec.c_func_local_vars else fundec.c_func_local_vars @ List.map (mk_stack_var cs) fundec.c_func_local_vars;
+      c_func_body = OptionExt.lift (rename_variables_in_function_body to_rename cs) fundec.c_func_body;
+      c_func_stub = OptionExt.lift (rename_variables_in_stub to_rename cs) fundec.c_func_stub;
+    }
 
   (** 𝔼⟦ alloca(size) ⟧ *)
   let eval_alloca_call size range man flow =
@@ -368,7 +383,6 @@ struct
 
   (** Eval a function call *)
   let eval_call fundec args range man flow =
-    let fundec_has_been_modified = ref false in
     if List.length args > 0 && List.length fundec.c_func_parameters > 0 then
       debug "%s %a %a" fundec.c_func_org_name pp_typ (List.hd fundec.c_func_parameters).vtyp pp_typ (List.hd args).etyp;
     if fundec.c_func_org_name = "__builtin_alloca" then
@@ -436,11 +450,12 @@ struct
        * [>>%] here to avoid calling the body of the function in every
        * partition *)
       let flow = set_env_flow T_cur empty man flow in
-      let ret =
+      let ret, is_recursive =
         (* Process arguments by evaluating function calls *)
-        eval_calls_in_args fundec.c_func_org_name 0 args man flow >>$ fun args flow ->
-        if is_recursive_call fundec range flow then (
+        let args_eval = eval_calls_in_args fundec.c_func_org_name 0 args man flow in
+        if is_recursive_call fundec range (Cases.get_callstack args_eval) then (
           warn_at range "recursive call on %s, returning top" fundec.c_func_org_name;
+          args_eval >>$ fun _ flow ->
           let flow =
             Flow.add_local_assumption
               (Universal.Iterators.Interproc.Common.A_ignore_recursion_side_effect fundec.c_func_org_name)
@@ -450,19 +465,18 @@ struct
             Eval.singleton (mk_unit range) flow
           else
             man.eval (mk_top fundec.c_func_return range) flow
-        )
-        else
-         let is_modified, fundec = rename_variables_in_fundec (Flow.get_callstack flow) fundec in
-         let () = fundec_has_been_modified := is_modified in
-         let flow =
-           if !fundec_has_been_modified then
-           (* after fundec renaming, we save the updated program in the context for the interactive engine *)
-             let old_c_program = get_c_program flow in
-             let new_c_program =
-               {old_c_program with
-                c_functions = fundec :: old_c_program.c_functions } in
-             set_c_program new_c_program flow
-           else flow in
+        ), true
+        else (
+         let cs = Cases.get_callstack args_eval |>
+          push_callstack fundec.c_func_org_name ~uniq:fundec.c_func_unique_name range
+         in
+         let fundec = rename_variables_in_fundec cs fundec in
+         (* after fundec renaming, we save the updated program in the context for the interactive engine *)
+         let old_c_program = find_ctx c_program_ctx (Cases.get_ctx args_eval) in
+         let new_c_program =
+           {old_c_program with
+            c_functions = fundec :: old_c_program.c_functions } in
+         Cases.set_ctx (Cases.get_ctx args_eval |> add_ctx c_program_ctx new_c_program) args_eval >>$ fun args flow ->
          match fundec with
          | {c_func_body = Some body; c_func_stub = None; c_func_variadic = false} ->
            let open Universal.Lang.Ast in
@@ -523,15 +537,18 @@ struct
             Eval.singleton (mk_unit range) flow
           else
             man.eval (mk_top c_func_return range) flow
+      ), false in
+      let ret =
+        (* we updated the program before analyzing the renamed function, we can now get rid of it *)
+        if not is_recursive then
+          let c_program = find_ctx c_program_ctx (Cases.get_ctx ret) in
+          assert ((List.hd c_program.c_functions).c_func_org_name = fundec.c_func_org_name);
+          let c_program = {c_program with c_functions = List.tl c_program.c_functions} in
+          Cases.set_ctx (Cases.get_ctx ret |> add_ctx c_program_ctx c_program) ret
+        else ret
       in
       (* free alloca addresses *)
       ret >>$ fun e flow ->
-      let flow =
-        if !fundec_has_been_modified then
-          (* we updated the program before analyzing the renamed function, we can now get rid of it *)
-          let c_program = get_c_program flow in
-          set_c_program {c_program with c_functions = List.tl c_program.c_functions} flow
-        else flow in
       get_env T_cur man flow >>$ fun callee_addrs flow ->
       let flow = set_env_flow T_cur caller_alloca_addrs man flow in
       AddrSet.fold

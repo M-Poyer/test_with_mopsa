@@ -31,6 +31,7 @@ module type OPTIONS =
 sig
   val name  : string
   val short : bool
+  val original_constructs_only : bool
 end
 
 module Hook(Options:OPTIONS) =
@@ -151,6 +152,7 @@ struct
   (** ******************* *)
 
   let on_before_exec route stmt man flow =
+    if Options.original_constructs_only && stmt.ssynthetic then () else
     reach stmt.srange;
     if Options.short then
       indent "%a%a"
@@ -168,6 +170,7 @@ struct
 
 
   let on_after_exec route stmt man flow post =
+    if Options.original_constructs_only && stmt.ssynthetic then () else
     let time = get_timing () in
     let nb = Cases.cardinal post in
     if Options.short then
@@ -192,6 +195,7 @@ struct
 
 
   let on_before_eval route semantic exp man flow =
+    if Options.original_constructs_only && exp.esynthetic then () else
     if Options.short then
       indent "%a%a"
         (pp_E semantic) exp
@@ -207,6 +211,7 @@ struct
       Stack.push (Sys.time ()) stack
 
   let on_after_eval route semantic exp man flow evl =
+    if Options.original_constructs_only && exp.esynthetic then () else
     let time = get_timing () in
     let pp_evl fmt evl =
       Cases.print_result (
@@ -249,5 +254,24 @@ struct
 end
 
 let () =
-  Core.Hook.register_stateless_hook (module Hook(struct let name = "logs" let short = false end));
-  Core.Hook.register_stateless_hook (module Hook(struct let name = "short-logs" let short = true end))
+  Core.Hook.register_stateless_hook
+    (module Hook
+         (struct
+           let name = "logs"
+           let short = false
+           let original_constructs_only = false
+         end));
+  Core.Hook.register_stateless_hook
+    (module Hook
+         (struct
+           let name = "short-logs"
+           let short = true
+           let original_constructs_only = false
+         end));
+  Core.Hook.register_stateless_hook
+    (module Hook
+         (struct
+           let name = "logs-source-only"
+           let short = false
+           let original_constructs_only = true
+         end));

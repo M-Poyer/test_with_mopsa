@@ -276,7 +276,8 @@ struct
       user_packs_of_cvar cvar
 
     (* Formal scalar parameters are part of the caller and the callee packs *)
-    | Var { vkind = V_cvar {cvar_scope = Variable_parameter f}; vtyp }
+    | Var ({ vkind = V_cvar {cvar_scope = Variable_parameter f}; vtyp })
+    | Var ({ vkind = V_var_attr ({ vkind = V_cvar {cvar_scope = Variable_parameter f}; vtyp }, _) })
       when is_c_scalar_type vtyp
       ->
       let cs = find_ctx Context.control_ctx_key ctx |> ControlCtx.extract_callstack in
@@ -322,7 +323,7 @@ struct
         ) [] o_caller
 
     (* Return variables are also part of the caller and the callee packs *)
-    | Var { vkind = Universal.Iterators.Interproc.Common.V_return call } ->
+    | Var { vkind = Universal.Iterators.Interproc.Common.V_return (call,_) } ->
       let cs = find_ctx Context.control_ctx_key ctx |> ControlCtx.extract_callstack in
       let r = if is_empty_callstack cs
       then []
@@ -357,7 +358,7 @@ struct
     | Var { vkind = Cstubs.Aux_vars.V_c_primed_base b } ->
       packs_of_base ~user_only ctx b
 
-    | Var ({ vkind = V_c_stack_var(_, v)}) ->
+    | Var ({ vkind = V_stack_var(_, v)}) ->
       packs_of_base ~user_only ctx {b with base_kind = Var v}
 
     (* Resource are put in the function scope corresponding to their allocation area *)
@@ -467,7 +468,7 @@ struct
     | Memory.Variable_length_array.Domain.V_c_variable_length vv -> packs_of_var ctx vv
     | Cstubs.Aux_vars.V_c_bytes a -> packs_of_base ctx (mk_addr_base a)
     | Cstubs.Aux_vars.V_c_primed_base b -> packs_of_base ctx b
-    | V_c_stack_var(_, vv) -> packs_of_var ctx vv
+    | V_stack_var(_, vv) -> packs_of_var ctx vv
     | _ -> packs_of_base ctx (mk_var_base v)
 
 end

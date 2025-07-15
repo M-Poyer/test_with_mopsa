@@ -183,7 +183,7 @@ test-pyty:
   stage: test
   dependencies: [build_job]
   variables:
-    PY_FILES: 'int_tests.py misc_tests.py exception_tests.py'
+    PY_FILES: 'int_tests.py misc_tests.py'
   script:
     - eval `opam config env`
     - |
@@ -192,12 +192,13 @@ test-pyty:
           echo $PY_FILE
           ./bin/mopsa-python-types -unittest analyzer/tests/python/types/$PY_FILE
         done
+    - ./bin/mopsa-python-types -unittest -silent analyzer/tests/python/types/exception_tests.py
 
 test-py:
   stage: test
   dependencies: [build_job]
   variables:
-    PY_FILES: 'bool_tests.py builtins_tests.py class_tests.py dict_tests.py exception_tests.py float_tests.py function_tests.py generator_tests.py int_tests.py iter_assign_tests.py loop_tests.py misc_tests.py operator_tests.py str_tests.py with_tests.py'
+    PY_FILES: 'bool_tests.py builtins_tests.py class_tests.py dict_tests.py float_tests.py function_tests.py generator_tests.py int_tests.py iter_assign_tests.py loop_tests.py misc_tests.py operator_tests.py str_tests.py with_tests.py'
   script:
     - eval `opam config env`
     - |
@@ -206,6 +207,7 @@ test-py:
           echo $PY_FILE
           ./bin/mopsa-python -unittest analyzer/tests/python/$PY_FILE
         done
+    - ./bin/mopsa-python -unittest -silent analyzer/tests/python/exception_tests.py
 
 
 test-py-no-unittest:
@@ -256,8 +258,8 @@ test-typpete:
 test-cpython 1/1:
   variables:
     CPY_FILE: 'basic_tests.py'
-    NB_CHECKS: '141'
-    NB_SAFE: '140'
+    NB_CHECKS: '142'
+    NB_SAFE: '141'
   extends: .test-cpython
 
 ###########################
@@ -270,10 +272,20 @@ test-interactive:
   script:
     - eval `opam config env`
     - echo $PWD
-    - cd analyzer/tests/c/
+    - pushd analyzer/tests/c/
     - echo "load script interactive.script" | ../../../bin/mopsa-c -silent -engine=interactive interactive.c | tee out
     - head -n 82 out | tail -n 77 > out.out
     - diff <(sed "15,16d" out.out) <(sed "15,16d" interactive.out)
+    - popd
+    - pushd analyzer/tests/universal/
+    - echo "load script interactive.script" | ../../../bin/mopsa-universal -silent -engine=interactive interactive.u | tee out
+    - tail -n 27 out > out.out
+    - diff out.out interactive.out
+    - popd
+    - pushd analyzer/tests/c/
+    - echo "load script interactive2.script" | ../../../bin/mopsa-c -silent -engine=interactive interactive2.c | tee out
+    - tail -n 46 out > out.out
+    - diff out.out interactive2.out
 
 
 ##############

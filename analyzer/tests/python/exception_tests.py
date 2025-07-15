@@ -53,3 +53,14 @@ def test_unreachable_test():
 def test_incorrect_raise():
     raise 2
     mopsa.assert_exception(TypeError)
+
+def test_catch_random():
+    b = mopsa.random_bool()
+    x = ValueError if b else TypeError
+    try:
+        raise x
+    except ValueError:
+        pass
+    mopsa.assert_exception_exists(TypeError)
+
+

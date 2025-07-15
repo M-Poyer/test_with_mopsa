@@ -106,7 +106,14 @@ struct
         | Some _ ->
           match f.fun_return_var with
           | Some v -> Some v
-          | None   -> Some (mk_return exp)
+          | None   ->
+            let cs = Callstack.push_callstack
+              f.fun_orig_name
+              ~uniq:f.fun_uniq_name
+              range
+              (Flow.get_callstack flow)
+            in
+            Some (mk_return cs exp)
       in
       post >>% inline f params locals body ret range man |>
       Option.some
