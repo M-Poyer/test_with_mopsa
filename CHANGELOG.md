@@ -1,3 +1,46 @@
+# 1.2
+
+High-level changes:
+- Sound support of bitfields
+- Add bitmask abstract domain
+- Property-based testing for non-relational numeric abstractions
+- Build system is simplified and now relies on `dune`'s `include_subdirs qualified` option
+- Warn about usage of prototype domains through runtime warnings and in the analysis report
+
+Detailed changelog:
+- !298 by @rmonat: pre-release fixes (CHANGELOG.md, ...)
+- !296 by @antoine_mine: C, extended locations to track C macro expansions
+- !239, !303 by @rmonat: experimental heterogeneous relational domain
+- !285 by @rmonat: extend log hooks to allow displaying only original exprs/stmts
+- !302 by @antoine_mine: fix for old clang version (10) in C frontend
+- !300, !301 by @rmonat: fix Python's except semantics
+- !237 by @Mm72: fix argument clash in function call
+- !299 by @antoine_mine: fix compilation error on CLang 14
+- !246 by @aouadjaout/@rmonat: transform bitfields into bitwise operations
+- !297 by @rmonat: ci, fix interactive engine test
+- !295 by @antoine_mine: C source printing prints global variable declarations before simplification
+- !294 by @antoine_mine: parser fixes to analyze coreutils 9.7
+- !289 by @Mm72: fix typo in file descriptor's table
+- !290 by @rmonat: fix `bwd_round` in floating point interval domain
+- !288 by @rmonat: enable sudo in docker images
+- !287 by @rmonat: fix widening delay
+- !286 by @rmonat: ensure file is closed even during parsing errors
+- !275, !284 by @rmonat: dune, use `include_subdirs qualified`
+- !278 by @rmonat: add collecting semantics domain for P(V->Z)
+- !282, !292 by @rmonat: warn about prototype analyses
+- !283 by @antoine_mine: opam depexts: fix clang package name in Gentoo
+- !264 by @aouadjaoutt/@rmonat: add the domain of bitmasks
+- !274 by @rmonat: relational: avoid double call to `mopsa_to_apron_var`
+- !277 by @rmonat: add option to disable wraparound semantics for signed integer overflow
+- !280 by @Mm72: tag `synthetic` expressions/statements from original ones
+- !281 by @Mm72: fix usage help for relational overflow check flag
+- !276 by @rmonat: python, fix parser in cases such as `a = b = c = [1, 2]`
+- !270 by @rmonat: implement notion of "control context", generalizing callstacks
+- !271 by @Mm72: document the process of creating output files for manual
+- !269, !272 by @Mm72: property-based testing for non-relational integer domains
+- !268 by @antoine_mine: add support for Clang 20 frontend
+
+
 # 1.1
 
 Release 1.1 brings several expressivity, precision and interface improvements, notably:

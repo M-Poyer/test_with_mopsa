@@ -34,9 +34,9 @@ struct
 
   include GenValueId(
     struct
-        type nonrec t = t
-        let name = "universal.numeric.values.bitmask"
-        let display = "bitmask"
+      type nonrec t = t
+      let name = "universal.numeric.values.bitmask"
+      let display = "bitmask"
     end
     )
 
@@ -50,7 +50,7 @@ struct
 
   let is_bottom a = (a = BOT)
 
-  let subset a1 a2 = IntBitfields.included_bot a1 a2 
+  let subset a1 a2 = IntBitfields.included_bot a1 a2
 
   let join a1 a2 = IntBitfields.join_bot a1 a2
 
@@ -61,6 +61,8 @@ struct
   let print printer a = unformat IntBitfields.fprint_bot printer a
 
   include DefaultValueFunctions
+
+  let domain_assumptions = [Core.Alarm.A_prototype_domain name]
 
   let constant c t =
     match c with
@@ -87,13 +89,13 @@ struct
     | O_log_and    -> bot_lift2 IntBitfields.log_and a1 a2
     | O_log_or     -> bot_lift2 IntBitfields.log_or a1 a2
     | _            -> top
-  
+
   let filter b t = function
-  | BOT -> BOT
-  | Nb a as x when b ->
-    if IntBitfields.contains_nonzero a then x else BOT
-  | Nb a as x (* not b *) ->
-    if IntBitfields.contains_zero a then x else BOT
+    | BOT -> BOT
+    | Nb a as x when b ->
+      if IntBitfields.contains_nonzero a then x else BOT
+    | Nb a as x (* not b *) ->
+      if IntBitfields.contains_zero a then x else BOT
 end
 
 let () =
