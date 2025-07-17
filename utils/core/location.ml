@@ -60,6 +60,17 @@ let relative_path file =
     file
 
 
+type epos = {
+  epos_pos: pos;
+  epos_stack: pos list;
+}
+(** Extended source locations, decorated with a stack of positions.
+    It can be used to distinguish between different use of the same lexical
+    token.
+    E.g., in C, it tracks macro argument expansion.
+*)
+
+
 (** {2 Ranges} *)
 (** ========== *)
 
@@ -71,6 +82,9 @@ type range =
 
   | R_orig of pos (** start position. *) * pos (** end position *)
   (** Original source range with a start and an end positions. *)
+
+  | R_ext_orig of epos (** start position *) * epos (** end position *)
+  (** As R_orig, but with extended locations. *)
 
   | R_fresh of int (** non-original fresh range with unique id *)
   (** Fresh ranges with unique identifiers *)
@@ -105,6 +119,7 @@ let tag_range range fmt =
     ) fmt
 
 let mk_orig_range pos1 pos2 = R_orig (pos1, pos2)
+let mk_ext_orig_range pos1 pos2 = R_ext_orig (pos1, pos2)
 
 let fresh_range_counter = ref 0
 
@@ -122,21 +137,28 @@ let rec map_tag f = function
   | R_tagged (t, r) -> R_tagged (t, map_tag f r)
   | r -> f r
 
+let remove_ext = function
+  | R_ext_orig (l1, l2) -> R_orig (l1.epos_pos, l2.epos_pos)
+  | x -> x
+
 let get_range_start r =
   match untag_range r with
   | R_orig(pos, _) -> pos
+  | R_ext_orig(pos, _) -> pos.epos_pos
   | R_program[p] -> mk_pos p 0 0
   | _ -> failwith "get_range_start: invalid argument"
 
 let get_range_end r =
   match untag_range r with
   | R_orig(_, pos) -> pos
+  | R_ext_orig(_, pos) -> pos.epos_pos
   | _ -> failwith "get_range_end: invalid argument"
 
 let set_range_start r l =
   map_tag (fun r ->
       match r with
       | R_orig (_, l') -> R_orig (l, l')
+      | R_ext_orig (_, l') -> R_ext_orig ({ epos_pos = l; epos_stack = []; }, l')
       | _ -> failwith "set_range_start: called on non R_source"
     ) r
 
@@ -144,12 +166,14 @@ let set_range_end r l' =
   map_tag (fun r ->
       match r with
       | R_orig (l, _) -> R_orig (l, l')
+      | R_ext_orig (l, _) -> R_ext_orig (l, { epos_pos = l'; epos_stack = []; })
       | _ -> failwith "set_range_end: called on non R_source"
     ) r
 
 let get_range_file r =
   match untag_range r with
   | R_orig(pos, _) -> pos.pos_file
+  | R_ext_orig(pos, _) -> pos.epos_pos.pos_file
   | R_program [p] -> p
   | _ -> failwith "get_range_file: invalid argument"
 
@@ -166,7 +190,7 @@ let get_range_column r =
   pos.pos_column
 
 let is_orig_range = function
-  | R_orig _ -> true
+  | R_orig _ | R_ext_orig _ -> true
   | _ -> false
 
 let is_program_range = function
@@ -180,12 +204,14 @@ let match_range_file file r =
   in
   match untag_range r with
   | R_orig(p, _) -> pred p.pos_file
+  | R_ext_orig(p, _) -> pred p.epos_pos.pos_file
   | R_program pl -> List.exists pred pl
   | _ -> false
 
 let match_range_line line r =
   match untag_range r with
   | R_orig(p, _) -> p.pos_line = line
+  | R_ext_orig(p, _) -> p.epos_pos.pos_line = line
   | _ -> false
 
 let from_lexing_pos pos =
@@ -213,6 +239,14 @@ let rec compare_range (r1: range) (r2: range) =
         (fun () -> compare_pos l2 l2');
       ]
 
+    | R_ext_orig (l1, l2), R_ext_orig (l1', l2') ->
+      Compare.compose [
+        (fun () -> compare_pos l1.epos_pos l1'.epos_pos);
+        (fun () -> compare_pos l2.epos_pos l2'.epos_pos);
+        (fun () -> Compare.list compare_pos l1.epos_stack l1'.epos_stack);
+        (fun () -> Compare.list compare_pos l2.epos_stack l2'.epos_stack);
+      ]
+
     | R_tagged(t1, r1), R_tagged(t2, r2) ->
       Compare.compose [
         (fun () -> compare_range r1 r2);
@@ -232,7 +266,7 @@ and compare_range_tag tag1 tag2 =
 
 let subset_range (r1:range) (r2:range) : bool =
   if r1 == r2 then true
-  else match untag_range r1, untag_range r2 with
+  else match remove_ext (untag_range r1), remove_ext (untag_range r2) with
     | R_program pl1, R_program pl2 -> Compare.list compare pl1 pl2 = 0
     | R_fresh(uid1), R_fresh(uid2) -> uid1 = uid2
     | R_orig (l1, l2), R_orig (l1', l2') ->
@@ -288,6 +322,26 @@ let pp_position fmt pos =
 let pp_relative_position fmt pos =
   Format.fprintf fmt "%s:%d:%d" (relative_path pos.pos_file) pos.pos_line pos.pos_column
 
+let pp_position_stack pp fmt stack =
+  if stack <> [] then (
+    Format.fprintf fmt "[";
+    let first = ref true in
+    List.iter (
+      fun pos ->
+        if !first then first := false else Format.fprintf fmt ";";
+        pp fmt pos
+    ) stack;
+    Format.fprintf fmt "]"
+  )
+
+let pp_eposition fmt epos =
+  pp_position fmt epos.epos_pos;
+  pp_position_stack pp_position fmt epos.epos_stack
+
+let pp_relative_eposition fmt epos =
+  pp_relative_position fmt epos.epos_pos;
+  pp_position_stack pp_relative_position fmt epos.epos_stack
+
 let rec pp_range fmt range =
   match range with
   | R_program pl ->
@@ -316,6 +370,15 @@ let rec pp_range fmt range =
     Format.fprintf fmt "%a-%a"
       pp_position pos1
       pp_position pos2
+
+  | R_ext_orig (pos1, pos2) when pos1.epos_stack = pos2.epos_stack ->
+    pp_range fmt (R_orig (pos1.epos_pos, pos2.epos_pos));
+    pp_position_stack pp_position fmt pos1.epos_stack
+
+  | R_ext_orig (pos1, pos2) ->
+    Format.fprintf fmt "%a-%a"
+      pp_eposition pos1
+      pp_eposition pos2
 
   | R_fresh uid -> Format.fprintf fmt "<%d>" uid
 
@@ -353,6 +416,15 @@ let rec pp_relative_range fmt range =
     Format.fprintf fmt "%a-%a"
       pp_relative_position pos1
       pp_relative_position pos2
+
+  | R_ext_orig (pos1, pos2) when pos1.epos_stack = pos2.epos_stack ->
+    pp_relative_range fmt (R_orig (pos1.epos_pos, pos2.epos_pos));
+    pp_position_stack pp_relative_position fmt pos1.epos_stack
+
+  | R_ext_orig (pos1, pos2) ->
+    Format.fprintf fmt "%a-%a"
+      pp_relative_eposition pos1
+      pp_relative_eposition pos2
 
   | R_fresh uid -> Format.fprintf fmt "<%d>" uid
 

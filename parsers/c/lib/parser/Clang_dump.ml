@@ -593,23 +593,26 @@ let stmt_kind_name s =
 let string_of_loc l =
   Printf.sprintf "%s:%i:%i" l.loc_file l.loc_line l.loc_column
 
+let string_of_eloc l =
+  string_of_loc l.eloc_loc
+
 let string_of_range r =
-  if r.range_begin.loc_file = r.range_end.loc_file then
-    if r.range_begin.loc_line = r.range_end.loc_line then
+  if r.range_begin.eloc_loc.loc_file = r.range_end.eloc_loc.loc_file then
+    if r.range_begin.eloc_loc.loc_line = r.range_end.eloc_loc.loc_line then
       Printf.sprintf
         "%s:%i:%i-%i"
-        r.range_begin.loc_file r.range_begin.loc_line r.range_begin.loc_column
-        r.range_end.loc_column
+        r.range_begin.eloc_loc.loc_file r.range_begin.eloc_loc.loc_line r.range_begin.eloc_loc.loc_column
+        r.range_end.eloc_loc.loc_column
     else
       Printf.sprintf
         "%s:%i:%i-%i:%i"
-        r.range_begin.loc_file r.range_begin.loc_line r.range_begin.loc_column
-        r.range_end.loc_line r.range_end.loc_column
+        r.range_begin.eloc_loc.loc_file r.range_begin.eloc_loc.loc_line r.range_begin.eloc_loc.loc_column
+        r.range_end.eloc_loc.loc_line r.range_end.eloc_loc.loc_column
   else
     Printf.sprintf
       "%s:%i:%i-%s:%i:%i"
-      r.range_begin.loc_file r.range_begin.loc_line r.range_begin.loc_column
-      r.range_end.loc_file r.range_end.loc_line r.range_end.loc_column
+      r.range_begin.eloc_loc.loc_file r.range_begin.eloc_loc.loc_line r.range_begin.eloc_loc.loc_column
+      r.range_end.eloc_loc.loc_file r.range_end.eloc_loc.loc_line r.range_end.eloc_loc.loc_column
 
         
 let string_of_diagnostic d =

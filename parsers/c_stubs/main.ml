@@ -67,9 +67,9 @@ let rec parse_cst func ?(selector=is_stub_comment) prj enums predicates cache =
     | Some (com,macros) ->
       (* Create the lexing buffer *)
       let comment = com.com_text in
-      let file = com.com_range.range_begin.loc_file in
-      let line = com.com_range.range_begin.loc_line in
-      let col = com.com_range.range_begin.loc_column in
+      let file = com.com_range.range_begin.eloc_loc.loc_file in
+      let line = com.com_range.range_begin.eloc_loc.loc_line in
+      let col = com.com_range.range_begin.eloc_loc.loc_column in
       let buf = Lexing.from_string comment in
       buf.lex_curr_p <- {
         pos_fname = file;
@@ -157,9 +157,9 @@ let parse_predicates_comment (coms:(Clang_AST.comment * Clang_AST.macro StringMa
       if is_predicates_comment (com,macros) then
         (* Create the lexing buffer *)
         let comment = com.com_text in
-        let file = com.com_range.range_begin.loc_file in
-        let line = com.com_range.range_begin.loc_line in
-        let col = com.com_range.range_begin.loc_column in
+        let file = com.com_range.range_begin.eloc_loc.loc_file in
+        let line = com.com_range.range_begin.eloc_loc.loc_line in
+        let col = com.com_range.range_begin.eloc_loc.loc_column in
         let buf = Lexing.from_string comment in
         buf.lex_curr_p <- {
           pos_fname = file;

@@ -258,14 +258,20 @@ let visit_var v range prj func =
       var_init_org = None;
       var_range = Clang_AST.{
           range_begin = {
-            loc_file = get_range_start v.vrange |> get_pos_file;
-            loc_line = get_range_start v.vrange |> get_pos_line;
-            loc_column = get_range_start v.vrange |> get_pos_column;
+            eloc_loc = {
+              loc_file = get_range_start v.vrange |> get_pos_file;
+              loc_line = get_range_start v.vrange |> get_pos_line;
+              loc_column = get_range_start v.vrange |> get_pos_column;
+            };
+            eloc_stack = [];
           };
           range_end = {
-            loc_file = get_range_end v.vrange |> get_pos_file;
-            loc_line = get_range_end v.vrange |> get_pos_line;
-            loc_column = get_range_end v.vrange |> get_pos_column;
+            eloc_loc = {
+              loc_file = get_range_end v.vrange |> get_pos_file;
+              loc_line = get_range_end v.vrange |> get_pos_line;
+              loc_column = get_range_end v.vrange |> get_pos_column;
+            };
+            eloc_stack = [];
           }
         };
       var_com = [];

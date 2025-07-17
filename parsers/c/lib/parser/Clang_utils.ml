@@ -29,13 +29,19 @@ open Clang_AST
 (** {1 Locations} *)
 
 let empty_loc = { loc_line = -1; loc_column = -1; loc_file = "<invalid>"; }
-let empty_range = { range_begin = empty_loc; range_end = empty_loc; }
+let empty_eloc = { eloc_loc = empty_loc; eloc_stack = []; }
+let empty_range = { range_begin = empty_eloc; range_end = empty_eloc; }
+
+let mk_eloc l = { empty_eloc with eloc_loc = l; }
 
 let loc_is_empty l =
   l.loc_line < 0 || l.loc_column < 0 || l.loc_file = "<invalid>"
 
+let eloc_is_empty l =
+  loc_is_empty l.eloc_loc && l.eloc_stack = []
+
 let range_is_empty r =
-  loc_is_empty r.range_begin && loc_is_empty r.range_end
+  eloc_is_empty r.range_begin && eloc_is_empty r.range_end
 
 (** {1 Types} *)
 
