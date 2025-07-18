@@ -3,7 +3,7 @@ depends: [
   "dune" {>= "3.7"}
   "ocamlfind"
   "apron" {>= "0.9.15"}
-  "menhir" {>= "20180528"}
+  "menhir" {>= "20200525"}
   "mlgmpidl"
   "yojson" {>= "1.6.0"}
   "zarith" {>= "1.10"}
