@@ -37,9 +37,11 @@ let print out json =
     match out with
     | None -> stdout
     | Some file ->
-       open_out_gen [Open_creat; Open_wronly; Open_creat] 0o644 file
+       open_out_gen [Open_creat; Open_wronly; Open_trunc] 0o644 file
   in
-  Yojson.Basic.pretty_to_channel channel json
+  Yojson.Basic.pretty_to_channel channel json;
+  output_string channel "\n";
+  if out <> None then close_out channel
 
 let render_pos pos =
   let file = Location.get_pos_file pos in
@@ -289,10 +291,11 @@ let list_hooks hooks ~out =
   print out json
 
 let print printer ~range ~out =
-  let json =
+  let _json =
     `Assoc [
        "print", print_object_to_json (get_printed_object printer);
        "range", render_range range;
      ]
   in
-  print out json
+  (* do nothing for now; we would need to output a steam of JSON objects  *)
+  ()
