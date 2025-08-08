@@ -1204,8 +1204,8 @@ and from_stub_expr_binop = function
   | MOD -> O_mod
   | RSHIFT -> O_bit_rshift
   | LSHIFT -> O_bit_lshift
-  | LOR -> O_c_and
-  | LAND -> O_c_or
+  | LOR -> O_c_or
+  | LAND -> O_c_and
   | LT -> O_lt
   | LE -> O_le
   | GT -> O_gt

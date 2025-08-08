@@ -125,17 +125,6 @@ struct
       man.exec (mk_assign x e stmt.srange) flow ~route:(Below name) |>
       OptionExt.return
 
-    | S_assume { ekind = E_binop (O_c_and, e1, e2) } ->
-      man.exec (mk_assume e1 stmt.srange) flow >>%? fun flow ->
-      man.exec (mk_assume e2 stmt.srange) flow |>
-      OptionExt.return
-
-    | S_assume { ekind = E_binop (O_c_or, e1, e2) } ->
-      let post1 = man.exec (mk_assume e1 stmt.srange) flow in
-      let post2 = man.exec (mk_assume e2 stmt.srange) flow in
-      Post.join post1 post2 |>
-      OptionExt.return
-
     | S_assume { ekind = E_unop (O_log_not, { ekind = E_binop (O_c_and, e1, e2); etyp }); erange } ->
       man.exec (mk_assume (mk_binop (mk_not e1 e1.erange) O_c_or (mk_not e2 e2.erange) ~etyp erange) stmt.srange) flow |>
       OptionExt.return
