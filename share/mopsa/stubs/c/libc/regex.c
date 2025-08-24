@@ -67,8 +67,9 @@ void regfree (regex_t *__preg);
 
 
 
-// GNU regulat expressions
+// GNU regular expressions
 
+#ifdef __USE_GNU
 
 reg_syntax_t re_syntax_options;
 
@@ -205,3 +206,5 @@ void re_set_registers (struct re_pattern_buffer *__buffer,
                        struct re_registers *__regs,
                        unsigned int __num_regs,
                        regoff_t *__starts, regoff_t *__ends);
+
+#endif
