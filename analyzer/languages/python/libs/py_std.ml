@@ -258,11 +258,13 @@ struct
       man.eval expr flow |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("print", _))}, _)}, [], [])  ->
-      man.eval (mk_py_none range) flow
+      man.exec (mk_stmt S_print_state range) flow >>%
+      man.eval (mk_py_none range)
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("print", _))}, _)}, objs, [])  ->
-      bind_list objs (man.eval  ) flow |>
+      man.exec (mk_stmt (S_print_expr objs) range) flow >>%
+      bind_list objs man.eval |>
       bind_result (fun eobj flow -> man.eval (mk_py_none range) flow)
       |> OptionExt.return
 
