@@ -29,6 +29,17 @@ open Universal.Lang.Ast
 open MapExt
 open Lang
 
+let opt_gc_before_print = ref false
+
+let () =
+  register_domain_option "python.libs.stdlib" {
+    key = "-gc-before-print";
+    category = "Python";
+    doc = " perform abstract garbage collection before printing state";
+    spec = Set opt_gc_before_print;
+    default = "";
+  }
+
 module Domain =
 struct
 
@@ -258,12 +269,18 @@ struct
       man.eval expr flow |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("print", _))}, _)}, [], [])  ->
-      man.exec (mk_stmt S_print_state range) flow >>%
+      (if !opt_gc_before_print then
+         man.exec (mk_stmt Universal.Heap.Recency.S_perform_gc range) flow
+      else Post.return flow) >>%
+      man.exec (mk_stmt S_print_state range) >>%
       man.eval (mk_py_none range)
       |> OptionExt.return
 
     | E_py_call({ekind = E_py_object ({addr_kind = A_py_function (F_builtin ("print", _))}, _)}, objs, [])  ->
-      man.exec (mk_stmt (S_print_expr objs) range) flow >>%
+      (if !opt_gc_before_print then
+         man.exec (mk_stmt Universal.Heap.Recency.S_perform_gc range) flow
+       else Post.return flow) >>%
+      man.exec (mk_stmt (S_print_expr objs) range) >>%
       bind_list objs man.eval |>
       bind_result (fun eobj flow -> man.eval (mk_py_none range) flow)
       |> OptionExt.return
