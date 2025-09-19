@@ -255,20 +255,20 @@ struct
       therefore, it is a definite value), returns an excluded set where the
       constant is combined with the excluded powerset. Otherwise, returns [top].
     *)
-  let combine_with combine combiner a1 a2 =
+  let combine_with combine combiner_in combiner_notin a1 a2 =
     match a1,a2 with
-    | In s1, In s2       -> In (combine combiner s1 s2) |> bound_size
+    | In s1, In s2       -> In (combine combiner_in s1 s2) |> bound_size
     | NotIn s1, NotIn s2 -> top
     | NotIn notin_set, In in_set ->
       begin match Set.cardinal in_set with
       | 0 -> bottom
-      | 1 -> NotIn (combine combiner notin_set in_set)
+      | 1 -> NotIn (combine combiner_notin notin_set in_set)
       | _ -> top
       end
     | In in_set, NotIn notin_set ->
       begin match Set.cardinal in_set with
       | 0 -> bottom
-      | 1 -> NotIn (combine combiner in_set notin_set)
+      | 1 -> NotIn (combine combiner_notin in_set notin_set)
       | _ -> top
       end
 
@@ -277,11 +277,11 @@ struct
     if is_top a1    || is_top a2    then top    else
     let with_int f a b = f a (Z.to_int b) in
     try match op with
-    | O_plus       -> combine_with combine Z.add a1 a2
+    | O_plus       -> combine_with combine Z.add Z.add a1 a2
 
-    | O_minus      -> combine_with combine Z.sub a1 a2
+    | O_minus      -> combine_with combine Z.sub Z.sub a1 a2
 
-    | O_mult       -> if is_zero a1 || is_zero a2 then zero else combine_with combine Z.mul a1 a2
+    | O_mult       -> if is_zero a1 || is_zero a2 then zero else combine_with combine Z.mul Z.mul a1 a2
 
     | O_div        ->
       let () = debug "%a O_div %a@." (format print) a1 (format print) a2 in
@@ -291,51 +291,54 @@ struct
       | In s2    -> In    (Set.remove Z.zero s2)
       | NotIn s2 -> NotIn (Set.remove Z.zero s2)
       in
-      combine_with combine_opt (fun x y ->
+      combine_with combine_opt
+        (fun x y -> Some (Z.div x y))
+        (fun x y ->
           if Z.(x mod y = zero) then Some (Z.div x y)
-          else None) a1 a2
+          else None)
+        a1 a2
 
     | O_pow        ->
       begin match a1,a2 with
-      | In s1, In s2 -> combine_with combine (with_int Z.pow) a1 a2
+      | In s1, In s2 -> combine_with combine (with_int Z.pow) (with_int Z.pow) a1 a2
       | _            -> top
       end
 
     | O_bit_and    ->
       begin match a1,a2 with
-      | In s1, In s2 -> combine_with combine Z.logand a1 a2
+      | In s1, In s2 -> combine_with combine Z.logand Z.logand a1 a2
       | _            -> top
       end
 
     | O_bit_or     ->
       begin match a1,a2 with
-      | In s1, In s2 -> combine_with combine Z.logor a1 a2
+      | In s1, In s2 -> combine_with combine Z.logor Z.logor a1 a2
       | _            -> top
       end
 
     | O_bit_xor    ->
       begin match a1,a2 with
-      | In s1, In s2 -> combine_with combine Z.logxor a1 a2
+      | In s1, In s2 -> combine_with combine Z.logxor Z.logxor a1 a2
       | _            -> top
       end
 
     | O_bit_lshift ->
       if is_zero a1 then a1 else
       begin match a1,a2 with
-      | In s1, In s2 -> combine_with combine (with_int Z.shift_left) a1 a2
+      | In s1, In s2 -> combine_with combine (with_int Z.shift_left) (with_int Z.shift_left) a1 a2
       | _            -> top
       end
 
     | O_bit_rshift ->
       if is_zero a1 then a1 else
       begin match a1,a2 with
-      | In s1, In s2 -> combine_with combine (with_int Z.shift_right) a1 a2
+      | In s1, In s2 -> combine_with combine (with_int Z.shift_right) (with_int Z.shift_right) a1 a2
       | _            -> top
       end
 
     | O_mod        ->
       begin match a1,a2 with
-      | In s1, In s2 -> if is_zero a1 then a1 else combine_with combine Z.rem a1 (remove_zero a2)
+      | In s1, In s2 -> if is_zero a1 then a1 else combine_with combine Z.rem Z.rem a1 (remove_zero a2)
       | _            -> top
       end
 
