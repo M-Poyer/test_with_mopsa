@@ -6,8 +6,8 @@ int f(int x) {
   return b;
 }
 
-int main() {
+int main(int argc, char **argv) {
   char *s = NULL;
-  int x = 42;
+  int x = argc;
   f(3);
 }

@@ -1,3 +1,6 @@
+b main
+c
+p argc, argv
 b f
 c
 b 6
