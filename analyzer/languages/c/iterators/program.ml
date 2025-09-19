@@ -288,7 +288,9 @@ struct
     match f.c_func_body with
     | None -> panic "entry function %s is not defined" f.c_func_org_name
     | Some stmt ->
-      let f' = { f with c_func_parameters = [] } in
+      let f' = { f with c_func_parameters = [];
+                        (* the parameters have been initialized symbolically before, but keep them as local for printers etc *)
+                        c_func_local_vars = f.c_func_local_vars @ f.c_func_parameters; } in
       let stmt = mk_c_call_stmt f' [] f.c_func_name_range in
       man.exec stmt flow
 
