@@ -1,5 +1,25 @@
 [1;38;5;45m𝕊[0m [1;38;5;45m⟦[0m signed int f(x) { ... [1;38;5;45m⟧[0m
-[1;38;5;6mmopsa[0m [1;38;5;40m>>[0m [1;38;5;177minteractive.c:3.0-7.1::init[0m
+[1;38;5;6mmopsa[0m [1;38;5;40m>>[0m [1;38;5;177minteractive.c:10.2-16[0m
+    5    size_t b = strlen(s);
+    6    return b;
+    7  }
+    8  
+    9  int main(int argc, char **argv) {
+ [1;38;5;118m►[0m [1;38;5;118m10[0m  [1;38;5;118m  char *s = NULL;[0m
+   11    int x = argc;
+   12    f(3);
+   13  }
+[1;38;5;45m𝕊[0m [1;38;5;45m⟦[0m signed char * s = (void *) 0; [1;38;5;45m⟧[0m
+ float-itv ∪ int-itv : 
+    bytes⦃@arg#0⦄ : [1,18446744073709551615],
+    bytes⦃@argv⦄ : [16,262136],
+    argc : [1,32766],
+    offset⦃argv⦄ : [0,0],
+    offset⦃@argv{0}:ptr⦄ : [0,0] ,
+ pointers : 
+    argv : {  @argv  },
+    @argv{0}:ptr : {  @arg#0  }  
+[1;38;5;177minteractive.c:3.0-7.1::init[0m
    1  #include <string.h>
    2  
  [1;38;5;118m►[0m [1;38;5;118m3[0m  [1;38;5;118mint f(int x) {[0m
@@ -12,8 +32,8 @@
 1 new alarm detected: 
 
 [1;38;5;9m✗[0m Check #1:
-[1m/home/raphael/work/mopsa-main/share/mopsa/stubs/c/libc/string.c[0m: In function '[1mstrlen[0m':
-[1m/home/raphael/work/mopsa-main/share/mopsa/stubs/c/libc/string.c:186.13-38[0m: [1;38;5;9merror[0m: [1;38;5;9mStub condition[0m
+[1m/home/raphael/work/mopsa-analyzer/share/mopsa/stubs/c/libc/string.c[0m: In function '[1mstrlen[0m':
+[1m/home/raphael/work/mopsa-analyzer/share/mopsa/stubs/c/libc/string.c:186.13-38[0m: [1;38;5;9merror[0m: [1;38;5;9mStub condition[0m
   
   [1m186[0m:  * requires: [1;38;5;9mvalid_string_or_fail(__s)[0m;
                     [1;38;5;9m^^^^^^^^^^^^^^^^^^^^^^^^^[0m 
@@ -33,9 +53,9 @@
  [1;38;5;118m►[0m [1;38;5;118m 6[0m  [1;38;5;118m  return b;[0m
     7  }
     8  
-    9  int main() {
+    9  int main(int argc, char **argv) {
    10    char *s = NULL;
-   11    int x = 42;
+   11    int x = argc;
 [1;38;5;45m𝕊[0m [1;38;5;45m⟦[0m return b; [1;38;5;45m⟧[0m
  float-itv ∪ int-itv : 
     x : [3,3],
@@ -45,11 +65,11 @@
     s:interactive.c:10.2-16 : { NULL },
     s:interactive.c:4.2-14 : { "" }  
  float-itv ∪ int-itv : 
-    x : [42,42]  
+    x : [1,32766]  
  float-itv ∪ int-itv : 
     x : [3,3]  
  float-itv ∪ int-itv : 
-    x : [42,42],
+    x : [1,32766],
     x : [3,3],
     offset⦃s⦄ : [0,0] ,
  pointers : 
@@ -61,8 +81,8 @@
     offset⦃s⦄ : [0,0] ,
  pointers : 
     s : {  ""  }  
-Raised by primitive operation at Mopsa_analyzer__Framework__Engines__Interactive__Terminal.Make.pp_output_command in file "analyzer/framework/engines/interactive/terminal.ml", line 617, characters 47-83
-Called from Mopsa_analyzer__Framework__Engines__Interactive__Terminal.Make.read_command in file "analyzer/framework/engines/interactive/terminal.ml", line 854, characters 6-54
+Raised by primitive operation at Mopsa_analyzer__Framework__Engines__Interactive__Terminal.Make.pp_output_command in file "analyzer/framework/engines/interactive/terminal.ml", line 616, characters 47-83
+Called from Mopsa_analyzer__Framework__Engines__Interactive__Terminal.Make.read_command in file "analyzer/framework/engines/interactive/terminal.ml", line 853, characters 6-54
 Called from Mopsa_analyzer__Framework__Engines__Interactive__Engine.Make.interact in file "analyzer/framework/engines/interactive/engine.ml", line 228, characters 14-78
 Called from Mopsa_analyzer__Framework__Engines__Interactive__Engine.Make.interact_or_apply_action in file "analyzer/framework/engines/interactive/engine.ml", line 286, characters 10-30
 Called from Mopsa_analyzer__Framework__Core__Post.bind.(fun) in file "analyzer/framework/core/post.ml", line 53, characters 37-45

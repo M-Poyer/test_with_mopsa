@@ -276,8 +276,8 @@ test-interactive:
     - echo $PWD
     - pushd analyzer/tests/c/
     - echo "load script interactive.script" | ../../../bin/mopsa-c -silent -engine=interactive interactive.c | tee out
-    - head -n 82 out | tail -n 77 > out.out
-    - diff <(sed "15,16d" out.out) <(sed "15,16d" interactive.out)
+    - head -n 102 out | tail -n 97 > out.out
+    - diff <(sed "35,36d" out.out) <(sed "35,36d" interactive.out)
     - popd
     - pushd analyzer/tests/universal/
     - echo "load script interactive.script" | ../../../bin/mopsa-universal -silent -engine=interactive interactive.u | tee out
