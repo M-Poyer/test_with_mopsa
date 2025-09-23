@@ -95,8 +95,8 @@ let pp_channel_with_time fmt channel =
 
 let debug ?(channel = "debug") fmt =
   if can_print channel then
-    Format.kasprintf (fun str ->
-        Format.printf "%a @[%s@]@." pp_channel_with_time channel str
+    Format.kdprintf (fun str ->
+        Format.printf "%a @[%t@]@." pp_channel_with_time channel str
       ) fmt
   else
     Format.ifprintf Format.std_formatter fmt
@@ -104,8 +104,8 @@ let debug ?(channel = "debug") fmt =
 
 let info fmt =
     if can_print "info" then
-      Format.kasprintf (fun str ->
-          Format.printf "[%a] %s@." (color_str orange) "*" str
+      Format.kdprintf (fun str ->
+          Format.printf "[%a] %t@." (color_str orange) "*" str
       ) fmt
   else
     Format.ifprintf Format.std_formatter fmt
@@ -114,20 +114,20 @@ let plurial_list fmt l = if List.length l <= 1 then () else Format.pp_print_stri
 let plurial_int fmt n = if n <= 1 then () else Format.pp_print_string fmt "s"
 
 let panic fmt =
-  Format.kasprintf (fun str ->
-        Format.printf "%a: %s@." (color_str red) "panic" str
+  Format.kdprintf (fun str ->
+        Format.printf "%a: %t@." (color_str red) "panic" str
       ) fmt
 
 let panic_at range fmt =
-  Format.kasprintf (fun str ->
-      Format.printf "%a: panic: %s@." (color red Location.pp_range) range str
+  Format.kdprintf (fun str ->
+      Format.printf "%a: panic: %t@." (color red Location.pp_range) range str
     ) fmt
 
 
 let warn fmt =
   if !print_warnings then
-    Format.kasprintf (fun str ->
-        Format.eprintf "%a: %s@." (color_str orange) "warning" str
+    Format.kdprintf (fun fmt ->
+        Format.eprintf "%a: %t@." (color_str orange) "warning" fmt
       ) fmt
   else
     Format.ifprintf Format.err_formatter fmt
@@ -135,8 +135,8 @@ let warn fmt =
 
 let warn_at range fmt =
     if !print_warnings then
-      Format.kasprintf (fun str ->
-          Format.eprintf "%a: warning: %s@." (color orange Location.pp_range) range str
+      Format.kdprintf (fun fmt ->
+          Format.eprintf "%a: warning: %t@." (color orange Location.pp_range) range fmt
         ) fmt
     else
       Format.ifprintf Format.err_formatter fmt
