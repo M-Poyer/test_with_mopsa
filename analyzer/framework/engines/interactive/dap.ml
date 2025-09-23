@@ -182,6 +182,25 @@ struct
         ("body", body)
       ]
 
+  let create_error_response request message :Yojson.Basic.t =
+    let command = extract_command request
+    and req_seq = extract_seq request
+    in
+    `Assoc [
+      ("seq", `Int 0);
+      ("type", `String "response");
+      ("request_seq", `Int req_seq);
+      ("success", `Bool false);
+      ("command", `String command);
+      ("body", `Assoc [
+          ("error", `Assoc [
+            ("id", `Int 1);
+            ("format", `String message);
+            ("showUser", `Bool true);
+          ])
+      ])
+    ]
+
   let create_event name body :Yojson.Basic.t =
     match body with
     | `Null ->  `Assoc [
@@ -442,174 +461,179 @@ struct
       let cmd = try read_dap_command ()
         with Exit -> exit 0
       in
-      match cmd with
-      | Initialize ->
-        assert false
+      let aux = function
+        | Initialize ->
+          assert false
 
-      | Launch ->
-        write_json_DAP (create_response !last_request `Null);
-        read_command action envdb man flow
+        | Launch ->
+          write_json_DAP (create_response !last_request `Null);
+          read_command action envdb man flow
 
-      | ExceptBreaks ->
-        write_json_DAP (create_response !last_request `Null);
-        read_command action envdb man flow
+        | ExceptBreaks ->
+          write_json_DAP (create_response !last_request `Null);
+          read_command action envdb man flow
 
-      | Breaks breakpoints_info ->
-        let path = fst breakpoints_info in
-        let breakpoints_tmp =
-          BreakpointSet.filter
-            (fun b -> match b with
-               | B_function _-> true
-               | B_line (path2, _) -> not (path=path2)
-               | _ -> false
-            ) !breakpoints
-        in
-        breakpoints := List.fold_left (fun set bp -> BreakpointSet.add bp set) breakpoints_tmp (snd breakpoints_info);
-        write_json_DAP (create_response !last_request (body_breakpoints (List.length (snd breakpoints_info))));
-        read_command action envdb man flow
+        | Breaks breakpoints_info ->
+          let path = fst breakpoints_info in
+          let breakpoints_tmp =
+            BreakpointSet.filter
+              (fun b -> match b with
+                | B_function _-> true
+                | B_line (path2, _) -> not (path=path2)
+                | _ -> false
+              ) !breakpoints
+          in
+          breakpoints := List.fold_left (fun set bp -> BreakpointSet.add bp set) breakpoints_tmp (snd breakpoints_info);
+          write_json_DAP (create_response !last_request (body_breakpoints (List.length (snd breakpoints_info))));
+          read_command action envdb man flow
 
-      | FuncBreaks breakpoints_info ->
-        let breakpoints_tmp =
-          BreakpointSet.filter
-            (function b ->
-             match b with
-             | B_function _-> false
-             | B_line _ -> true
-             | _ -> false
-            ) !breakpoints in
-        breakpoints := List.fold_right (fun bp set -> BreakpointSet.add bp set) breakpoints_info breakpoints_tmp ;
-        write_json_DAP (create_response !last_request (body_breakpoints (List.length breakpoints_info)));
-        read_command action envdb man flow
+        | FuncBreaks breakpoints_info ->
+          let breakpoints_tmp =
+            BreakpointSet.filter
+              (function b ->
+              match b with
+              | B_function _-> false
+              | B_line _ -> true
+              | _ -> false
+              ) !breakpoints in
+          breakpoints := List.fold_right (fun bp set -> BreakpointSet.add bp set) breakpoints_info breakpoints_tmp ;
+          write_json_DAP (create_response !last_request (body_breakpoints (List.length breakpoints_info)));
+          read_command action envdb man flow
 
-      | Threads ->
-        write_json_DAP (create_response !last_request body_threads);
-        read_command action envdb man flow
+        | Threads ->
+          write_json_DAP (create_response !last_request body_threads);
+          read_command action envdb man flow
 
-      | StackTrace ->
-        let file_path_line_column_from_range range =
-          let pos = Location.get_range_start range in
-          let l = String.split_on_char '/' (Location.get_range_file range) in
-          let path = String.concat "/" l in
-          let path = if Filename.is_relative path then Sys.getcwd () ^ "/" ^ path else path in
-          let file = List.nth l ((List.length l) -1) in
-          (file,path,pos.pos_line,pos.pos_column)
-        in
-        let cs = Flow.get_callstack flow and i = ref 0 in
-        let call_stack_json =
-          List.map (function callsite ->
-              i := !i+1;
-              let (file,path,line,column) = file_path_line_column_from_range callsite.call_range
-              in createFrame  !i (callsite.call_fun_orig_name) line column file path)
-            cs
-        in
-        let (file,path,line,column) = file_path_line_column_from_range (action_range action) in
-        let stack_trace_info = (createFrame  0 "Current pointer" line column file path)::call_stack_json in
-        write_json_DAP (create_response !last_request (body_stackTrace stack_trace_info));
-        read_command action envdb man flow
+        | StackTrace ->
+          let file_path_line_column_from_range range =
+            let pos = Location.get_range_start range in
+            let l = String.split_on_char '/' (Location.get_range_file range) in
+            let path = String.concat "/" l in
+            let path = if Filename.is_relative path then Sys.getcwd () ^ "/" ^ path else path in
+            let file = List.nth l ((List.length l) -1) in
+            (file,path,pos.pos_line,pos.pos_column)
+          in
+          let cs = Flow.get_callstack flow and i = ref 0 in
+          let call_stack_json =
+            List.map (function callsite ->
+                i := !i+1;
+                let (file,path,line,column) = file_path_line_column_from_range callsite.call_range
+                in createFrame  !i (callsite.call_fun_orig_name) line column file path)
+              cs
+          in
+          let (file,path,line,column) = file_path_line_column_from_range (action_range action) in
+          let stack_trace_info = (createFrame  0 "Current pointer" line column file path)::call_stack_json in
+          write_json_DAP (create_response !last_request (body_stackTrace stack_trace_info));
+          read_command action envdb man flow
 
-      | Scopes ->
-        if is_orig_range (action_range action) then
+        | Scopes ->
+          if is_orig_range (action_range action) then
+            let printer = Print.empty_printer () in
+            let vars = action_vars action in
+            List.iter
+              (fun v ->
+                try man.print_expr flow printer (mk_var v dummy_range)
+                with Not_found -> ()
+              ) vars;
+            let pobj = get_printed_object printer in
+            let map, scopes = compute_scopes_vrefs pobj in
+            vrefs := IntMap.fold (fun vref v acc -> IntMap.add vref v acc) map !vrefs;
+            write_json_DAP (create_response !last_request (body_scopes scopes))
+          else
+            write_json_DAP (create_response !last_request (body_scopes []));
+          read_command action envdb man flow
+
+        | Vars vref ->
+          let children = IntMap.find vref !vrefs in
+          write_json_DAP (create_response !last_request (body_variables children));
+          read_command action envdb man flow
+
+        | Continue ->
+          write_json_DAP (create_response !last_request `Null  );
+          Continue
+
+        | Next ->
+          write_json_DAP (create_response !last_request `Null);
+          Next
+
+        | Step ->
+          write_json_DAP (create_response !last_request `Null);
+          Step
+
+        | Finish ->
+          write_json_DAP (create_response !last_request `Null);
+          Finish
+
+        | Evaluate vars ->
+          let vars = String.split_on_char ' ' vars |>
+                    List.map String.trim |>
+                    List.filter (function "" -> false | _ -> true)
+          in
+          let vars =
+            List.fold_left
+              (fun acc s ->
+                let parts = String.split_on_char ',' s |>
+                            List.filter (function "" -> false | _ -> true)
+                in
+                SetExt.StringSet.union acc (SetExt.StringSet.of_list parts)
+              ) SetExt.StringSet.empty vars
+          in
+          let vars =
+            SetExt.StringSet.elements vars |> ListExt.map_filter
+              (fun name ->
+                try Some (find_var_by_name name man flow)
+                with Not_found -> None
+              )
+          in
           let printer = Print.empty_printer () in
-          let vars = action_vars action in
           List.iter
             (fun v ->
-               try man.print_expr flow printer (mk_var v dummy_range)
-               with Not_found -> ()
+              try man.print_expr flow printer (mk_var v dummy_range)
+              with Not_found -> ()
             ) vars;
           let pobj = get_printed_object printer in
-          let map, scopes = compute_scopes_vrefs pobj in
+          let initial_vref = !vref_counter in
+          let map = compute_vrefs pobj in
           vrefs := IntMap.fold (fun vref v acc -> IntMap.add vref v acc) map !vrefs;
-          write_json_DAP (create_response !last_request (body_scopes scopes))
-        else
-          write_json_DAP (create_response !last_request (body_scopes []));
-        read_command action envdb man flow
+          if IntMap.is_empty map then
+            write_json_DAP (create_response !last_request body_empty_evaluate)
+          else
+            write_json_DAP (create_response !last_request (body_evaluate (initial_vref + 1)));
+          read_command action envdb man flow
 
-      | Vars vref ->
-        let children = IntMap.find vref !vrefs in
-        write_json_DAP (create_response !last_request (body_variables children));
-        read_command action envdb man flow
+        | Environment(file, line) ->
+          let envs, vars =
+            match find_envdb_opt file line envdb with
+            | None -> CallstackMap.empty, []
+            | Some(action, envs) ->
+              let vars = action_line_vars action in
+              envs, vars
+          in
+          let ctx = Flow.get_ctx flow in
+          let env =
+            CallstackMap.fold
+              (fun _ -> man.lattice.join ctx)
+              envs man.lattice.bottom
+          in
+          let flow' = Flow.singleton ctx T_cur env in
+          let printer = Print.empty_printer () in
+          vars |> List.iter
+            (fun v ->
+              try man.print_expr flow' printer (mk_var v dummy_range)
+              with Not_found -> ()
+            );
+          let body = print_object_to_json (get_printed_object printer) in
+          write_json_DAP (create_response !last_request body);
+          read_command action envdb man flow
 
-      | Continue ->
-        write_json_DAP (create_response !last_request `Null  );
-        Continue
-
-      | Next ->
-        write_json_DAP (create_response !last_request `Null);
-        Next
-
-      | Step ->
-        write_json_DAP (create_response !last_request `Null);
-        Step
-
-      | Finish ->
-        write_json_DAP (create_response !last_request `Null);
-        Finish
-
-      | Evaluate vars ->
-        let vars = String.split_on_char ' ' vars |>
-                   List.map String.trim |>
-                   List.filter (function "" -> false | _ -> true)
-        in
-        let vars =
-          List.fold_left
-            (fun acc s ->
-               let parts = String.split_on_char ',' s |>
-                           List.filter (function "" -> false | _ -> true)
-               in
-               SetExt.StringSet.union acc (SetExt.StringSet.of_list parts)
-            ) SetExt.StringSet.empty vars
-        in
-        let vars =
-          SetExt.StringSet.elements vars |> ListExt.map_filter
-            (fun name ->
-               try Some (find_var_by_name name man flow)
-               with Not_found -> None
-            )
-        in
-        let printer = Print.empty_printer () in
-        List.iter
-          (fun v ->
-             try man.print_expr flow printer (mk_var v dummy_range)
-             with Not_found -> ()
-          ) vars;
-        let pobj = get_printed_object printer in
-        let initial_vref = !vref_counter in
-        let map = compute_vrefs pobj in
-        vrefs := IntMap.fold (fun vref v acc -> IntMap.add vref v acc) map !vrefs;
-        if IntMap.is_empty map then
-          write_json_DAP (create_response !last_request body_empty_evaluate)
-        else
-          write_json_DAP (create_response !last_request (body_evaluate (initial_vref + 1)));
-        read_command action envdb man flow
-
-      | Environment(file, line) ->
-        let envs, vars =
-          match find_envdb_opt file line envdb with
-          | None -> CallstackMap.empty, []
-          | Some(action, envs) ->
-            let vars = action_line_vars action in
-            envs, vars
-        in
-        let ctx = Flow.get_ctx flow in
-        let env =
-          CallstackMap.fold
-            (fun _ -> man.lattice.join ctx)
-            envs man.lattice.bottom
-        in
-        let flow' = Flow.singleton ctx T_cur env in
-        let printer = Print.empty_printer () in
-        vars |> List.iter
-          (fun v ->
-             try man.print_expr flow' printer (mk_var v dummy_range)
-             with Not_found -> ()
-          );
-        let body = print_object_to_json (get_printed_object printer) in
-        write_json_DAP (create_response !last_request body);
-        read_command action envdb man flow
-
-      | Disconnect ->
-        write_json_DAP (create_response !last_request `Null);
-        raise Exit
+        | Disconnect ->
+          write_json_DAP (create_response !last_request `Null);
+          raise Exit
+      in
+      try aux cmd with
+      | e ->
+        write_json_DAP (create_error_response !last_request (Printexc.to_string e));
+        raise e
 
   let rec wait_disconnect () =
     let cmd =
