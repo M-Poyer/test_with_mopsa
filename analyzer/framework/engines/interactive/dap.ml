@@ -631,6 +631,8 @@ struct
           raise Exit
       in
       try aux cmd with
+      | Exit ->
+        raise Exit
       | e ->
         write_json_DAP (create_error_response !last_request (Printexc.to_string e));
         raise e
