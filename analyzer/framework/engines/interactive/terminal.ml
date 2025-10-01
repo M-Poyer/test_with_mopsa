@@ -217,6 +217,8 @@ struct
     printf "                            To be used in combination with load script <file>@.";
     printf "  u[nset] script            do not store commands in file anymore@.";
     printf "  load script <file>        reads script command from <file>@.";
+    printf "  exit                      exit the interactive mode@.";
+    printf "  r[estart]                 restart the interactive mode@.";
     printf "  help                      print this message@.";
     printf "The commands below support shell commands (`env | grep foo`, `mopsa_bt | tac`, ...):@.";
     printf "  p[rint]                   print the abstract state@.";
@@ -394,6 +396,8 @@ struct
       Print(vars, Some(file, line))
 
     | ["trace"|"t"]   -> Trace
+
+    | ["restart"|"r"] -> raise Toplevel.Restart
 
     | _ ->
       printf "Unknown command %s@." s;
