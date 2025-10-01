@@ -18,6 +18,7 @@
   "Francesco Parolini"
   "Marco Milanese"
   "Jérôme Boillot"
+  "Tom Goalard"
 )
 
 (maintainers
