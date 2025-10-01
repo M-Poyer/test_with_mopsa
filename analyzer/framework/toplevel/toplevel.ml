@@ -84,7 +84,8 @@ sig
   (***************)
 
   exception SysBreak of t flow
-  exception GoBackward 
+  exception GoBackward
+  exception Restart
 
 end
 
@@ -205,6 +206,7 @@ struct
 
   exception SysBreak of Domain.t flow
   exception GoBackward
+  exception Restart
 
   let exec ?(route = toplevel) (stmt: stmt) man (flow: Domain.t flow) : Domain.t post =
     let flow =

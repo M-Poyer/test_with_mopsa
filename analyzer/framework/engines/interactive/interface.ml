@@ -40,6 +40,7 @@ type command =
   | NextI
   | StepI
   | Backward
+  | Restart
 
 type state = {
   mutable depth: int;

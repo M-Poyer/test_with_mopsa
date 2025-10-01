@@ -177,7 +177,8 @@ struct
           is_range_breakpoint () ||
           is_function_breakpoint () )
 
-      | Backward -> assert false
+      | Backward
+      | Restart -> assert false
 
   let get_new_alarms (type a) (action: a return_action) (ret:a) =
     let doit cases =
@@ -376,6 +377,7 @@ struct
     | Exit ->
       raise Exit
 
+    | Toplevel.Restart
     | Toplevel.GoBackward ->
       analyze stmt flow
 
