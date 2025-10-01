@@ -634,13 +634,11 @@ struct
           raise Exit
         | Restart ->
           write_json_DAP (create_response !last_request `Null);
-          raise Toplevel.Restart
+          Restart
       in
       try aux cmd with
       | Exit ->
         raise Exit
-      | Toplevel.Restart ->
-        raise Toplevel.Restart
       | e ->
         write_json_DAP (create_error_response !last_request (Printexc.to_string e));
         raise e

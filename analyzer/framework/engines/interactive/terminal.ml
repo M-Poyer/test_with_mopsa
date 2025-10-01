@@ -99,6 +99,8 @@ struct
 
     | Backward
 
+    | Restart
+
 
   (** Information sub-commands *)
   and info_command =
@@ -185,6 +187,7 @@ struct
     | BackTrace        -> Format.pp_print_string fmt "backtrace"
     | Trace            -> Format.pp_print_string fmt "trace"
     | Backward         -> Format.pp_print_string fmt "backward"
+    | Restart          -> Format.pp_print_string fmt "restart"
 
   let pp_terminal_command_redirection fmt = function
     | Pipe shell -> Format.fprintf fmt " | %s" shell
@@ -397,7 +400,7 @@ struct
 
     | ["trace"|"t"]   -> Trace
 
-    | ["restart"|"r"] -> raise Toplevel.Restart
+    | ["restart"|"r"] -> Restart
 
     | _ ->
       printf "Unknown command %s@." s;
@@ -784,6 +787,9 @@ struct
 
     | Backward ->
       Backward
+
+    | Restart ->
+      Restart
 
     | Enable (Hook hook) ->
       if not (Hook.mem_hook hook) then (

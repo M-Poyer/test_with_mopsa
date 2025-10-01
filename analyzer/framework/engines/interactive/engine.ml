@@ -232,6 +232,7 @@ struct
     state.command_callstack <- (Flow.get_callstack flow);
     match cmd with
     | Backward -> raise Toplevel.GoBackward
+    | Restart  -> raise Toplevel.Restart
     | _        -> apply_action action flow
 
 
@@ -321,7 +322,9 @@ struct
       ) else
         raise Toplevel.GoBackward
 
-
+    | Toplevel.Restart ->
+      raise Toplevel.Restart
+    
     | Exit -> raise Exit
 
     | e ->
