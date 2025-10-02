@@ -97,7 +97,7 @@ struct
 
     | Trace
 
-    | Backward
+    | Backward of int
 
     | Clear
 
@@ -186,7 +186,7 @@ struct
     | Unset ShowVarScope -> Format.pp_print_string fmt "unset showvarscope"
     | BackTrace        -> Format.pp_print_string fmt "backtrace"
     | Trace            -> Format.pp_print_string fmt "trace"
-    | Backward         -> Format.pp_print_string fmt "backward"
+    | Backward n       -> Format.fprintf fmt "backward %d" n
     | Clear           -> Format.pp_print_string fmt "clear"
 
   let pp_terminal_command_redirection fmt = function
@@ -315,8 +315,18 @@ struct
     | ["where"    | "w"]   -> Where
     | ["backtrace"|"bt"]   -> BackTrace
     | ["break"    | "b"; l]-> Break l
-    | ["backward" | "back" | "bw"] -> Backward
-
+    | ["backward" | "back" | "bw"] -> Backward 1
+    | ["backward" | "back" | "bw"; n] ->
+      (try 
+        let n = int_of_string n in
+        if n < 1 then
+          (printf "Argument for backward command must be a positive integer@.";
+           raise ReadNewCommand)
+        else
+          Backward n
+       with Failure _ ->
+         printf "Invalid argument '%s' for backward command@." n;
+         raise ReadNewCommand)
     | ("env"      | "e") :: domains ->
       let domains =
         List.fold_left
@@ -783,8 +793,8 @@ struct
     | Finish ->
       Finish
 
-    | Backward ->
-      Backward 1
+    | Backward n ->
+      Backward n
 
     | Enable (Hook hook) ->
       if not (Hook.mem_hook hook) then (
