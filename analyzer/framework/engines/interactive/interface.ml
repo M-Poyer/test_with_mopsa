@@ -39,7 +39,7 @@ type command =
   | Finish
   | NextI
   | StepI
-  | Backward
+  | Backward of int
 
 type state = {
   mutable depth: int;

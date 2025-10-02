@@ -160,6 +160,9 @@ struct
   let extract_expression request = request |> member "arguments" |>  member "expression" |> to_string
   let extract_file request = request |> member "arguments" |> member "file" |> to_string
   let extract_line request = request |> member "arguments" |> member "line" |> to_int
+  let extract_frame_id request = request |> member "arguments" |> member "frameId" |> to_int
+
+  (** Creating JSON responses *)
 
   let create_response request body :Yojson.Basic.t =
     let command = extract_command request
@@ -396,6 +399,9 @@ struct
 
     | Environment of string * int
 
+    | RestartFrame of int
+    (** Restart the given frame *)
+
     | Disconnect
 
   (** The last entered command *)
@@ -422,6 +428,7 @@ struct
       | "evaluate" -> Evaluate (extract_expression req)
       | "disconnect" -> Disconnect
       | "environment" -> Environment (extract_file req, extract_line req)
+      | "restartFrame" -> RestartFrame (extract_frame_id req)
       | _ -> read_dap_command ()
     in
     last_request := req;
@@ -525,6 +532,17 @@ struct
           let stack_trace_info = (createFrame  0 "Current pointer" line column file path)::call_stack_json in
           write_json_DAP (create_response !last_request (body_stackTrace stack_trace_info));
           read_command action envdb man flow
+
+        | RestartFrame frame_id ->
+          let cs = Flow.get_callstack flow in
+          let nb_frames = List.length cs in
+          if frame_id < 1 || frame_id > nb_frames then (
+            write_json_DAP (create_error_response !last_request (Format.asprintf "Frame id %d not found" frame_id));
+            read_command action envdb man flow
+          ) else (
+            let backward_nb = nb_frames - frame_id in
+            Backward backward_nb
+          )
 
         | Scopes ->
           if is_orig_range (action_range action) then

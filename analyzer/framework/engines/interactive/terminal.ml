@@ -779,7 +779,7 @@ struct
       Finish
 
     | Backward ->
-      Backward
+      Backward 1
 
     | Enable (Hook hook) ->
       if not (Hook.mem_hook hook) then (
