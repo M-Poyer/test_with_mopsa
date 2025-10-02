@@ -99,6 +99,8 @@ struct
 
     | Backward
 
+    | Clear
+
 
   (** Information sub-commands *)
   and info_command =
@@ -185,6 +187,7 @@ struct
     | BackTrace        -> Format.pp_print_string fmt "backtrace"
     | Trace            -> Format.pp_print_string fmt "trace"
     | Backward         -> Format.pp_print_string fmt "backward"
+    | Clear           -> Format.pp_print_string fmt "clear"
 
   let pp_terminal_command_redirection fmt = function
     | Pipe shell -> Format.fprintf fmt " | %s" shell
@@ -217,6 +220,7 @@ struct
     printf "                            To be used in combination with load script <file>@.";
     printf "  u[nset] script            do not store commands in file anymore@.";
     printf "  load script <file>        reads script command from <file>@.";
+    printf "  clear                     clear the terminal screen@.";
     printf "  help                      print this message@.";
     printf "The commands below support shell commands (`env | grep foo`, `mopsa_bt | tac`, ...):@.";
     printf "  p[rint]                   print the abstract state@.";
@@ -394,6 +398,7 @@ struct
       Print(vars, Some(file, line))
 
     | ["trace"|"t"]   -> Trace
+    | ["clear"] -> Clear
 
     | _ ->
       printf "Unknown command %s@." s;
@@ -852,6 +857,10 @@ struct
     | Info _
     | Trace ->
       process_output_command cmd action envdb man flow;
+      read_command action envdb man flow
+
+    | Clear ->
+      ignore @@ Sys.command "clear";
       read_command action envdb man flow
 
 
