@@ -39,6 +39,9 @@ The following commands allow navigating throught the statements of a program:
 ``restart``
   Restart the analysis from the beginning of the program.
 
+``clear``
+  Clear the screen
+
 ``exit``
   Exit the analysis. 
 

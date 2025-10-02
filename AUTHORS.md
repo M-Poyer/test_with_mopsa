@@ -5,6 +5,7 @@ This document lists the authors of significant contributions to the MOPSA source
 
 - Jérôme Boillot <Jerome.Boillot@ens.fr> - École Normale Supérieure, CNRS, INRIA
 - Aymeric Fromherz <aymeric.fromherz@inria.fr> - Sorbonne Université, CNRS
+- Tom Goalard <tom.goalard@ens-rennes.fr> - Univ Rennes, Inria
 - Matthieu Journault <matthieu.journault@lip6.fr> - Sorbonne Université, CNRS
 - Marco Milanese <marco.milanese@lip6.fr> - Sorbonne Université, CNRS
 - Antoine Miné <antoine.mine@lip6.fr> - Sorbonne Université, CNRS

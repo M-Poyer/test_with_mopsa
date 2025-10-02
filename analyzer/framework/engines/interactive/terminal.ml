@@ -101,6 +101,8 @@ struct
 
     | Restart
 
+    | Clear
+
 
   (** Information sub-commands *)
   and info_command =
@@ -188,6 +190,7 @@ struct
     | Trace            -> Format.pp_print_string fmt "trace"
     | Backward         -> Format.pp_print_string fmt "backward"
     | Restart          -> Format.pp_print_string fmt "restart"
+    | Clear           -> Format.pp_print_string fmt "clear"
 
   let pp_terminal_command_redirection fmt = function
     | Pipe shell -> Format.fprintf fmt " | %s" shell
@@ -222,6 +225,7 @@ struct
     printf "  load script <file>        reads script command from <file>@.";
     printf "  exit                      exit the interactive mode@.";
     printf "  r[estart]                 restart the interactive mode@.";
+    printf "  clear                     clear the terminal screen@.";
     printf "  help                      print this message@.";
     printf "The commands below support shell commands (`env | grep foo`, `mopsa_bt | tac`, ...):@.";
     printf "  p[rint]                   print the abstract state@.";
@@ -399,6 +403,7 @@ struct
       Print(vars, Some(file, line))
 
     | ["trace"|"t"]   -> Trace
+    | ["clear"] -> Clear
 
     | ["restart"|"r"] -> Restart
 
@@ -862,6 +867,10 @@ struct
     | Info _
     | Trace ->
       process_output_command cmd action envdb man flow;
+      read_command action envdb man flow
+
+    | Clear ->
+      ignore @@ Sys.command "clear";
       read_command action envdb man flow
 
 
