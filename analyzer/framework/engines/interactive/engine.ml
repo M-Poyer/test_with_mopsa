@@ -177,7 +177,8 @@ struct
           is_range_breakpoint () ||
           is_function_breakpoint () )
 
-      | Backward -> assert false
+      | Backward
+      | Restart -> assert false
 
   let get_new_alarms (type a) (action: a return_action) (ret:a) =
     let doit cases =
@@ -231,6 +232,7 @@ struct
     state.command_callstack <- (Flow.get_callstack flow);
     match cmd with
     | Backward -> raise Toplevel.GoBackward
+    | Restart  -> raise Toplevel.Restart
     | _        -> apply_action action flow
 
 
@@ -320,7 +322,9 @@ struct
       ) else
         raise Toplevel.GoBackward
 
-
+    | Toplevel.Restart ->
+      raise Toplevel.Restart
+    
     | Exit -> raise Exit
 
     | e ->
@@ -376,6 +380,7 @@ struct
     | Exit ->
       raise Exit
 
+    | Toplevel.Restart
     | Toplevel.GoBackward ->
       analyze stmt flow
 

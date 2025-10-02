@@ -258,7 +258,8 @@ struct
 
   let body_initilize :Yojson.Basic.t =
     `Assoc [
-      ("supportsFunctionBreakpoints", `Bool true)
+      ("supportsFunctionBreakpoints", `Bool true);
+      ("supportsRestartRequest", `Bool true)
     ]
 
   let body_threads :Yojson.Basic.t =
@@ -397,6 +398,7 @@ struct
     | Environment of string * int
 
     | Disconnect
+    | Restart
 
   (** The last entered command *)
   let last_command = ref None
@@ -422,6 +424,7 @@ struct
       | "evaluate" -> Evaluate (extract_expression req)
       | "disconnect" -> Disconnect
       | "environment" -> Environment (extract_file req, extract_line req)
+      | "restart" -> Restart
       | _ -> read_dap_command ()
     in
     last_request := req;
@@ -629,6 +632,9 @@ struct
         | Disconnect ->
           write_json_DAP (create_response !last_request `Null);
           raise Exit
+        | Restart ->
+          write_json_DAP (create_response !last_request `Null);
+          Restart
       in
       try aux cmd with
       | Exit ->
