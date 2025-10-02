@@ -311,15 +311,15 @@ struct
 
     | Toplevel.GoBackward n ->
       let cs = Flow.get_callstack flow in
-      if n <= 1 &&is_call cs state.callstack then (
+      if is_call cs state.callstack then (
         state.depth <- old.depth + 1;
         state.callstack <- Flow.get_callstack flow;
         state.alarms <- AlarmSet.of_list (Alarm.report_to_alarms (Flow.get_report flow));
         Interface.reach (interface_action action) man flow;
+        if n > 1 then raise (Toplevel.GoBackward (n-1));
         interact action flow
       ) else
-        raise (Toplevel.GoBackward (n - 1))
-
+        raise (Toplevel.GoBackward n)
 
     | Exit -> raise Exit
 
@@ -377,7 +377,7 @@ struct
       raise Exit
 
     | Toplevel.GoBackward n ->
-      if n != 1 then (
+      if n >= 1 then (
         Debug.warn "Can't go backward further (%d left)" n
       );
       analyze stmt flow
