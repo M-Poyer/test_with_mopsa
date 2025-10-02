@@ -295,7 +295,7 @@ struct
         if not (AlarmSet.is_empty new_alarms) then (
           Interface.alarm (AlarmSet.elements new_alarms) (interface_action action) man flow;
           if is_alarm_breakpoint_active () then (
-            Interface.reach (interface_action action) man flow;
+            Interface.reach ~reason:"exception" (interface_action action) man flow;
             let _ = interact action flow in
             ()
           )
@@ -315,8 +315,8 @@ struct
         state.depth <- old.depth + 1;
         state.callstack <- Flow.get_callstack flow;
         state.alarms <- AlarmSet.of_list (Alarm.report_to_alarms (Flow.get_report flow));
-        Interface.reach (interface_action action) man flow;
         if n > 1 then raise (Toplevel.GoBackward (n-1));
+        Interface.reach ~reason:"restart" (interface_action action) man flow;
         interact action flow
       ) else
         raise (Toplevel.GoBackward n)
@@ -327,7 +327,7 @@ struct
       Interface.error e;
       if Printexc.backtrace_status () then Printexc.print_backtrace stderr;
       Debug.warn "Error encountered (see above); jumping back to allow looking around";
-      Interface.reach (interface_action action) man flow;
+      Interface.reach ~reason:"Analysis error" (interface_action action) man flow;
       interact action flow
 
   (** {2 Engine functions} *)

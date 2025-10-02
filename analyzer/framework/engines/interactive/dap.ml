@@ -261,7 +261,8 @@ struct
 
   let body_initilize :Yojson.Basic.t =
     `Assoc [
-      ("supportsFunctionBreakpoints", `Bool true)
+      ("supportsFunctionBreakpoints", `Bool true);
+      ("supportRestartFrame", `Bool true)
     ]
 
   let body_threads :Yojson.Basic.t =
@@ -448,12 +449,12 @@ struct
     | _ ->
       assert false
 
-  let reach action man flow =
+  let reach ?(reason="step") action man flow =
     let range = action_range action in
     if is_orig_range range then (
       vrefs := IntMap.empty;
       vref_counter := 0;
-      write_json_DAP (create_event "stopped" (create_body_stopped "step"));
+      write_json_DAP (create_event "stopped" (create_body_stopped reason));
     )
 
   let alarm alarms action man flow =

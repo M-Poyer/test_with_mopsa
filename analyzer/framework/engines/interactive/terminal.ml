@@ -590,7 +590,8 @@ struct
       (Debug.bold pp_print_string) ("Welcome to Mopsa " ^ Version.version ^ "!")
       (Debug.bold pp_print_string) "help"
 
-  let reach action man flow =
+  let reach ?(reason="") action man flow =
+    ignore reason;
     (* Print the range of the next action *)
     printf "%a@." Debug.(color fushia pp_relative_range) (action_range action);
     (* Print location in the source code *)
