@@ -211,7 +211,7 @@ struct
     printf "  s[tep]                    step into function calls@.";
     printf "  s[tep]i                   step into interpretation sub-tree@.";
     printf "  f[inish]                  finish current function@.";
-    printf "  b[ack]w[ard]              go backward to the calling site@.";
+    printf "  b[ack]w[ard] [<n>]        go backward by one frame to the calling site. If <n> is provided, it specifies the number of frames to go back.@.";
     printf "  e[nable] h[hook] <h>      enable a hook@.";
     printf "  d[isable] h[hook] <h>     disable a hook@.";
     printf "  s[et] d[ebug] <d>         set debug channels@.";
