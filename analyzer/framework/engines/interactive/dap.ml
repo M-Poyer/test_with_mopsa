@@ -541,8 +541,8 @@ struct
             write_json_DAP (create_error_response !last_request (Format.asprintf "Frame id %d not found" frame_id));
             read_command action envdb man flow
           ) else (
-            let backward_nb = nb_frames - frame_id in
-            Backward backward_nb
+            write_json_DAP (create_response !last_request (`Assoc []));
+            Backward frame_id
           )
 
         | Scopes ->
