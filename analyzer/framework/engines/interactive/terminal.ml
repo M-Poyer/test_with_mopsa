@@ -99,6 +99,8 @@ struct
 
     | Backward of int
 
+    | Restart
+
     | Clear
 
 
@@ -187,6 +189,7 @@ struct
     | BackTrace        -> Format.pp_print_string fmt "backtrace"
     | Trace            -> Format.pp_print_string fmt "trace"
     | Backward n       -> Format.fprintf fmt "backward %d" n
+    | Restart          -> Format.pp_print_string fmt "restart"
     | Clear           -> Format.pp_print_string fmt "clear"
 
   let pp_terminal_command_redirection fmt = function
@@ -220,6 +223,8 @@ struct
     printf "                            To be used in combination with load script <file>@.";
     printf "  u[nset] script            do not store commands in file anymore@.";
     printf "  load script <file>        reads script command from <file>@.";
+    printf "  exit                      exit the interactive mode@.";
+    printf "  r[estart]                 restart the interactive mode@.";
     printf "  clear                     clear the terminal screen@.";
     printf "  help                      print this message@.";
     printf "The commands below support shell commands (`env | grep foo`, `mopsa_bt | tac`, ...):@.";
@@ -409,6 +414,8 @@ struct
 
     | ["trace"|"t"]   -> Trace
     | ["clear"] -> Clear
+
+    | ["restart"|"r"] -> Restart
 
     | _ ->
       printf "Unknown command %s@." s;
@@ -796,6 +803,9 @@ struct
 
     | Backward n ->
       Backward n
+
+    | Restart ->
+      Restart
 
     | Enable (Hook hook) ->
       if not (Hook.mem_hook hook) then (

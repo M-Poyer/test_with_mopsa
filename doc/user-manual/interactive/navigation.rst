@@ -36,6 +36,9 @@ The following commands allow navigating throught the statements of a program:
 ``finish``
   Finish the current function.
 
+``restart``
+  Restart the analysis from the beginning of the program.
+
 ``clear``
   Clear the screen
 
