@@ -648,16 +648,13 @@ struct
 
         | Alarms ->
           let report = Flow.get_report flow in
-          (if is_safe_report report then
-            write_json_DAP (create_response !last_request (create_body_alarms_output []))
-          else
-            let alarms = fold_report 
-              (fun diag acc ->
-                match diag.diag_kind with
-                | Error | Warning    -> AlarmSet.union diag.diag_alarms acc
-                | Safe | Unreachable -> acc
-              ) report AlarmSet.empty in
-            write_json_DAP (create_response !last_request (create_body_alarms_output (AlarmSet.elements alarms))));
+          let alarms = fold_report 
+            (fun diag acc ->
+              match diag.diag_kind with
+              | Error | Warning    -> AlarmSet.union diag.diag_alarms acc
+              | Safe | Unreachable -> acc
+            ) report AlarmSet.empty in
+          write_json_DAP (create_response !last_request (create_body_alarms_output (AlarmSet.elements alarms)));
           read_command action envdb man flow
       in
       try aux cmd with
