@@ -681,6 +681,7 @@ struct
       raise Toplevel.Restart
     | Alarms, Some flow ->
       write_json_DAP (create_response !last_request (create_body_alarms_output (get_alarms flow)));
+      wait_disconnect (Some flow)
     | _ -> 
       write_json_DAP (create_error_response !last_request "This command is not available in terminated state.");
       wait_disconnect flow
