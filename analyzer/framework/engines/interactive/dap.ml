@@ -467,6 +467,16 @@ struct
 
   let dummy_range = mk_fresh_range ()
 
+  let get_alarms flow =
+    let report = Flow.get_report flow in
+    AlarmSet.elements @@ fold_report 
+      (fun diag acc ->
+        match diag.diag_kind with
+        | Error | Warning    -> AlarmSet.union diag.diag_alarms acc
+        | Safe | Unreachable -> acc
+      ) report AlarmSet.empty
+            
+
   let rec read_command action envdb man flow =
     if not (is_orig_range (action_range action)) then
       Interface.Step
@@ -647,14 +657,7 @@ struct
           Restart
 
         | Alarms ->
-          let report = Flow.get_report flow in
-          let alarms = fold_report 
-            (fun diag acc ->
-              match diag.diag_kind with
-              | Error | Warning    -> AlarmSet.union diag.diag_alarms acc
-              | Safe | Unreachable -> acc
-            ) report AlarmSet.empty in
-          write_json_DAP (create_response !last_request (create_body_alarms_output (AlarmSet.elements alarms)));
+          write_json_DAP (create_response !last_request (create_body_alarms_output (get_alarms flow)));
           read_command action envdb man flow
       in
       try aux cmd with
@@ -664,21 +667,28 @@ struct
         write_json_DAP (create_error_response !last_request (Printexc.to_string e));
         raise e
 
-  let rec wait_disconnect () =
+  let rec wait_disconnect flow =
     let cmd =
       try read_dap_command ()
       with Exit -> exit 0
     in
-    match cmd with
-    | Disconnect ->
+    match cmd, flow with
+    | Disconnect, _ ->
       write_json_DAP (create_response !last_request `Null);
       exit 0
-    | _ -> wait_disconnect ()
+    | Restart, _->
+      write_json_DAP (create_response !last_request `Null);
+      raise Toplevel.Restart
+    | Alarms, Some flow ->
+      write_json_DAP (create_response !last_request (create_body_alarms_output (get_alarms flow)));
+    | _ -> 
+      write_json_DAP (create_error_response !last_request "This command is not available in terminated state.");
+      wait_disconnect flow
 
 
   let finish man flow =
     write_json_DAP (create_event "terminated" `Null);
-    wait_disconnect ()
+    wait_disconnect (Some flow)
 
 
   let error e =
@@ -688,5 +698,5 @@ struct
           ("output", `String (Format.asprintf "Exception: %s" (Printexc.to_string e)))
         ]
       ));
-    wait_disconnect ()
+    wait_disconnect None
 end
