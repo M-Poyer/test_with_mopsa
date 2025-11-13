@@ -315,7 +315,7 @@ struct
       (fun report alarm -> add_alarm alarm report)
       empty_report
 
-  let create_body_alarms_output alarms : Yojson.Basic.t =
+  let create_body_alarms_event alarms : Yojson.Basic.t =
     `Assoc [
       ("category", `String "important");
       ("output", `String (Format.asprintf "%d new alarm%a" (List.length alarms) Debug.plurial_list alarms));
@@ -324,6 +324,12 @@ struct
           ("alarms", `List (let _, _, r = Output.Json.render_alarms (report_of_alarms alarms) in r));
         ])
     ]
+
+  let create_body_alarms_output alarms : Yojson.Basic.t =
+    `List (
+      let _, _, r = Output.Json.render_alarms (report_of_alarms alarms) in r
+    )
+  
 
   let create_body_environment_output file line env : Yojson.Basic.t =
     `Assoc [
@@ -398,7 +404,10 @@ struct
     | Environment of string * int
 
     | Disconnect
+
     | Restart
+
+    | Alarms
 
   (** The last entered command *)
   let last_command = ref None
@@ -425,6 +434,7 @@ struct
       | "disconnect" -> Disconnect
       | "environment" -> Environment (extract_file req, extract_line req)
       | "restart" -> Restart
+      | "alarms" -> Alarms
       | _ -> read_dap_command ()
     in
     last_request := req;
@@ -453,7 +463,7 @@ struct
     )
 
   let alarm alarms action man flow =
-    write_json_DAP (create_event "output" (create_body_alarms_output alarms))
+    write_json_DAP (create_event "output" (create_body_alarms_event alarms))
 
   let dummy_range = mk_fresh_range ()
 
@@ -635,6 +645,20 @@ struct
         | Restart ->
           write_json_DAP (create_response !last_request `Null);
           Restart
+
+        | Alarms ->
+          let report = Flow.get_report flow in
+          (if is_safe_report report then
+            write_json_DAP (create_response !last_request (create_body_alarms_output []))
+          else
+            let alarms = fold_report 
+              (fun diag acc ->
+                match diag.diag_kind with
+                | Error | Warning    -> AlarmSet.union diag.diag_alarms acc
+                | Safe | Unreachable -> acc
+              ) report AlarmSet.empty in
+            write_json_DAP (create_response !last_request (create_body_alarms_output (AlarmSet.elements alarms))));
+          read_command action envdb man flow
       in
       try aux cmd with
       | Exit ->
