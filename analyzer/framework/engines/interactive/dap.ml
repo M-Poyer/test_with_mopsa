@@ -476,6 +476,30 @@ struct
         | Safe | Unreachable -> acc
       ) report AlarmSet.empty
             
+  let set_func_breaks breakpoints_info =
+    let breakpoints_tmp =
+      BreakpointSet.filter
+        (function b ->
+        match b with
+        | B_function _-> false
+        | B_line _ -> true
+        | _ -> false
+        ) !breakpoints in
+    breakpoints := List.fold_right (fun bp set -> BreakpointSet.add bp set) breakpoints_info breakpoints_tmp ;
+    write_json_DAP (create_response !last_request (body_breakpoints (List.length breakpoints_info)))
+
+  let set_breaks breakpoints_info =
+    let path = fst breakpoints_info in
+    let breakpoints_tmp =
+      BreakpointSet.filter
+        (fun b -> match b with
+          | B_function _-> true
+          | B_line (path2, _) -> not (path=path2)
+          | _ -> false
+        ) !breakpoints
+    in
+    breakpoints := List.fold_left (fun set bp -> BreakpointSet.add bp set) breakpoints_tmp (snd breakpoints_info);
+    write_json_DAP (create_response !last_request (body_breakpoints (List.length (snd breakpoints_info))))
 
   let rec read_command action envdb man flow =
     if not (is_orig_range (action_range action)) then
@@ -497,30 +521,11 @@ struct
           read_command action envdb man flow
 
         | Breaks breakpoints_info ->
-          let path = fst breakpoints_info in
-          let breakpoints_tmp =
-            BreakpointSet.filter
-              (fun b -> match b with
-                | B_function _-> true
-                | B_line (path2, _) -> not (path=path2)
-                | _ -> false
-              ) !breakpoints
-          in
-          breakpoints := List.fold_left (fun set bp -> BreakpointSet.add bp set) breakpoints_tmp (snd breakpoints_info);
-          write_json_DAP (create_response !last_request (body_breakpoints (List.length (snd breakpoints_info))));
+          set_breaks breakpoints_info;
           read_command action envdb man flow
 
         | FuncBreaks breakpoints_info ->
-          let breakpoints_tmp =
-            BreakpointSet.filter
-              (function b ->
-              match b with
-              | B_function _-> false
-              | B_line _ -> true
-              | _ -> false
-              ) !breakpoints in
-          breakpoints := List.fold_right (fun bp set -> BreakpointSet.add bp set) breakpoints_info breakpoints_tmp ;
-          write_json_DAP (create_response !last_request (body_breakpoints (List.length breakpoints_info)));
+          set_func_breaks breakpoints_info;
           read_command action envdb man flow
 
         | Threads ->
@@ -682,6 +687,15 @@ struct
     | Alarms, Some flow ->
       write_json_DAP (create_response !last_request (create_body_alarms_output (get_alarms flow)));
       wait_disconnect (Some flow)
+    | ExceptBreaks, flow ->
+      write_json_DAP (create_response !last_request `Null);
+      wait_disconnect flow
+    | Breaks breakpoints_info, flow ->
+      set_breaks breakpoints_info;
+      wait_disconnect flow
+    | FuncBreaks breakpoints_info, flow ->
+      set_func_breaks breakpoints_info;
+      wait_disconnect flow
     | _ -> 
       write_json_DAP (create_error_response !last_request "This command is not available in terminated state.");
       wait_disconnect flow
