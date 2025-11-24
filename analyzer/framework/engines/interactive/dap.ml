@@ -713,5 +713,6 @@ struct
           ("output", `String (Format.asprintf "Exception: %s" (Printexc.to_string e)))
         ]
       ));
+    write_json_DAP (create_event "terminated" `Null);
     wait_disconnect None
 end
