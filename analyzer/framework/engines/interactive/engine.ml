@@ -314,10 +314,12 @@ struct
     | Toplevel.GoBackward n ->
       let cs = Flow.get_callstack flow in
       if is_call cs state.callstack then (
+        if n > 1 then raise (Toplevel.GoBackward (n - 1));
         state.depth <- old.depth + 1;
+        state.loc <- old.loc;
+        state.call_preamble <- old.call_preamble;
         state.callstack <- Flow.get_callstack flow;
         state.alarms <- AlarmSet.of_list (Alarm.report_to_alarms (Flow.get_report flow));
-        if n > 1 then raise (Toplevel.GoBackward (n-1));
         Interface.reach ~reason:"restart" (interface_action action) man flow;
         interact action flow
       ) else
