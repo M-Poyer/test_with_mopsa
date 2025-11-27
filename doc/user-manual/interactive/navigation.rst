@@ -27,6 +27,18 @@ The following commands allow navigating throught the statements of a program:
 ``break @name``
   Add a named breakpoint, the analysis will stop when executing the `S_break name` statement
 
+``delete <file:line>``
+  Remove the breakpoint at ``line`` in ``file``.
+
+``delete <function>``
+  Remove the breakpoint at ``function``.
+
+``delete @name``
+  Remove the named breakpoint ``name``.
+
+``delete``
+  Remove all breakpoints.
+
 ``backward``
   Go backward to the calling site
 
