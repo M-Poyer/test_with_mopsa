@@ -40,6 +40,9 @@ struct
     | Break of string
     (** Add a breakpoint *)
 
+    | Delete of string
+    (** Delete a breakpoint, empty to delete all *)
+
     | Continue
     (** Stop at next breakpoint *)
 
@@ -137,6 +140,8 @@ struct
   (** Print a command *)
   let pp_terminal_command_kind fmt = function
     | Break loc   -> Format.fprintf fmt "break %s" loc
+    | Delete loc -> Format.fprintf fmt "delete %s" loc
+    | ClearBreaks -> Format.pp_print_string fmt "clearbreaks"
     | MopsaBackTrace -> Format.fprintf fmt "mopsa_bt"
     | Continue    -> Format.pp_print_string fmt "continue"
     | Next        -> Format.pp_print_string fmt "next"
@@ -208,6 +213,10 @@ struct
     printf "  b[reak] <function>        add a breakpoint at a function@.";
     printf "  b[reak] @name             add a named breakpoint (will break when the analysis executes an S_break name)@.";
     printf "  b[reak] #a[larm]          break at the next alarm (and go back at the statement generating the alarm)@.";
+    printf "  d[elete] <[file:]line>    delete the breakpoint at a line@.";
+    printf "  d[elete] <function>       delete the breakpoint at a function@.";
+    printf "  d[elete] @name            delete the named breakpoint@.";
+    printf "  d[elete]                  delete all breakpoints@.";
     printf "  c[ontinue]                run until next breakpoint@.";
     printf "  n[ext]                    stop at next statement and skip function calls.@.";
     printf "  n[ext]i                   stop at next statement and skip nodes in the interpretation sub-tree@.";
@@ -320,6 +329,8 @@ struct
     | ["where"    | "w"]   -> Where
     | ["backtrace"|"bt"]   -> BackTrace
     | ["break"    | "b"; l]-> Break l
+    | ["delete"   | "d"] -> Delete ""
+    | ["delete"   | "d"; l] -> Delete l
     | ["backward" | "back" | "bw"] -> Backward
 
     | ("env"      | "e") :: domains ->
@@ -772,6 +783,22 @@ struct
         with Invalid_breakpoint_syntax -> printf "Invalid breakpoint syntax@." in
       read_command action envdb man flow
 
+    | Delete loc ->
+      let () =
+        if loc = "all" || loc = "" then
+          breakpoints := BreakpointSet.empty
+        else
+          try
+            let default_file =
+              try get_range_file (action_range action)
+              with _ -> "" (* FIXME: use first file in list of analyzed files *) in
+            let bp = parse_breakpoint default_file loc in 
+            if BreakpointSet.mem bp !breakpoints then
+              breakpoints := BreakpointSet.remove bp !breakpoints
+            else
+              printf "Breakpoint not found@."
+          with Invalid_breakpoint_syntax -> printf "Invalid breakpoint syntax@." in
+      read_command action envdb man flow
     | Continue ->
       Interface.Continue
 
