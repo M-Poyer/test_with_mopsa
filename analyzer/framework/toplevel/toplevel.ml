@@ -84,7 +84,7 @@ sig
   (***************)
 
   exception SysBreak of t flow
-  exception GoBackward
+  exception GoBackward of int
   exception Restart
 
 end
@@ -205,7 +205,7 @@ struct
   let exit_hook () = assert(inside_hook ()); inside_hook_flag := false
 
   exception SysBreak of Domain.t flow
-  exception GoBackward
+  exception GoBackward of int
   exception Restart
 
   let exec ?(route = toplevel) (stmt: stmt) man (flow: Domain.t flow) : Domain.t post =
@@ -294,7 +294,7 @@ struct
         (Exceptions.PanicAtFrame(stmt.srange, (Flow.get_control_ctx flow), Format.asprintf "Apron.Manager.Error(%a)" Apron.Manager.print_exclog exc, ""))
         (Printexc.get_raw_backtrace())
 
-    | e when (match e with Exit | Exceptions.PanicAtFrame _ | SysBreak _ | Restart -> false | _ -> true) ->
+    | e when (match e with Exit | Exceptions.PanicAtFrame _ | SysBreak _ | Restart | GoBackward _ -> false | _ -> true) ->
       Printexc.raise_with_backtrace
         (Exceptions.PanicAtFrame(stmt.srange, (Flow.get_control_ctx flow), Printexc.to_string e, ""))
         (Printexc.get_raw_backtrace())

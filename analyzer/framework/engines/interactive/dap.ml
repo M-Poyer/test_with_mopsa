@@ -160,6 +160,9 @@ struct
   let extract_expression request = request |> member "arguments" |>  member "expression" |> to_string
   let extract_file request = request |> member "arguments" |> member "file" |> to_string
   let extract_line request = request |> member "arguments" |> member "line" |> to_int
+  let extract_frame_id request = request |> member "arguments" |> member "frameId" |> to_int
+
+  (** Creating JSON responses *)
 
   let create_response request body :Yojson.Basic.t =
     let command = extract_command request
@@ -259,6 +262,7 @@ struct
   let body_initilize :Yojson.Basic.t =
     `Assoc [
       ("supportsFunctionBreakpoints", `Bool true);
+      ("supportRestartFrame", `Bool true);
       ("supportsRestartRequest", `Bool true)
     ]
 
@@ -397,6 +401,9 @@ struct
 
     | Environment of string * int
 
+    | RestartFrame of int
+    (** Restart the given frame *)
+
     | Disconnect
     | Restart
 
@@ -424,6 +431,7 @@ struct
       | "evaluate" -> Evaluate (extract_expression req)
       | "disconnect" -> Disconnect
       | "environment" -> Environment (extract_file req, extract_line req)
+      | "restartFrame" -> RestartFrame (extract_frame_id req)
       | "restart" -> Restart
       | _ -> read_dap_command ()
     in
@@ -444,12 +452,12 @@ struct
     | _ ->
       assert false
 
-  let reach action man flow =
+  let reach ?(reason="step") action man flow =
     let range = action_range action in
     if is_orig_range range then (
       vrefs := IntMap.empty;
       vref_counter := 0;
-      write_json_DAP (create_event "stopped" (create_body_stopped "step"));
+      write_json_DAP (create_event "stopped" (create_body_stopped reason));
     )
 
   let alarm alarms action man flow =
@@ -528,6 +536,17 @@ struct
           let stack_trace_info = (createFrame  0 "Current pointer" line column file path)::call_stack_json in
           write_json_DAP (create_response !last_request (body_stackTrace stack_trace_info));
           read_command action envdb man flow
+
+        | RestartFrame frame_id ->
+          let cs = Flow.get_callstack flow in
+          let nb_frames = List.length cs in
+          if frame_id < 1 || frame_id > nb_frames then (
+            write_json_DAP (create_error_response !last_request (Format.asprintf "Frame id %d not found" frame_id));
+            read_command action envdb man flow
+          ) else (
+            write_json_DAP (create_response !last_request (`Assoc []));
+            Backward frame_id
+          )
 
         | Scopes ->
           if is_orig_range (action_range action) then
