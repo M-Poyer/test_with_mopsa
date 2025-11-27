@@ -177,7 +177,7 @@ struct
           is_range_breakpoint () ||
           is_function_breakpoint () )
 
-      | Backward
+      | Backward _
       | Restart -> assert false
 
   let get_new_alarms (type a) (action: a return_action) (ret:a) =
@@ -231,7 +231,7 @@ struct
     state.command_depth <- state.depth;
     state.command_callstack <- (Flow.get_callstack flow);
     match cmd with
-    | Backward -> raise Toplevel.GoBackward
+    | Backward n -> raise (Toplevel.GoBackward n)
     | Restart  -> raise Toplevel.Restart
     | _        -> apply_action action flow
 
@@ -297,7 +297,7 @@ struct
         if not (AlarmSet.is_empty new_alarms) then (
           Interface.alarm (AlarmSet.elements new_alarms) (interface_action action) man flow;
           if is_alarm_breakpoint_active () then (
-            Interface.reach (interface_action action) man flow;
+            Interface.reach ~reason:"exception" (interface_action action) man flow;
             let _ = interact action flow in
             ()
           )
@@ -311,17 +311,19 @@ struct
     | Sys.Break ->
       interact action flow
 
-    | Toplevel.GoBackward ->
+    | Toplevel.GoBackward n ->
       let cs = Flow.get_callstack flow in
       if is_call cs state.callstack then (
+        if n > 1 then raise (Toplevel.GoBackward (n - 1));
         state.depth <- old.depth + 1;
+        state.loc <- old.loc;
+        state.call_preamble <- old.call_preamble;
         state.callstack <- Flow.get_callstack flow;
         state.alarms <- AlarmSet.of_list (Alarm.report_to_alarms (Flow.get_report flow));
-        Interface.reach (interface_action action) man flow;
+        Interface.reach ~reason:"restart" (interface_action action) man flow;
         interact action flow
       ) else
-        raise Toplevel.GoBackward
-
+        raise (Toplevel.GoBackward n)
     | Toplevel.Restart ->
       raise Toplevel.Restart
     
@@ -331,7 +333,7 @@ struct
       Interface.error e;
       if Printexc.backtrace_status () then Printexc.print_backtrace stderr;
       Debug.warn "Error encountered (see above); jumping back to allow looking around";
-      Interface.reach (interface_action action) man flow;
+      Interface.reach ~reason:"Analysis error" (interface_action action) man flow;
       interact action flow
 
   (** {2 Engine functions} *)
@@ -380,8 +382,13 @@ struct
     | Exit ->
       raise Exit
 
-    | Toplevel.Restart
-    | Toplevel.GoBackward ->
+    | Toplevel.Restart ->
+      Debug.warn "Restarting analysis from beginning";
+      analyze stmt flow
+    | Toplevel.GoBackward n ->
+      if n >= 1 then (
+        Debug.warn "Can't go backward further (%d left)" n
+      );
       analyze stmt flow
 
     | e ->

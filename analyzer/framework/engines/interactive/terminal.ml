@@ -100,7 +100,7 @@ struct
 
     | Trace
 
-    | Backward
+    | Backward of int
 
     | Restart
 
@@ -192,7 +192,7 @@ struct
     | Unset ShowVarScope -> Format.pp_print_string fmt "unset showvarscope"
     | BackTrace        -> Format.pp_print_string fmt "backtrace"
     | Trace            -> Format.pp_print_string fmt "trace"
-    | Backward         -> Format.pp_print_string fmt "backward"
+    | Backward n       -> Format.fprintf fmt "backward %d" n
     | Restart          -> Format.pp_print_string fmt "restart"
     | Clear           -> Format.pp_print_string fmt "clear"
 
@@ -222,7 +222,7 @@ struct
     printf "  s[tep]                    step into function calls@.";
     printf "  s[tep]i                   step into interpretation sub-tree@.";
     printf "  f[inish]                  finish current function@.";
-    printf "  b[ack]w[ard]              go backward to the calling site@.";
+    printf "  b[ack]w[ard] [<n>]        go backward by one frame to the calling site. If <n> is provided, it specifies the number of frames to go back.@.";
     printf "  e[nable] h[hook] <h>      enable a hook@.";
     printf "  d[isable] h[hook] <h>     disable a hook@.";
     printf "  s[et] d[ebug] <d>         set debug channels@.";
@@ -330,8 +330,18 @@ struct
     | ["break"    | "b"; l]-> Break l
     | ["delete"   | "d"] -> Delete ""
     | ["delete"   | "d"; l] -> Delete l
-    | ["backward" | "back" | "bw"] -> Backward
-
+    | ["backward" | "back" | "bw"] -> Backward 1
+    | ["backward" | "back" | "bw"; n] ->
+      (try 
+        let n = int_of_string n in
+        if n < 1 then
+          (printf "Argument for backward command must be a positive integer@.";
+           raise ReadNewCommand)
+        else
+          Backward n
+       with Failure _ ->
+         printf "Invalid argument '%s' for backward command@." n;
+         raise ReadNewCommand)
     | ("env"      | "e") :: domains ->
       let domains =
         List.fold_left
@@ -597,7 +607,8 @@ struct
       (Debug.bold pp_print_string) ("Welcome to Mopsa " ^ Version.version ^ "!")
       (Debug.bold pp_print_string) "help"
 
-  let reach action man flow =
+  let reach ?(reason="") action man flow =
+    ignore reason;
     (* Print the range of the next action *)
     printf "%a@." Debug.(color fushia pp_relative_range) (action_range action);
     (* Print location in the source code *)
@@ -816,8 +827,8 @@ struct
     | Finish ->
       Finish
 
-    | Backward ->
-      Backward
+    | Backward n ->
+      Backward n
 
     | Restart ->
       Restart

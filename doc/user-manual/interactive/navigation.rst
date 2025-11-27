@@ -39,8 +39,8 @@ The following commands allow navigating throught the statements of a program:
 ``delete``
   Remove all breakpoints.
 
-``backward``
-  Go backward to the calling site
+``backward <n>``
+  Go backward by one frame to the calling site. If ``n`` is provided, it specifies the number of frames to go back.
 
 ``continue``
   Execute until reaching the next breakpoint.

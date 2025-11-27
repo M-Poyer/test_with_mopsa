@@ -160,6 +160,9 @@ struct
   let extract_expression request = request |> member "arguments" |>  member "expression" |> to_string
   let extract_file request = request |> member "arguments" |> member "file" |> to_string
   let extract_line request = request |> member "arguments" |> member "line" |> to_int
+  let extract_frame_id request = request |> member "arguments" |> member "frameId" |> to_int
+
+  (** Creating JSON responses *)
 
   let create_response request body :Yojson.Basic.t =
     let command = extract_command request
@@ -259,6 +262,7 @@ struct
   let body_initilize :Yojson.Basic.t =
     `Assoc [
       ("supportsFunctionBreakpoints", `Bool true);
+      ("supportRestartFrame", `Bool true);
       ("supportsRestartRequest", `Bool true)
     ]
 
@@ -315,7 +319,7 @@ struct
       (fun report alarm -> add_alarm alarm report)
       empty_report
 
-  let create_body_alarms_output alarms : Yojson.Basic.t =
+  let create_body_alarms_event alarms : Yojson.Basic.t =
     `Assoc [
       ("category", `String "important");
       ("output", `String (Format.asprintf "%d new alarm%a" (List.length alarms) Debug.plurial_list alarms));
@@ -324,6 +328,12 @@ struct
           ("alarms", `List (let _, _, r = Output.Json.render_alarms (report_of_alarms alarms) in r));
         ])
     ]
+
+  let create_body_alarms_output alarms : Yojson.Basic.t =
+    `List (
+      let _, _, r = Output.Json.render_alarms (report_of_alarms alarms) in r
+    )
+  
 
   let create_body_environment_output file line env : Yojson.Basic.t =
     `Assoc [
@@ -397,8 +407,14 @@ struct
 
     | Environment of string * int
 
+    | RestartFrame of int
+    (** Restart the given frame *)
+
     | Disconnect
+
     | Restart
+
+    | Alarms
 
   (** The last entered command *)
   let last_command = ref None
@@ -424,7 +440,9 @@ struct
       | "evaluate" -> Evaluate (extract_expression req)
       | "disconnect" -> Disconnect
       | "environment" -> Environment (extract_file req, extract_line req)
+      | "restartFrame" -> RestartFrame (extract_frame_id req)
       | "restart" -> Restart
+      | "alarms" -> Alarms
       | _ -> read_dap_command ()
     in
     last_request := req;
@@ -444,18 +462,52 @@ struct
     | _ ->
       assert false
 
-  let reach action man flow =
+  let reach ?(reason="step") action man flow =
     let range = action_range action in
     if is_orig_range range then (
       vrefs := IntMap.empty;
       vref_counter := 0;
-      write_json_DAP (create_event "stopped" (create_body_stopped "step"));
+      write_json_DAP (create_event "stopped" (create_body_stopped reason));
     )
 
   let alarm alarms action man flow =
-    write_json_DAP (create_event "output" (create_body_alarms_output alarms))
+    write_json_DAP (create_event "output" (create_body_alarms_event alarms))
 
   let dummy_range = mk_fresh_range ()
+
+  let get_alarms flow =
+    let report = Flow.get_report flow in
+    AlarmSet.elements @@ fold_report 
+      (fun diag acc ->
+        match diag.diag_kind with
+        | Error | Warning    -> AlarmSet.union diag.diag_alarms acc
+        | Safe | Unreachable -> acc
+      ) report AlarmSet.empty
+            
+  let set_func_breaks breakpoints_info =
+    let breakpoints_tmp =
+      BreakpointSet.filter
+        (function b ->
+        match b with
+        | B_function _-> false
+        | B_line _ -> true
+        | _ -> false
+        ) !breakpoints in
+    breakpoints := List.fold_right (fun bp set -> BreakpointSet.add bp set) breakpoints_info breakpoints_tmp ;
+    write_json_DAP (create_response !last_request (body_breakpoints (List.length breakpoints_info)))
+
+  let set_breaks breakpoints_info =
+    let path = fst breakpoints_info in
+    let breakpoints_tmp =
+      BreakpointSet.filter
+        (fun b -> match b with
+          | B_function _-> true
+          | B_line (path2, _) -> not (path=path2)
+          | _ -> false
+        ) !breakpoints
+    in
+    breakpoints := List.fold_left (fun set bp -> BreakpointSet.add bp set) breakpoints_tmp (snd breakpoints_info);
+    write_json_DAP (create_response !last_request (body_breakpoints (List.length (snd breakpoints_info))))
 
   let rec read_command action envdb man flow =
     if not (is_orig_range (action_range action)) then
@@ -477,30 +529,11 @@ struct
           read_command action envdb man flow
 
         | Breaks breakpoints_info ->
-          let path = fst breakpoints_info in
-          let breakpoints_tmp =
-            BreakpointSet.filter
-              (fun b -> match b with
-                | B_function _-> true
-                | B_line (path2, _) -> not (path=path2)
-                | _ -> false
-              ) !breakpoints
-          in
-          breakpoints := List.fold_left (fun set bp -> BreakpointSet.add bp set) breakpoints_tmp (snd breakpoints_info);
-          write_json_DAP (create_response !last_request (body_breakpoints (List.length (snd breakpoints_info))));
+          set_breaks breakpoints_info;
           read_command action envdb man flow
 
         | FuncBreaks breakpoints_info ->
-          let breakpoints_tmp =
-            BreakpointSet.filter
-              (function b ->
-              match b with
-              | B_function _-> false
-              | B_line _ -> true
-              | _ -> false
-              ) !breakpoints in
-          breakpoints := List.fold_right (fun bp set -> BreakpointSet.add bp set) breakpoints_info breakpoints_tmp ;
-          write_json_DAP (create_response !last_request (body_breakpoints (List.length breakpoints_info)));
+          set_func_breaks breakpoints_info;
           read_command action envdb man flow
 
         | Threads ->
@@ -528,6 +561,17 @@ struct
           let stack_trace_info = (createFrame  0 "Current pointer" line column file path)::call_stack_json in
           write_json_DAP (create_response !last_request (body_stackTrace stack_trace_info));
           read_command action envdb man flow
+
+        | RestartFrame frame_id ->
+          let cs = Flow.get_callstack flow in
+          let nb_frames = List.length cs in
+          if frame_id < 1 || frame_id > nb_frames then (
+            write_json_DAP (create_error_response !last_request (Format.asprintf "Frame id %d not found" frame_id));
+            read_command action envdb man flow
+          ) else (
+            write_json_DAP (create_response !last_request (`Assoc []));
+            Backward frame_id
+          )
 
         | Scopes ->
           if is_orig_range (action_range action) then
@@ -635,6 +679,10 @@ struct
         | Restart ->
           write_json_DAP (create_response !last_request `Null);
           Restart
+
+        | Alarms ->
+          write_json_DAP (create_response !last_request (create_body_alarms_output (get_alarms flow)));
+          read_command action envdb man flow
       in
       try aux cmd with
       | Exit ->
@@ -643,21 +691,38 @@ struct
         write_json_DAP (create_error_response !last_request (Printexc.to_string e));
         raise e
 
-  let rec wait_disconnect () =
+  let rec wait_disconnect flow =
     let cmd =
       try read_dap_command ()
       with Exit -> exit 0
     in
-    match cmd with
-    | Disconnect ->
+    match cmd, flow with
+    | Disconnect, _ ->
       write_json_DAP (create_response !last_request `Null);
       exit 0
-    | _ -> wait_disconnect ()
+    | Restart, _->
+      write_json_DAP (create_response !last_request `Null);
+      raise Toplevel.Restart
+    | Alarms, Some flow ->
+      write_json_DAP (create_response !last_request (create_body_alarms_output (get_alarms flow)));
+      wait_disconnect (Some flow)
+    | ExceptBreaks, flow ->
+      write_json_DAP (create_response !last_request `Null);
+      wait_disconnect flow
+    | Breaks breakpoints_info, flow ->
+      set_breaks breakpoints_info;
+      wait_disconnect flow
+    | FuncBreaks breakpoints_info, flow ->
+      set_func_breaks breakpoints_info;
+      wait_disconnect flow
+    | _ -> 
+      write_json_DAP (create_error_response !last_request "This command is not available in terminated state.");
+      wait_disconnect flow
 
 
   let finish man flow =
     write_json_DAP (create_event "terminated" `Null);
-    wait_disconnect ()
+    wait_disconnect (Some flow)
 
 
   let error e =
@@ -667,5 +732,6 @@ struct
           ("output", `String (Format.asprintf "Exception: %s" (Printexc.to_string e)))
         ]
       ));
-    wait_disconnect ()
+    write_json_DAP (create_event "terminated" `Null);
+    wait_disconnect None
 end

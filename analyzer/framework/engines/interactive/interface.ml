@@ -39,7 +39,7 @@ type command =
   | Finish
   | NextI
   | StepI
-  | Backward
+  | Backward of int
   | Restart
 
 type state = {
@@ -117,7 +117,7 @@ let state = {
 module type INTERFACE = functor(Toplevel : TOPLEVEL) ->
 sig
   val init : unit -> unit
-  val reach : action -> (Toplevel.t, Toplevel.t) man -> Toplevel.t flow -> unit
+  val reach : ?reason:string -> action -> (Toplevel.t, Toplevel.t) man -> Toplevel.t flow -> unit
   val alarm : alarm list -> action -> (Toplevel.t, Toplevel.t) man -> Toplevel.t flow -> unit
   val read_command : action -> Toplevel.t envdb -> (Toplevel.t, Toplevel.t) man -> Toplevel.t flow -> command
   val finish : (Toplevel.t, Toplevel.t) man -> Toplevel.t flow -> unit
