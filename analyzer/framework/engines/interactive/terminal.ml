@@ -141,7 +141,6 @@ struct
   let pp_terminal_command_kind fmt = function
     | Break loc   -> Format.fprintf fmt "break %s" loc
     | Delete loc -> Format.fprintf fmt "delete %s" loc
-    | ClearBreaks -> Format.pp_print_string fmt "clearbreaks"
     | MopsaBackTrace -> Format.fprintf fmt "mopsa_bt"
     | Continue    -> Format.pp_print_string fmt "continue"
     | Next        -> Format.pp_print_string fmt "next"
