@@ -414,9 +414,11 @@ let () =
            | A_py_function(F_builtin (f, t)) -> fprintf fmt "%s %s" t f
            | A_py_function(F_unsupported f) -> fprintf fmt "unsupported-builtin %s" f
            | A_py_method(f, e, t) -> fprintf fmt "%s %a of %a" t pp_addr (addr_of_object f) Pp.pp_py_object e
-           | A_py_module(M_builtin(m)) -> fprintf fmt "module %s" m
-           | A_py_module(M_user(m, globals)) -> fprintf fmt "module %s[defined globals = %a]" m
-                           (pp_print_list ~pp_sep:(fun fmt () -> pp_print_string fmt ", ") pp_var) globals
+           | A_py_module(M_builtin(m)) -> fprintf fmt "builtin-module %s" m
+           | A_py_module(M_user(m, globals)) -> fprintf fmt "user-module %s"
+                                                  (* "[defined globals = %a]"*)
+                                                  m
+                           (* (pp_print_list ~pp_sep:(fun fmt () -> pp_print_string fmt ", ") pp_var) globals *)
            | _ -> default fmt a
         );
       compare =

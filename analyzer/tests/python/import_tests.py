@@ -30,7 +30,13 @@ class A(unittest.TestCase):
 
     def test4(self):
         import import_test
-        self.assertEqual(type(import_test.blua), type(unittest))
+        self.assertEqual(type(import_test.blu), type(unittest))
+
+    def test5(self):
+        import import_test
+        import_test.y += "a"
+        self.assertEqual(import_test.y, "aa")
+
 
 if __name__ == "__main__":
     unittest.main()

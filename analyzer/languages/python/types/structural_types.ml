@@ -398,6 +398,12 @@ struct
          man.exec (mk_assign (mk_var var range) rval range) flow >>%
          man.eval   (mk_py_none range) |>
          OptionExt.return
+      | E_py_object ({addr_kind = A_py_module (M_user (name, globals))}, _), _
+        when List.exists (fun v -> get_orig_vname v = attr) globals ->
+        let var = List.find (fun v -> get_orig_vname v = attr) globals in
+        man.exec (mk_assign (mk_var var range) rval range) flow >>%
+        man.eval   (mk_py_none range) |>
+        OptionExt.return
       | E_py_object (alval, _), _ ->
          debug "in here!@\n";
          get_env T_cur man flow >>$? fun cur flow ->
