@@ -3,6 +3,10 @@
 
 FROM mopsa/mopsa-build:latest
 
+USER root
+RUN apt-get update && apt-get install -y nano
+USER mopsa
+
 ENV PATH="/home/mopsa/bin:${PATH}"
 
 WORKDIR /home/mopsa
@@ -13,7 +17,7 @@ RUN \
     echo ". /home/mopsa/banner.sh" >> .profile && \
     opam env >> .bashrc && \
     echo ". /home/mopsa/banner.sh" >> .bashrc && \
-    git clone --progress https://gitlab.com/mopsa/mopsa-analyzer.git && \
+#     git clone --progress https://gitlab.com/mopsa/mopsa-analyzer.git && \
     cd mopsa-analyzer && \
     ./configure --prefix /home/mopsa && \
     make -j && \
